@@ -57,7 +57,10 @@ ALLOWED_TRANSITIONS: Dict[WorkspacePhase, Set[WorkspacePhase]] = {
 
 class PhaseTransitionError(Exception):
     """Raised when an invalid phase transition is attempted."""
-    pass
+    
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
 
 
 class PhaseMachine:
