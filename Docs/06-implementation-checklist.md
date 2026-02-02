@@ -448,21 +448,21 @@ This is explicitly the first “prove it works” workflow in the spec.
 
 **Goal:** Repos become immutable artifacts with resolvable line spans.
 
-* [ ] Implement `repo_ingest`:
+* [x] Implement `repo_ingest`:
 
-  * [ ] clone (or accept zip)
-  * [ ] pin snapshot (commit hash in metadata)
-  * [ ] store snapshot in MinIO
-  * [ ] store file list for indexing/retrieval
-* [ ] Add API support to retrieve file content (needed for evidence resolution).
-* [ ] Add agent request endpoint:
+  * [x] clone (or accept zip)
+  * [x] pin snapshot (commit hash in metadata)
+  * [x] store snapshot in MinIO
+  * [x] store file list for indexing/retrieval
+* [x] Add API support to retrieve file content (needed for evidence resolution).
+* [x] Add agent request endpoint:
 
-  * [ ] `POST /workspaces/{id}/requests/ingest_repo`
+  * [x] `POST /workspaces/{id}/requests/ingest_repo`
 
 **Exit tests:**
 
-* [ ] Ingest a small repo fixture.
-* [ ] Resolve `repo:path=...#Lx-Ly` returns correct snippet.
+* [x] Ingest a small repo fixture.
+* [x] Resolve `repo:path=...#Lx-Ly` returns correct snippet.
 
 ---
 

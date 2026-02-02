@@ -36,6 +36,21 @@ class IngestPdfResponse(BaseModel):
     message: str
 
 
+class IngestRepoRequest(BaseModel):
+    """Request to ingest a code repository."""
+    repo_url: str = Field(..., description="Git repository URL")
+    branch: Optional[str] = Field(None, description="Branch to clone (default: main/master)")
+    commit_hash: Optional[str] = Field(None, description="Specific commit hash to pin")
+
+
+class IngestRepoResponse(BaseModel):
+    """Response for repo ingestion request."""
+    request_id: str
+    activity_run_id: str
+    artifact_id: str
+    message: str
+
+
 class FinalizeDraftRequest(BaseModel):
     """Request to finalize a draft."""
     draft_artifact_id: str = Field(..., description="UUID of draft artifact")
@@ -157,6 +172,161 @@ async def request_ingest_pdf(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(e)}")
+
+
+@router.post("/workspaces/{workspace_id}/requests/ingest_repo", response_model=IngestRepoResponse, tags=["Request Actions"])
+async def request_ingest_repo(
+    workspace_id: uuid.UUID,
+    request: IngestRepoRequest,
+    current_agent: dict = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db)
+):
+    """
+    Start repo ingestion activity.
+    
+    Per spec §4.15, §6.2:
+    - Creates code artifact
+    - Starts repo_ingest activity
+    - Activity clones repo, indexes files, stores in MinIO
+    - Returns artifact_id and activity_run_id for tracking
+    """
+    workspace_id_str = str(workspace_id)
+    
+    # Verify workspace exists
+    ws_row = db.execute(
+        "SELECT id, phase FROM workspaces WHERE id = :id",
+        {"id": workspace_id_str}
+    ).fetchone()
+    
+    if not ws_row:
+        raise HTTPException(status_code=404, detail=f"Workspace {workspace_id_str} not found")
+    
+    # Check if repo already ingested (idempotency by repo_url + commit_hash)
+    existing_artifact = None
+    if request.commit_hash:
+        existing_artifact = db.execute(
+            """
+            SELECT a.id FROM artifacts a
+            JOIN artifact_versions av ON a.id = av.artifact_id
+            WHERE a.workspace_id = :workspace_id
+              AND a.type = 'code'
+              AND av.content_hash = :commit_hash
+            LIMIT 1
+            """,
+            {"workspace_id": workspace_id_str, "commit_hash": request.commit_hash}
+        ).fetchone()
+    
+    if existing_artifact:
+        return IngestRepoResponse(
+            request_id=str(uuid.uuid4()),
+            activity_run_id="existing",
+            artifact_id=existing_artifact[0],
+            message=f"Repository already ingested at commit {request.commit_hash}"
+        )
+    
+    # Create code artifact
+    import json
+    artifact_id = str(uuid.uuid4())
+    
+    db.execute(
+        """
+        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+        VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
+        """,
+        {
+            "id": artifact_id,
+            "workspace_id": workspace_id_str,
+            "short_id": f"C{abs(hash(artifact_id)) % 10000}",
+            "type": "code",
+            "metadata": json.dumps({"repo_url": request.repo_url}),
+            "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{artifact_id}/",
+            "created_by": current_agent["agent_id"]
+        }
+    )
+    
+    # Create activity_run for tracking
+    activity_run_id = str(uuid.uuid4())
+    db.execute(
+        """
+        INSERT INTO activity_runs (id, workflow_run_id, activity_type, status, input, created_at)
+        VALUES (:id, :workflow_run_id, :activity_type, :status, :input, NOW())
+        """,
+        {
+            "id": activity_run_id,
+            "workflow_run_id": None,  # Standalone activity
+            "activity_type": "repo_ingest",
+            "status": "running",
+            "input": json.dumps({
+                "artifact_id": artifact_id,
+                "workspace_id": workspace_id_str,
+                "repo_url": request.repo_url,
+                "branch": request.branch,
+                "commit_hash": request.commit_hash,
+                "created_by": current_agent["agent_id"]
+            })
+        }
+    )
+    
+    db.commit()
+    
+    # Execute repo_ingest activity (synchronously for MVP)
+    import sys
+    sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+    from repo_ingest import RepoIngestActivity
+    from storage import get_storage
+    
+    try:
+        storage = get_storage()
+        repo_activity = RepoIngestActivity(storage, db)
+        
+        result = repo_activity.ingest_repo(
+            artifact_id=artifact_id,
+            workspace_id=workspace_id_str,
+            repo_url=request.repo_url,
+            created_by=current_agent["agent_id"],
+            branch=request.branch,
+            commit_hash=request.commit_hash,
+            activity_run_id=activity_run_id
+        )
+        
+        # Update activity_run status
+        db.execute(
+            """
+            UPDATE activity_runs
+            SET status = :status, output = :output, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": activity_run_id,
+                "status": "completed",
+                "output": json.dumps(result)
+            }
+        )
+        db.commit()
+        
+        return IngestRepoResponse(
+            request_id=str(uuid.uuid4()),
+            activity_run_id=activity_run_id,
+            artifact_id=artifact_id,
+            message=f"Repository ingested: {result['file_count']} files at commit {result['commit_hash']}"
+        )
+    
+    except Exception as e:
+        # Update activity_run with failure
+        db.execute(
+            """
+            UPDATE activity_runs
+            SET status = :status, output = :output, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": activity_run_id,
+                "status": "failed",
+                "output": json.dumps({"error": str(e)})
+            }
+        )
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Repo ingestion failed: {str(e)}")
 
 
 @router.post("/workspaces/{workspace_id}/requests/finalize_draft", response_model=FinalizeDraftResponse, tags=["Request Actions"])

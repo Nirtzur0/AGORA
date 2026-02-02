@@ -234,81 +234,36 @@ class EvidenceResolver:
         Resolve repository evidence pointer: repo:path={path}#L{start}-L{end}
         
         Lines are 1-based.
+        Uses RepoIngestActivity for resolution logic.
         """
-        # Parse location format
-        match = re.match(r"repo:path=([^#]+)#L(\d+)-L(\d+)", location)
-        if not match:
+        # Import repo activity for resolution
+        import sys
+        sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+        from repo_ingest import RepoIngestActivity
+        
+        # Create activity instance
+        repo_activity = RepoIngestActivity(self.storage, self.db)
+        
+        # Use repo activity's resolution method
+        result_dict = repo_activity.resolve_repo_evidence(artifact_version_id, location)
+        
+        # Convert dict result to ResolverResult
+        if result_dict.get("ok"):
+            return ResolverResult(
+                ok=True,
+                artifact_version_id=artifact_version_id,
+                normalized_location=result_dict["normalized_location"],
+                mime=result_dict["mime"],
+                snippet=result_dict["snippet"],
+                source=result_dict["source"]
+            )
+        else:
             return ResolverResult(
                 ok=False,
                 artifact_version_id=artifact_version_id,
-                code="INVALID_LOCATION_FORMAT",
-                message=f"Invalid repo location format: {location}. Expected: repo:path={{path}}#L{{start}}-L{{end}}"
+                code=result_dict["code"],
+                message=result_dict["message"]
             )
-        
-        path = match.group(1)
-        start_line = int(match.group(2))
-        end_line = int(match.group(3))
-        
-        # Validate line range
-        if start_line < 1 or end_line < start_line:
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="LINE_RANGE_INVALID",
-                message=f"Invalid line range: L{start_line}-L{end_line} (lines are 1-based)"
-            )
-        
-        # Get workspace_id from artifact
-        from database import Artifact
-        artifact = self.db.query(Artifact).filter_by(id=version.artifact_id).first()
-        if not artifact:
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="ARTIFACT_NOT_FOUND",
-                message=f"Artifact {version.artifact_id} not found"
-            )
-        
-        # Build storage key for file
-        # Assuming repo structure: s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version}/repo/{path}
-        file_key = f"{artifact.workspace_id}/artifacts/{version.artifact_id}/v{version.version}/repo/{path}"
-        
-        try:
-            file_content = self.storage.get_object("agora", file_key).decode("utf-8")
-        except Exception as e:
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="PATH_NOT_FOUND",
-                message=f"File not found: {path}"
-            )
-        
-        # Extract line range
-        lines = file_content.splitlines()
-        if end_line > len(lines):
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="LINE_RANGE_INVALID",
-                message=f"Line {end_line} exceeds file length ({len(lines)} lines)"
-            )
-        
-        # Extract snippet (lines are 1-based, array is 0-based)
-        snippet_lines = lines[start_line - 1:end_line]
-        snippet = "\n".join(snippet_lines)
-        
-        return ResolverResult(
-            ok=True,
-            artifact_version_id=artifact_version_id,
-            normalized_location=location,
-            mime="text/plain",
-            snippet=snippet,
-            source={
-                "artifact_id": version.artifact_id,
-                "type": "code",
-                "version": version.version
-            }
-        )
     
     def _resolve_log(
         self,
