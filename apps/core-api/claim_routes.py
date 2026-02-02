@@ -18,7 +18,7 @@ import uuid
 from auth_middleware import get_current_agent
 from evidence_resolver import create_resolver
 from storage import get_storage
-from database import get_db, Claim, ClaimEvidence, ArtifactVersion, Workspace
+from database import get_db
 
 
 router = APIRouter(tags=["Claims"])
@@ -83,36 +83,46 @@ def create_claim(
     Evidence is added via POST /claims/{id}/evidence.
     """
     # Verify workspace exists
-    workspace = db._session.query(Workspace).filter_by(id=str(workspace_id)).first()
+    result = db.execute(
+        "SELECT id FROM workspaces WHERE id = %s",
+        (str(workspace_id),)
+    )
+    workspace = result.fetchone()
     if not workspace:
         raise HTTPException(status_code=404, detail=f"Workspace {workspace_id} not found")
     
     # Create claim
-    claim = Claim(
-        id=uuid.uuid4(),
+    claim_id = str(uuid.uuid4())
+    created_at = db.execute("SELECT NOW()").fetchone()[0]
+    
+    db.execute(
+        """
+        INSERT INTO claims (id, workspace_id, kind, text, confidence, is_key, status, created_by, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            claim_id,
+            str(workspace_id),
+            request.kind,
+            request.text,
+            request.confidence,
+            False,  # is_key is system-owned, not settable by agents
+            "active",
+            current_agent.get("agent_id"),
+            created_at
+        )
+    )
+    
+    return ClaimResponse(
+        id=claim_id,
         workspace_id=str(workspace_id),
         kind=request.kind,
         text=request.text,
         confidence=request.confidence,
-        is_key=False,  # System-owned, not settable by agents
+        is_key=False,
         status="active",
-        created_by=current_agent.get("agent_id")
-    )
-    
-    db._session.add(claim)
-    db._session.commit()
-    db._session.refresh(claim)
-    
-    return ClaimResponse(
-        id=str(claim.id),
-        workspace_id=str(claim.workspace_id),
-        kind=claim.kind,
-        text=claim.text,
-        confidence=claim.confidence,
-        is_key=claim.is_key,
-        status=claim.status,
-        created_by=str(claim.created_by) if claim.created_by else None,
-        created_at=claim.created_at.isoformat(),
+        created_by=current_agent.get("agent_id"),
+        created_at=created_at.isoformat(),
         evidence=[]
     )
 
@@ -151,14 +161,22 @@ def add_evidence_to_claim(
     syntactically valid and resolvable to a real span/snippet.
     """
     # Verify claim exists
-    claim = db._session.query(Claim).filter_by(id=str(claim_id)).first()
+    result = db.execute(
+        "SELECT workspace_id FROM claims WHERE id = %s",
+        (str(claim_id),)
+    )
+    claim = result.fetchone()
     if not claim:
         raise HTTPException(status_code=404, detail=f"Claim {claim_id} not found")
     
+    claim_workspace_id = claim[0]
+    
     # Verify artifact_version exists
-    artifact_version = db._session.query(ArtifactVersion).filter_by(
-        id=request.artifact_version_id
-    ).first()
+    result = db.execute(
+        "SELECT artifact_id FROM artifact_versions WHERE id = %s",
+        (request.artifact_version_id,)
+    )
+    artifact_version = result.fetchone()
     if not artifact_version:
         raise HTTPException(
             status_code=422,
@@ -169,10 +187,15 @@ def add_evidence_to_claim(
             }
         )
     
+    artifact_id = artifact_version[0]
+    
     # Verify artifact_version is in same workspace as claim
-    from database import Artifact
-    artifact = db._session.query(Artifact).filter_by(id=artifact_version.artifact_id).first()
-    if not artifact or str(artifact.workspace_id) != str(claim.workspace_id):
+    result = db.execute(
+        "SELECT workspace_id FROM artifacts WHERE id = %s",
+        (str(artifact_id),)
+    )
+    artifact = result.fetchone()
+    if not artifact or str(artifact[0]) != str(claim_workspace_id):
         raise HTTPException(
             status_code=422,
             detail={
@@ -183,41 +206,47 @@ def add_evidence_to_claim(
         )
     
     # Validate location resolves (per spec: recommended to prevent junk evidence pointers)
-    resolver = create_resolver(storage, db._session)
-    resolution_result = resolver.resolve(
-        artifact_version_id=request.artifact_version_id,
-        location=request.location
-    )
-    
-    if not resolution_result.ok:
-        # Return 422 with resolver's error details
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "ok": False,
-                "code": resolution_result.code,
-                "message": resolution_result.message
-            }
+    # Note: resolver needs SQLAlchemy session, so we create a temporary session
+    from database import SessionLocal
+    session = SessionLocal()
+    try:
+        resolver = create_resolver(storage, session)
+        resolution_result = resolver.resolve(
+            artifact_version_id=request.artifact_version_id,
+            location=request.location
         )
+        
+        if not resolution_result.ok:
+            # Return 422 with resolver's error details
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "ok": False,
+                    "code": resolution_result.code,
+                    "message": resolution_result.message
+                }
+            )
+        
+        snippet = resolution_result.snippet
+    finally:
+        session.close()
     
     # Create evidence link
-    evidence = ClaimEvidence(
-        id=uuid.uuid4(),
-        claim_id=str(claim_id),
-        artifact_version_id=request.artifact_version_id,
-        location=request.location
+    evidence_id = str(uuid.uuid4())
+    db.execute(
+        """
+        INSERT INTO claim_evidence (id, claim_id, artifact_version_id, location)
+        VALUES (%s, %s, %s, %s)
+        """,
+        (evidence_id, str(claim_id), request.artifact_version_id, request.location)
     )
     
-    db._session.add(evidence)
-    db._session.commit()
-    db._session.refresh(evidence)
-    
     return {
-        "id": str(evidence.id),
-        "claim_id": str(evidence.claim_id),
-        "artifact_version_id": evidence.artifact_version_id,
-        "location": evidence.location,
-        "resolved_snippet": resolution_result.snippet[:200] + "..." if len(resolution_result.snippet) > 200 else resolution_result.snippet
+        "id": evidence_id,
+        "claim_id": str(claim_id),
+        "artifact_version_id": request.artifact_version_id,
+        "location": request.location,
+        "resolved_snippet": snippet[:200] + "..." if len(snippet) > 200 else snippet
     }
 
 
@@ -239,39 +268,62 @@ def list_claims(
     List all claims in a workspace with their evidence.
     """
     # Verify workspace exists
-    workspace = db._session.query(Workspace).filter_by(id=str(workspace_id)).first()
+    result = db.execute(
+        "SELECT id FROM workspaces WHERE id = %s",
+        (str(workspace_id),)
+    )
+    workspace = result.fetchone()
     if not workspace:
         raise HTTPException(status_code=404, detail=f"Workspace {workspace_id} not found")
     
     # Get all claims
-    claims = db._session.query(Claim).filter_by(workspace_id=str(workspace_id)).all()
+    result = db.execute(
+        """
+        SELECT id, workspace_id, kind, text, confidence, is_key, status, created_by, created_at
+        FROM claims
+        WHERE workspace_id = %s
+        ORDER BY created_at DESC
+        """,
+        (str(workspace_id),)
+    )
+    claims = result.fetchall()
     
     # Build response
     claims_data = []
     for claim in claims:
+        claim_id, ws_id, kind, text, confidence, is_key, status, created_by, created_at = claim
+        
         # Get evidence for this claim
-        evidence_list = db._session.query(ClaimEvidence).filter_by(claim_id=str(claim.id)).all()
+        evidence_result = db.execute(
+            """
+            SELECT id, artifact_version_id, location
+            FROM claim_evidence
+            WHERE claim_id = %s
+            """,
+            (str(claim_id),)
+        )
+        evidence_list = evidence_result.fetchall()
         
         evidence_data = [
             {
-                "id": str(ev.id),
-                "artifact_version_id": ev.artifact_version_id,
-                "location": ev.location
+                "id": str(ev[0]),
+                "artifact_version_id": ev[1],
+                "location": ev[2]
             }
             for ev in evidence_list
         ]
         
         claims_data.append(
             ClaimResponse(
-                id=str(claim.id),
-                workspace_id=str(claim.workspace_id),
-                kind=claim.kind,
-                text=claim.text,
-                confidence=claim.confidence,
-                is_key=claim.is_key,
-                status=claim.status,
-                created_by=str(claim.created_by) if claim.created_by else None,
-                created_at=claim.created_at.isoformat(),
+                id=str(claim_id),
+                workspace_id=str(ws_id),
+                kind=kind,
+                text=text,
+                confidence=confidence,
+                is_key=is_key,
+                status=status,
+                created_by=str(created_by) if created_by else None,
+                created_at=created_at.isoformat(),
                 evidence=evidence_data
             )
         )
