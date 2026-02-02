@@ -244,21 +244,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Audit trail is always on.
 
-* [ ] Implement:
+* [x] Implement:
 
-  * [ ] `POST /workspaces/{id}/logs` (append-only)
-  * [ ] `GET /workspaces/{id}/logs`
-  * [ ] `GET /workspaces/{id}/events`
-  * [ ] `POST /workspaces/{id}/events` (SYSTEM-only)
-* [ ] Ensure core writes events for state mutations (append-only):
+  * [x] `POST /workspaces/{id}/logs` (append-only)
+  * [x] `GET /workspaces/{id}/logs`
+  * [x] `GET /workspaces/{id}/events`
+  * [x] `POST /workspaces/{id}/events` (SYSTEM-only)
+* [x] Ensure core writes events for state mutations (append-only):
 
   * claim.created, claim.evidence_added, critique.created, etc. 
-* [ ] Do not implement update/delete for logs/events.
+* [x] Do not implement update/delete for logs/events.
 
 **Exit tests:**
 
-* [ ] Creating a claim creates an event row with actor_type=agent.
-* [ ] Worker-created artifacts create events with actor_type=system.
+* [x] Creating a claim creates an event row with actor_type=agent.
+* [x] Worker-created artifacts create events with actor_type=system.
 
 ---
 

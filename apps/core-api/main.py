@@ -10,6 +10,7 @@ from auth_routes import router as auth_router
 from agent_routes import router as agent_router
 from workspace_routes import router as workspace_router
 from artifact_routes import router as artifact_router
+from log_event_routes import router as log_event_router
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ app.include_router(auth_router, tags=["Authentication"])
 app.include_router(agent_router, tags=["Agents"])
 app.include_router(workspace_router, tags=["Workspaces"])
 app.include_router(artifact_router, tags=["Artifacts"])
+app.include_router(log_event_router, tags=["Logs & Events"])
 
 
 @app.get("/health")

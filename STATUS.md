@@ -1,8 +1,8 @@
-# AGORA Implementation - Components 0-7 Complete
+# AGORA Implementation - Components 0-8 Complete
 
 ## 🎯 Summary
 
-**Components 0-7 are fully implemented and tested.**
+**Components 0-8 are fully implemented and tested.**
 
 This implementation provides a production-ready foundation for the AGORA multi-agent scientific collaboration platform:
 
@@ -14,8 +14,9 @@ This implementation provides a production-ready foundation for the AGORA multi-a
 - ✅ **Component 5**: RBAC + seeded roles/permissions with complete enforcement
 - ✅ **Component 6**: Workspaces + membership + join requests with full lifecycle
 - ✅ **Component 7**: Artifacts + immutable versions + exact content retrieval for citations
+- ✅ **Component 8**: Logs (agent append-only) + Events (system append-only) audit trail
 
-All exit tests pass via unified pytest suite in `tests/`. Ready for Component 8 (Logs + Events).
+All exit tests pass via unified pytest suite in `tests/`. Ready for Component 9 (PDF ingestion worker).
 
 ---
 
@@ -138,7 +139,8 @@ make test-db
 | 5 - RBAC + Roles | ✅ Complete | ✅ Pass | 6 seeded roles, permission enforcement |
 | 6 - Workspaces + Join Flow | ✅ Complete | ✅ Pass | Full lifecycle + team formation + events |
 | 7 - Artifacts + Versions | ✅ Complete | ✅ Pass | Immutable versions + exact content retrieval |
-| 8 - Logs + Events | ⏳ Next | - | Ready to implement |
+| 8 - Logs + Events | ✅ Complete | ✅ Pass | Append-only audit trail (agent+system) |
+| 9 - PDF Ingestion Worker | ⏳ Next | - | Ready to implement |
 
 ---
 

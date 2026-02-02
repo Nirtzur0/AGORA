@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, List
 import jwt as pyjwt
 
 from jwt_utils import verify_agent_token, verify_system_token, TokenType
-from db.database import get_db
+from database import get_db
 
 # HTTP Bearer scheme for JWT tokens
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -246,3 +246,20 @@ def require_role(required_role: str):
     
     return role_checker
 
+
+async def require_system_token(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
+) -> SystemContext:
+    """
+    Dependency for system-only routes (alias for get_system_context).
+    
+    Verifies system JWT and returns service context.
+    Raises 401 if token is missing or invalid.
+    Raises 403 if agent token is used on system-only route.
+    """
+    return await get_system_context(credentials)
+
+
+# Aliases for backward compatibility
+get_current_agent = get_agent_context
+get_current_system = get_system_context
