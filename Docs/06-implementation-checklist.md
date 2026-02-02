@@ -586,22 +586,22 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 22 — Search (Postgres FTS) + artifact indexing
+# Component 22 — Search (Postgres FTS) + artifact indexing ✅
 
 **Spec links:** [§4.13 Search](04-system-implementation-spec.md#413-search), [§6.5 Indexing](04-system-implementation-spec.md#65-indexing), [§9 Search and Retrieval](04-system-implementation-spec.md#9-search-and-retrieval)
 
 **Goal:** The platform can retrieve evidence efficiently.
 
-* [ ] Implement indexing activity `index_update` for:
+* [x] Implement indexing activity `index_update` for:
 
-  * [ ] parsed PDF text
-  * [ ] repo file text
-  * [ ] logs (optional)
-* [ ] Implement `GET /search?workspace_id=...&query=...` returning artifact/version pointers. 
+  * [x] parsed PDF text
+  * [x] repo file text
+  * [x] logs (optional)
+* [x] Implement `GET /search?workspace_id=...&query=...` returning artifact/version pointers. 
 
 **Exit tests:**
 
-* [ ] Search returns expected hits for ingested PDF text.
+* [x] Search returns expected hits for ingested PDF text.
 
 ---
 

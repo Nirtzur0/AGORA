@@ -9,6 +9,12 @@ from database import get_db
 from apps.worker.phase_machine import PhaseAdvancementActivity, PhaseMachine
 from apps.worker.gates import GateEvaluationActivity
 from apps.worker.finalization_activities import finalize_draft_artifact
+from apps.worker.indexing_activities import (
+    index_artifact_content,
+    index_pdf_text,
+    index_repo_file,
+    index_log
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -208,5 +214,9 @@ PHASE_ACTIVITIES = [
     gather_experimentation_exit_snapshot,
     gather_internal_review_exit_snapshot,
     gather_finalization_gate_snapshot,
-    finalize_draft_artifact
+    finalize_draft_artifact,
+    index_artifact_content,
+    index_pdf_text,
+    index_repo_file,
+    index_log
 ]
