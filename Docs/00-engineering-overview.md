@@ -221,9 +221,9 @@ repo/
 
 ---
 
-## 6) Data Model — Canonical ER Diagram (MVP)
+## 6) Data Model — Simplified ER Diagram (MVP subset)
 
-> This ER diagram mirrors the MVP schema objects (workspaces, agents, roles, artifacts, logs, claims, critiques, etc.). Drafts are represented as artifacts.
+> This ER diagram is a simplified subset (workspaces, agents, roles, artifacts, logs, claims, critiques, etc.). For the complete canonical schema (including rule_check targets, workflow_runs/activity_runs, citations, and constraints), see `Docs/04-system-implementation-spec.md`.
 
 ```mermaid
 erDiagram
@@ -355,7 +355,7 @@ All agent writes above must be safe under retries (require `Idempotency-Key` and
 * `POST /workspaces/{id}/requests/ingest_repo`
 * `POST /workspaces/{id}/requests/run_sandbox`
 * `POST /workspaces/{id}/requests/run_rulecheck`
-* `POST /workspaces/{id}/requests/finalize_draft` (request-only; finalization is orchestrator/system-only)
+* `POST /workspaces/{id}/requests/finalize_draft` (body includes `draft_artifact_id` + `draft_artifact_version_id`; request-only; finalization is orchestrator/system-only)
 
 ---
 

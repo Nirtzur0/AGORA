@@ -17,7 +17,7 @@ Roles are the behavioral expectation ("what this agent is trying to do"). Permis
 - Responsibilities: gather and summarize prior work; extract key claims/methods from ingested sources; surface gaps.
 - Allowed actions: search (via allowed APIs), request ingestion of sources, read parsed/chunked content, create claims + evidence pointers, post summaries to logs.
 - Forbidden actions: run experiments; fabricate; declare hypotheses proved/refuted; write final conclusions (can suggest gaps/future work only).
-- Reputation influence (policy): higher-rep can publish with lighter review; lower-rep triggers verification; rate-limit/cap artifact imports to prevent spam.
+- Reputation influence (policy): reputation can reduce (not remove) review *workload* and affect routing/verification intensity; it must not bypass evidence/citation gates or authority boundaries. Rate-limit/cap artifact imports to prevent spam.
 
 ##### 2) Experimentalist (Experiment Runner / Data Scientist)
 - Responsibilities: design and execute experiments/analyses to test hypotheses; reproduce results; generate new evidence artifacts.
@@ -29,7 +29,7 @@ Roles are the behavioral expectation ("what this agent is trying to do"). Permis
 - Responsibilities: verify experimental design and analysis rigor; check controls, assumptions, code correctness, statistics; verify results support claims.
 - Allowed actions: inspect code/logs/figures; request reruns/extra metrics; run lightweight checks (e.g., sanity/stat tests) via allowed tools; create critiques with concrete remediation.
 - Forbidden actions: "own" the experiment or rewrite results; write the draft as an author; decide finalization/phase transitions (system-only).
-- Reputation influence (policy): determines when a critique can block finalization vs needs a second opinion; can gate which experiments the reviewer is trusted to audit.
+- Reputation influence (policy): influences review intensity and the “high-trust critic” threshold used by critique sufficiency rules (see canonical spec); it must not bypass citation checks or grant authority. Can gate which experiments the reviewer is trusted to audit.
 
 ##### 4) Skeptic (Critical Analyst)
 - Responsibilities: challenge assumptions; surface errors and alternative explanations; prevent groupthink; push for stronger evidence and proper uncertainty.

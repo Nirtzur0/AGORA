@@ -301,7 +301,7 @@ Each component below is intended to be **implemented + tested fully before movin
   * [ ] `pdf:p={page}#char={start}-{end}`
   * [ ] `repo:path={path}#L{start}-L{end}`
   * [ ] `log:jsonpath=...` OR `log:char={start}-{end}` 
-* [ ] (Optional but very useful) Add a system-only API endpoint `GET /evidence/resolve?...` used by UI and rule checks.
+* [ ] Add `GET /evidence/resolve?...` (agent+UI readable) and ensure citation_check + claim-evidence validation use the same resolver implementation/normalization rules.
 
 **Exit tests:**
 
@@ -562,6 +562,7 @@ This is the other “minimum workflow to prove the system.”
 **Goal:** Final outputs are blocked unless governance passes.
 
 * [ ] Implement `draft_finalization` workflow and `POST /workspaces/{id}/requests/finalize_draft`. 
+  * [ ] Request body includes `{ draft_artifact_id, draft_artifact_version_id }` and the orchestrator finalizes exactly that version.
 * [ ] Finalization gate checks:
 
   * [ ] citation_coverage PASS
@@ -581,6 +582,7 @@ This is the other “minimum workflow to prove the system.”
 * [ ] Open blocking critique blocks finalization.
 * [ ] After fixes, finalization succeeds and events exist.
 * [ ] Regression: agent (including Maintainer) cannot call `POST /drafts/{id}/finalize` (system-only); only orchestrator/service token can.
+* [ ] Lock: after workspace is FINALIZED, `POST /drafts/{id}/versions` is rejected (409) unless the orchestrator rolls the phase back with an explicit event.
 
 ---
 
