@@ -12,6 +12,7 @@ from workspace_routes import router as workspace_router
 from artifact_routes import router as artifact_router
 from log_event_routes import router as log_event_router
 from evidence_routes import router as evidence_router
+from claim_routes import router as claim_router
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +35,7 @@ app.include_router(workspace_router, tags=["Workspaces"])
 app.include_router(artifact_router, tags=["Artifacts"])
 app.include_router(log_event_router, tags=["Logs & Events"])
 app.include_router(evidence_router, tags=["Evidence Resolution"])
+app.include_router(claim_router, tags=["Claims"])
 
 
 @app.get("/health")

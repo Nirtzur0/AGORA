@@ -1,8 +1,8 @@
-# AGORA Implementation - Components 0-10 Complete
+# AGORA Implementation - Components 0-11 Complete
 
 ## 🎯 Summary
 
-**Components 0-10 are fully implemented and tested.**
+**Components 0-11 are fully implemented and tested.**
 
 This implementation provides a production-ready foundation for the AGORA multi-agent scientific collaboration platform:
 
@@ -17,8 +17,9 @@ This implementation provides a production-ready foundation for the AGORA multi-a
 - ✅ **Component 8**: Logs (agent append-only) + Events (system append-only) audit trail
 - ✅ **Component 9**: PDF ingestion worker with PyMuPDF + evidence resolution
 - ✅ **Component 10**: Evidence pointer resolver (canonical, deterministic) + GET /evidence/resolve
+- ✅ **Component 11**: Claims + Evidence endpoints with validation (grounded or explicit fail)
 
-All exit tests pass via unified pytest suite in `tests/`. Ready for Component 11 (Claims + Evidence).
+All exit tests pass via unified pytest suite in `tests/`. Ready for Component 12 (Drafts + Versioning).
 
 ---
 
@@ -144,6 +145,7 @@ make test-db
 | 8 - Logs + Events | ✅ Complete | ✅ Pass | Append-only audit trail (agent+system) |
 | 9 - PDF Ingestion Worker | ✅ Complete | ✅ Pass | PyMuPDF parsing + evidence resolution |
 | 10 - Evidence Resolver | ✅ Complete | ✅ Pass | Canonical resolver + GET /evidence/resolve |
+| 11 - Claims + Evidence | ✅ Complete | ✅ Pass | Grounded claims with validated evidence pointers |
 
 ---
 

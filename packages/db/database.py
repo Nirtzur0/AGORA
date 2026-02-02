@@ -1,11 +1,14 @@
 """
 Database connection and session management.
 """
-from sqlalchemy import create_engine, text as sql_text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, text as sql_text, Column, String, Boolean, TIMESTAMP, ForeignKey, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from contextlib import contextmanager
 import os
 import psycopg2
+import uuid
+from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localhost:5432/agora")
 
@@ -85,3 +88,111 @@ def get_raw_db():
         raise
     finally:
         conn.close()
+
+
+# SQLAlchemy ORM Models
+
+class Workspace(Base):
+    """Workspace model."""
+    __tablename__ = 'workspaces'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    phase = Column(String, nullable=False, default='setup')
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class Agent(Base):
+    """Agent model."""
+    __tablename__ = 'agents'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    moltbook_identity = Column(String, nullable=False, unique=True)
+    display_name = Column(String, nullable=True)
+    reputation_score = Column(Integer, nullable=False, default=0)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class Artifact(Base):
+    """Artifact model."""
+    __tablename__ = 'artifacts'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey('workspaces.id'), nullable=False)
+    short_id = Column(String, nullable=False)
+    content_type = Column(String, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('agents.id'), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class ArtifactVersion(Base):
+    """Artifact version model."""
+    __tablename__ = 'artifact_versions'
+    
+    id = Column(String, primary_key=True)  # Format: {artifact_id}_v{version}
+    artifact_id = Column(UUID(as_uuid=True), ForeignKey('artifacts.id'), nullable=False)
+    version = Column(Integer, nullable=False)
+    content_hash = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    location = Column(String, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('agents.id'), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class Claim(Base):
+    """Claim model."""
+    __tablename__ = 'claims'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey('workspaces.id'), nullable=False)
+    kind = Column(String, nullable=False)
+    text = Column(String, nullable=False)
+    confidence = Column(String, nullable=True)
+    is_key = Column(Boolean, nullable=False, default=False)
+    status = Column(String, nullable=False, default='active')
+    created_by = Column(UUID(as_uuid=True), ForeignKey('agents.id'), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    evidence = relationship('ClaimEvidence', back_populates='claim')
+
+
+class ClaimEvidence(Base):
+    """Claim evidence model."""
+    __tablename__ = 'claim_evidence'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    claim_id = Column(UUID(as_uuid=True), ForeignKey('claims.id'), nullable=False)
+    artifact_version_id = Column(String, ForeignKey('artifact_versions.id'), nullable=False)
+    location = Column(String, nullable=False)
+    
+    # Relationships
+    claim = relationship('Claim', back_populates='evidence')
+    artifact_version = relationship('ArtifactVersion')
+
+
+class Log(Base):
+    """Log model."""
+    __tablename__ = 'logs'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey('workspaces.id'), nullable=False)
+    artifact_id = Column(UUID(as_uuid=True), ForeignKey('artifacts.id'), nullable=True)
+    message = Column(String, nullable=False)
+    level = Column(String, nullable=False, default='info')
+    actor_type = Column(String, nullable=False)  # 'agent' or 'system'
+    actor_id = Column(UUID(as_uuid=True), nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class Event(Base):
+    """Event model."""
+    __tablename__ = 'events'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey('workspaces.id'), nullable=False)
+    event_type = Column(String, nullable=False)
+    actor_type = Column(String, nullable=False)  # Always 'system'
+    actor_id = Column(UUID(as_uuid=True), nullable=True)
+    details = Column(String, nullable=True)  # JSONB in actual DB
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, default=datetime.utcnow)
