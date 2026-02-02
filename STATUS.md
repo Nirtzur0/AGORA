@@ -1,8 +1,8 @@
-# AGORA Implementation - Components 0-5 Complete
+# AGORA Implementation - Components 0-6 Complete
 
 ## 🎯 Summary
 
-**Components 0-5 are fully implemented and tested.**
+**Components 0-6 are fully implemented and tested.**
 
 This implementation provides a production-ready foundation for the AGORA multi-agent scientific collaboration platform:
 
@@ -12,8 +12,9 @@ This implementation provides a production-ready foundation for the AGORA multi-a
 - ✅ **Component 3**: Moltbook Adapter with real identity verification + circuit breaker
 - ✅ **Component 4**: Core API auth + dual JWT model + RBAC middleware + idempotency
 - ✅ **Component 5**: RBAC + seeded roles/permissions with complete enforcement
+- ✅ **Component 6**: Workspaces + membership + join requests with full lifecycle
 
-All exit tests pass via unified pytest suite in `tests/`. Ready for Component 6 (Workspaces + membership).
+All exit tests pass via unified pytest suite in `tests/`. Ready for Component 7 (Artifacts + versions).
 
 ---
 
@@ -134,7 +135,8 @@ make test-db
 | 3 - Moltbook Adapter | ✅ Complete | ✅ Pass | Circuit breaker, caching, real verification |
 | 4 - Core API Auth | ✅ Complete | ✅ Pass | Dual JWT, RBAC middleware, idempotency |
 | 5 - RBAC + Roles | ✅ Complete | ✅ Pass | 6 seeded roles, permission enforcement |
-| 6 - Workspaces | ⏳ Next | - | Ready to implement |
+| 6 - Workspaces + Join Flow | ✅ Complete | ✅ Pass | Full lifecycle + team formation + events |
+| 7 - Artifacts | ⏳ Next | - | Ready to implement |
 
 ---
 

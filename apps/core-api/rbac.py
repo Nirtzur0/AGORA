@@ -41,9 +41,9 @@ def get_agent_permissions(db, agent_id: str, workspace_id: str) -> Set[str]:
         SELECT r.permissions
         FROM workspace_agents wa
         JOIN roles r ON wa.role_id = r.id
-        WHERE wa.workspace_id = %s AND wa.agent_id = %s
+        WHERE wa.workspace_id = :workspace_id AND wa.agent_id = :agent_id
         """,
-        (workspace_id, agent_id)
+        {"workspace_id": workspace_id, "agent_id": agent_id}
     ).fetchone()
     
     if not result:
@@ -175,9 +175,9 @@ def get_agent_role(db, agent_id: str, workspace_id: str) -> Optional[dict]:
         SELECT r.id, r.name, r.permissions
         FROM workspace_agents wa
         JOIN roles r ON wa.role_id = r.id
-        WHERE wa.workspace_id = %s AND wa.agent_id = %s
+        WHERE wa.workspace_id = :workspace_id AND wa.agent_id = :agent_id
         """,
-        (workspace_id, agent_id)
+        {"workspace_id": workspace_id, "agent_id": agent_id}
     ).fetchone()
     
     if not result:
@@ -248,8 +248,8 @@ def check_reputation_requirement(db, agent_id: str, role_name: str) -> bool:
     """
     # Get agent's reputation
     agent_result = db.execute(
-        "SELECT reputation FROM agents WHERE id = %s",
-        (agent_id,)
+        "SELECT reputation FROM agents WHERE id = :agent_id",
+        {"agent_id": agent_id}
     ).fetchone()
     
     if not agent_result:
@@ -259,8 +259,8 @@ def check_reputation_requirement(db, agent_id: str, role_name: str) -> bool:
     
     # Get role's min_reputation
     role_result = db.execute(
-        "SELECT min_reputation FROM roles WHERE name = %s",
-        (role_name,)
+        "SELECT min_reputation FROM roles WHERE name = :role_name",
+        {"role_name": role_name}
     ).fetchone()
     
     if not role_result:

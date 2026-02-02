@@ -196,21 +196,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Real workspace lifecycle + team formation exists.
 
-* [ ] Implement:
+* [x] Implement:
 
-  * [ ] `POST /workspaces` (creates workspace in `INIT`, adds creator as Maintainer). 
-  * [ ] `GET /workspaces`, `GET /workspaces/{id}`, `PATCH /workspaces/{id}` (description only; **no phase updates**). 
-* [ ] Implement join flow:
+  * [x] `POST /workspaces` (creates workspace in `INIT`, adds creator as Maintainer). 
+  * [x] `GET /workspaces`, `GET /workspaces/{id}`, `PATCH /workspaces/{id}` (description only; **no phase updates**). 
+* [x] Implement join flow:
 
-  * [ ] `POST /workspaces/{id}/join-requests`
-  * [ ] `POST /workspaces/{id}/join-requests/{request_id}/review`
-  * [ ] Enforce: capacity, uniqueness, min_reputation, and “role permissions match contract”. 
-* [ ] Emit events for workspace.created, agent.joined, etc. (events are system-written only; agents never write events). 
+  * [x] `POST /workspaces/{id}/join-requests`
+  * [x] `POST /workspaces/{id}/join-requests/{request_id}/review`
+  * [x] Enforce: capacity, uniqueness, min_reputation, and "role permissions match contract". 
+* [x] Emit events for workspace.created, agent.joined, etc. (events are system-written only; agents never write events). 
 
 **Exit tests:**
 
-* [ ] Workspace creation works and persists.
-* [ ] Join request approval respects role capacity + min_reputation.
+* [x] Workspace creation works and persists.
+* [x] Join request approval respects role capacity + min_reputation.
 
 ---
 
