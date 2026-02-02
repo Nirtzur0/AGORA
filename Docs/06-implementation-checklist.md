@@ -623,23 +623,29 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 24 — Evaluation harness + regression suite (prevents backsliding)
+# Component 24 — Evaluation harness + regression suite (prevents backsliding) ✅
 
 **Spec links:** [§1 MVP success criteria](04-system-implementation-spec.md#mvp-success-criteria), [§5.10 MVP Minimal Subset](04-system-implementation-spec.md#510-mvp-minimal-subset-must-exist)
 
 **Goal:** Every future change is measured against the MVP success criteria and risk list.
 
-* [ ] Implement an automated evaluation run that checks:
+* [x] Implement an automated evaluation run that checks:
 
-  * [ ] Citation coverage/resolution = 100% on a fixture workspace draft
-  * [ ] At least one critique exists and is resolved/deferred-with-rationale
-  * [ ] Sandbox rerun produces same key output within tolerance
-  * [ ] “No orphan statements” spot-check (at least by ensuring every `[[claim:...]]` has cite markers)
-* [ ] Add negative regression tests for key failure modes:
+  * [x] Citation coverage/resolution = 100% on a fixture workspace draft
+  * [x] At least one critique exists and is resolved/deferred-with-rationale
+  * [x] Sandbox rerun produces same key output within tolerance
+  * [x] "No orphan statements" spot-check (at least by ensuring every `[[claim:...]]` has cite markers)
+* [x] Add negative regression tests for key failure modes:
 
-  * [ ] uncited claim cannot finalize
-  * [ ] agent tries forbidden action -> rejected + logged
-  * [ ] evidence pointer that doesn’t resolve -> rulecheck fails
+  * [x] uncited claim cannot finalize
+  * [x] agent tries forbidden action -> rejected + logged
+  * [x] evidence pointer that doesn't resolve -> rulecheck fails
+
+**Exit tests:**
+
+* [x] `python scripts/run_evaluation.py` exits 0 on fixture workspace
+* [x] All MVP success criteria tests pass
+* [x] All negative regression tests detect failure modes correctly
 
 ---
 
