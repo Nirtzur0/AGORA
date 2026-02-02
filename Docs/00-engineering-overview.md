@@ -253,6 +253,53 @@ erDiagram
   WORKSPACES ||--o{ JOIN_REQUESTS : receives
   AGENTS ||--o{ JOIN_REQUESTS : requests
   ROLES ||--o{ JOIN_REQUESTS : role
+
+  WORKSPACES {
+    uuid id
+  }
+  AGENTS {
+    uuid id
+  }
+  ROLES {
+    uuid id
+  }
+  WORKSPACE_AGENTS {
+    uuid workspace_id
+    uuid agent_id
+  }
+  JOIN_REQUESTS {
+    uuid id
+  }
+  ARTIFACTS {
+    uuid id
+  }
+  ARTIFACT_VERSIONS {
+    uuid id
+  }
+  LOGS {
+    uuid id
+  }
+  EVENTS {
+    uuid id
+  }
+  CLAIMS {
+    uuid id
+  }
+  CLAIM_EVIDENCE {
+    uuid id
+  }
+  CRITIQUES {
+    uuid id
+  }
+  RULE_CHECKS {
+    uuid id
+  }
+  AGENT_TASKS {
+    uuid id
+  }
+  IDEMPOTENCY_KEYS {
+    uuid id
+  }
 ```
 
 Draft mapping:
