@@ -268,21 +268,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** PDF ingestion turns raw PDFs into resolvable evidence spans.
 
-* [ ] Implement Temporal worker activity `pdf_ingest`:
+* [x] Implement Temporal worker activity `pdf_ingest`:
 
-  * [ ] Store PDF binary in MinIO.
-  * [ ] Parse text with PyMuPDF.
-  * [ ] Store per-page extracted text (so `pdf:p=N#char=a-b` can resolve).
-  * [ ] Create `artifact_versions` row referencing a storage root containing both binary + parsed text.
-  * [ ] Write logs + activity_runs.
-* [ ] If parsing yields no text: **fail the activity** with explicit error/log (no OCR fallback unless you implement OCR fully).
-* [ ] Add chunked retrieval support for PDFs (API surface is up to you, but must support evidence resolution).
+  * [x] Store PDF binary in MinIO.
+  * [x] Parse text with PyMuPDF.
+  * [x] Store per-page extracted text (so `pdf:p=N#char=a-b` can resolve).
+  * [x] Create `artifact_versions` row referencing a storage root containing both binary + parsed text.
+  * [x] Write logs + activity_runs.
+* [x] If parsing yields no text: **fail the activity** with explicit error/log (no OCR fallback unless you implement OCR fully).
+* [x] Add chunked retrieval support for PDFs (API surface is up to you, but must support evidence resolution).
 
 **Exit tests:**
 
-* [ ] Ingest a real generated PDF (test creates one).
-* [ ] Retrieve parsed page text.
-* [ ] Evidence resolution returns correct substring for a char range.
+* [x] Ingest a real generated PDF (test creates one).
+* [x] Retrieve parsed page text.
+* [x] Evidence resolution returns correct substring for a char range.
 
 ---
 
