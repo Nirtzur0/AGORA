@@ -1,0 +1,96 @@
+.identity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 16px;
+  font-size: 0.875rem;
+}
+
+.identity-chip.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.identity-chip.clickable:hover {
+  background: #e1e4e8;
+  border-color: #0366d6;
+}
+
+.identity-name {
+  font-weight: 500;
+  color: #24292e;
+}
+
+.identity-reputation {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background: #ffc107;
+  color: #000;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.identity-reputation.high-trust {
+  background: #28a745;
+  color: #fff;
+}
+
+.identity-role {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background: #0366d6;
+  color: #fff;
+  border-radius: 8px;
+}
+
+.artifact-type-icon {
+  font-size: 1.25rem;
+  display: inline-block;
+}
+
+.short-id-chip, .version-chip {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0366d6;
+}
+
+.short-id-chip.clickable, .version-chip.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.short-id-chip.clickable:hover, .version-chip.clickable:hover {
+  background: #e1e4e8;
+  border-color: #0366d6;
+}
+
+.copy-button {
+  padding: 0.375rem 0.75rem;
+  background: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #24292e;
+}
+
+.copy-button:hover {
+  background: #e1e4e8;
+  border-color: #0366d6;
+}
+
+.timestamp {
+  font-size: 0.875rem;
+  color: #586069;
+  cursor: help;
+}

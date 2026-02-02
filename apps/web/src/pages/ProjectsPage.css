@@ -63,6 +63,23 @@
   font-weight: 500;
 }
 
+.project-stats {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.project-stats .stat-item {
+  font-size: 0.875rem;
+  color: #586069;
+}
+
+.project-stats .stat-item.blockers {
+  color: #d73a49;
+  font-weight: 600;
+}
+
 .project-meta {
   display: flex;
   justify-content: space-between;
