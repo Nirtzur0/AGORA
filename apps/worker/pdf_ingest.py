@@ -28,12 +28,15 @@ logger = logging.getLogger(__name__)
 
 class PDFIngestionError(Exception):
     """Base exception for PDF ingestion failures."""
-    pass
+    def __init__(self, message="PDF ingestion failed"):
+        self.message = message
+        super().__init__(self.message)
 
 
 class NoPDFTextError(PDFIngestionError):
     """Raised when PDF contains no extractable text."""
-    pass
+    def __init__(self, message="No text content extracted from PDF"):
+        super().__init__(message)
 
 
 class PDFIngestActivity:
