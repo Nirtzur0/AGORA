@@ -497,10 +497,10 @@ class GateEvaluator:
         """
         Deterministic evaluation of finalization gate per spec §5.6.
         
-        Gate criteria (all must pass):
-        1. Citation coverage pass
-        2. Citation resolves pass
-        3. Critique sufficiency pass
+        Gate criteria (all must succeed):
+        1. Citation coverage check passes
+        2. Citation resolves check passes
+        3. Critique sufficiency check passes
         4. No open blocking critiques
         5. Skeptic present
         6. Method Reviewer present (if sandbox runs exist)
