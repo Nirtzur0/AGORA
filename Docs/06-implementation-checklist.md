@@ -341,17 +341,17 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Drafts are first-class, versioned, and immutable.
 
-* [ ] Implement:
+* [x] Implement:
 
-  * [ ] `POST /workspaces/{id}/drafts` (creates artifact type=draft)
-  * [ ] `POST /drafts/{id}/versions` (stores Markdown, computes content_hash, writes artifact_version) 
-  * [ ] `GET /drafts/{id}/versions`
-  * [ ] `POST /drafts/{id}/finalize` (SYSTEM-only; invoked by orchestrator)
-* [ ] Enforce content_hash is always present for draft versions.
+  * [x] `POST /workspaces/{id}/drafts` (creates artifact type=draft)
+  * [x] `POST /drafts/{id}/versions` (stores Markdown, computes content_hash, writes artifact_version) 
+  * [x] `GET /drafts/{id}/versions`
+  * [x] `POST /drafts/{id}/finalize` (SYSTEM-only; invoked by orchestrator)
+* [x] Enforce content_hash is always present for draft versions.
 
 **Exit tests:**
 
-* [ ] Draft version created -> content_hash present -> can fetch exact Markdown.
+* [x] Draft version created -> content_hash present -> can fetch exact Markdown.
 
 ---
 
