@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Postgres for application data
+  postgres:
+    image: postgres:15-alpine
+    container_name: agora-postgres
+    environment:
+      POSTGRES_USER: agora
+      POSTGRES_PASSWORD: agora_dev_password
+      POSTGRES_DB: agora
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agora"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Postgres for Temporal persistence
+  temporal-postgres:
+    image: postgres:15-alpine
+    container_name: agora-temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal_dev_password
+      POSTGRES_DB: temporal
+    ports:
+      - "5433:5432"
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for object storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: agora-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: agora
+      MINIO_ROOT_PASSWORD: agora_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Temporal server
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    container_name: agora-temporal
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal_dev_password
+      - POSTGRES_SEEDS=temporal-postgres
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    volumes:
+      - ./temporal-config:/etc/temporal/config/dynamicconfig
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Temporal Web UI
+  temporal-ui:
+    image: temporalio/ui:2.21.3
+    container_name: agora-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    ports:
+      - "8080:8080"
+
+  # Moltbook Adapter
+  moltbook-adapter:
+    build:
+      context: ../apps/moltbook-adapter
+      dockerfile: Dockerfile
+    container_name: agora-moltbook-adapter
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MOLTBOOK_BASE_URL: ${MOLTBOOK_BASE_URL:-https://moltbook.com}
+      MOLTBOOK_APP_KEY: ${MOLTBOOK_APP_KEY:-changeme}
+      VERIFICATION_CACHE_TTL: 300
+      CIRCUIT_BREAKER_THRESHOLD: 5
+      CIRCUIT_BREAKER_TIMEOUT: 60
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  temporal_postgres_data:
+  minio_data:

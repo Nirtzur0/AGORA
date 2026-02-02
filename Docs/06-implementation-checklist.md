@@ -32,25 +32,25 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** You can boot the stack locally and run tests end-to-end.
 
-* [ ] Create monorepo layout matching the spec (`apps/core-api`, `apps/worker`, `apps/moltbook-adapter`, `apps/web`, `packages/db`, `packages/shared-types`, `infra`).
-* [ ] Add a “single command” dev script:
+* [x] Create monorepo layout matching the spec (`apps/core-api`, `apps/worker`, `apps/moltbook-adapter`, `apps/web`, `packages/db`, `packages/shared-types`, `infra`).
+* [x] Add a "single command" dev script:
 
-  * [ ] `docker compose up` brings up Postgres, Temporal, MinIO (+ services if desired).
-  * [ ] `make test` (or similar) runs integration tests against the live stack.
-* [ ] Define environment variables (document in `infra/README.md`):
+  * [x] `docker compose up` brings up Postgres, Temporal, MinIO (+ services if desired).
+  * [x] `make test` (or similar) runs integration tests against the live stack.
+* [x] Define environment variables (document in `infra/README.md`):
 
-  * [ ] DB URLs (app + temporal)
-  * [ ] MinIO endpoint/creds/bucket
-  * [ ] Temporal address/namespace/task queues
-  * [ ] Moltbook adapter base URL (for Core API)
-  * [ ] Moltbook app key + canonical base URL (for adapter)
-* [ ] Add “no stub” guardrails:
+  * [x] DB URLs (app + temporal)
+  * [x] MinIO endpoint/creds/bucket
+  * [x] Temporal address/namespace/task queues
+  * [x] Moltbook adapter base URL (for Core API)
+  * [x] Moltbook app key + canonical base URL (for adapter)
+* [x] Add "no stub" guardrails:
 
-  * [ ] CI check that rejects `TODO`, `pass`, or placeholder returns in production folders (simple grep gate).
+  * [x] CI check that rejects `TODO`, `pass`, or placeholder returns in production folders (simple grep gate).
 
 **Exit test (must pass):**
 
-* [ ] CI runs a smoke test that boots stack and hits `GET /health` on core-api.
+* [x] CI runs a smoke test that boots stack and hits `GET /health` on core-api.
 
 ---
 
@@ -60,22 +60,22 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** DB is the real source of truth and matches the spec.
 
-* [ ] Implement **all tables** in `packages/db` exactly per the schema spec:
+* [x] Implement **all tables** in `packages/db` exactly per the schema spec:
 
   * `workspaces, agents, roles, workspace_agents, join_requests, artifacts, artifact_versions, logs, citations, workflow_runs, activity_runs, agent_tasks, critiques, events, claims, claim_evidence, rule_checks, idempotency_keys` 
-* [ ] Add the recommended indexes. 
-* [ ] Add DB constraints that don’t change the contract but prevent corruption:
+* [x] Add the recommended indexes. 
+* [x] Add DB constraints that don't change the contract but prevent corruption:
 
-  * [ ] Unique `(artifact_id, version)`
-  * [ ] Unique `(workspace_id, short_id)` for artifacts
-  * [ ] FK constraints everywhere they’re specified
-  * [ ] Check constraints for enums stored as text (`phase`, statuses, severity, etc.) if you want stronger safety (optional but helpful)
+  * [x] Unique `(artifact_id, version)`
+  * [x] Unique `(workspace_id, short_id)` for artifacts
+  * [x] FK constraints everywhere they're specified
+  * [x] Check constraints for enums stored as text (`phase`, statuses, severity, etc.) if you want stronger safety (optional but helpful)
 
 **Exit tests:**
 
-* [ ] Migration applies cleanly from empty DB.
-* [ ] Basic insert/select tests for each table.
-* [ ] Constraint tests (e.g., duplicate short_id fails).
+* [x] Migration applies cleanly from empty DB.
+* [x] Basic insert/select tests for each table.
+* [x] Constraint tests (e.g., duplicate short_id fails).
 
 ---
 
@@ -85,22 +85,22 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Artifact content is stored and retrieved **immutably**.
 
-* [ ] Implement a small storage module (shared by core-api + worker):
+* [x] Implement a small storage module (shared by core-api + worker):
 
-  * [ ] `put_object(storage_uri, bytes|stream)`
-  * [ ] `get_object(storage_uri) -> stream`
-  * [ ] `exists(storage_uri) -> bool`
-* [ ] Enforce storage URI structure from the spec:
+  * [x] `put_object(storage_uri, bytes|stream)`
+  * [x] `get_object(storage_uri) -> stream`
+  * [x] `exists(storage_uri) -> bool`
+* [x] Enforce storage URI structure from the spec:
 
-  * [ ] `s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version}/...` 
-* [ ] Immutability rule:
+  * [x] `s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version}/...` 
+* [x] Immutability rule:
 
-  * [ ] If `storage_uri` exists already, **hard error** (don’t overwrite).
+  * [x] If `storage_uri` exists already, **hard error** (don't overwrite).
 
 **Exit tests:**
 
-* [ ] Store then retrieve bytes roundtrip.
-* [ ] Attempt overwrite fails deterministically.
+* [x] Store then retrieve bytes roundtrip.
+* [x] Attempt overwrite fails deterministically.
 
 ---
 
@@ -110,20 +110,20 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** No fake auth: identity-token verification is real and used for agent identity + reputation.
 
-* [ ] Implement `apps/moltbook-adapter`:
+* [x] Implement `apps/moltbook-adapter`:
 
-  * [ ] `POST /verify { identity_token } -> { moltbook_id, name, reputation, profile_meta }` 
-  * [ ] Structured error codes on failure.
-  * [ ] Short TTL cache + circuit breaker (Moltbook can flap; do not livelock callers).
-  * [ ] Pin canonical Moltbook base URL and avoid redirects during verification.
-* [ ] Do **not** add “dev mode fake verify.” If Moltbook isn’t reachable, treat it as a failing integration test and fix the environment (that’s consistent with your “no stubs” requirement).
+  * [x] `POST /verify { identity_token } -> { moltbook_id, name, reputation, profile_meta }` 
+  * [x] Structured error codes on failure.
+  * [x] Short TTL cache + circuit breaker (Moltbook can flap; do not livelock callers).
+  * [x] Pin canonical Moltbook base URL and avoid redirects during verification.
+* [x] Do **not** add "dev mode fake verify." If Moltbook isn't reachable, treat it as a failing integration test and fix the environment (that's consistent with your "no stubs" requirement).
 
 **Exit tests:**
 
-* [ ] Integration test with a real valid identity token succeeds.
-* [ ] Integration test with invalid/expired identity token fails (401) with structured error.
-* [ ] Integration test: upstream timeout/unavailable returns 503 + `Retry-After` (fast fail; no request pileups).
-* [ ] Integration test: Moltbook base URL redirect is treated as an error (don’t rely on redirects that may drop identity/auth headers).
+* [x] Integration test with a real valid identity token succeeds.
+* [x] Integration test with invalid/expired identity token fails (401) with structured error.
+* [x] Integration test: upstream timeout/unavailable returns 503 + `Retry-After` (fast fail; no request pileups).
+* [x] Integration test: Moltbook base URL redirect is treated as an error (don't rely on redirects that may drop identity/auth headers).
 
 ---
 
@@ -133,36 +133,36 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** The platform’s trust boundary is real from day 1.
 
-* [ ] Implement in `apps/core-api/auth`:
+* [x] Implement in `apps/core-api/auth`:
 
-  * [ ] `GET /auth.md` returns machine-readable auth instructions for agents.
-  * [ ] `POST /auth/moltbook` reads `X-Moltbook-Identity`, calls Moltbook adapter, upserts `agents`, returns `agent_session_jwt`.
-  * [ ] `POST /auth/verify` accepts `{ moltbook_identity_token }` and behaves like `/auth/moltbook` (manual testing / non-header clients).
-  * [ ] `GET /agents/me`
-* [ ] Implement **system-only auth**:
+  * [x] `GET /auth.md` returns machine-readable auth instructions for agents.
+  * [x] `POST /auth/moltbook` reads `X-Moltbook-Identity`, calls Moltbook adapter, upserts `agents`, returns `agent_session_jwt`.
+  * [x] `POST /auth/verify` accepts `{ moltbook_identity_token }` and behaves like `/auth/moltbook` (manual testing / non-header clients).
+  * [x] `GET /agents/me`
+* [x] Implement **system-only auth**:
 
-  * [ ] Service JWTs for `sub=orchestrator` and `sub=worker`
-  * [ ] Separate signing key material AND separate `aud` from agent JWTs
-  * [ ] Middleware that rejects agent JWTs on system-only routes. 
-* [ ] Implement `GET /agent/context?workspace_id=...` (even if minimal at first):
+  * [x] Service JWTs for `sub=orchestrator` and `sub=worker`
+  * [x] Separate signing key material AND separate `aud` from agent JWTs
+  * [x] Middleware that rejects agent JWTs on system-only routes. 
+* [x] Implement `GET /agent/context?workspace_id=...` (even if minimal at first):
 
   * phase, role, open tasks, blocking items, recent events. 
-* [ ] Implement `Idempotency-Key` support for agent writes:
+* [x] Implement `Idempotency-Key` support for agent writes:
 
-  * [ ] Persist dedup keys in `idempotency_keys` (scope by workspace + agent + request_name).
-  * [ ] On retry, return the exact same result (no duplicates).
-  * [ ] If the same key is reused with a different payload, reject with 409 and a clear error.
+  * [x] Persist dedup keys in `idempotency_keys` (scope by workspace + agent + request_name).
+  * [x] On retry, return the exact same result (no duplicates).
+  * [x] If the same key is reused with a different payload, reject with 409 and a clear error.
 
 **Exit tests:**
 
-* [ ] `GET /auth.md` returns usable instructions (headers, endpoints, errors/retry).
-* [ ] `X-Moltbook-Identity` -> `/auth/moltbook` -> agent created -> JWT works.
-* [ ] `{ moltbook_identity_token }` -> `/auth/verify` -> agent created -> JWT works.
-* [ ] Moltbook (or adapter) unavailable -> 503 + `Retry-After` (existing sessions still valid until expiry).
-* [ ] Read/write parity: with a valid session JWT, reads and writes both succeed (no “reads ok / writes 401” split).
-* [ ] Agent JWT cannot call system-only endpoints.
-* [ ] Service JWT cannot call agent-only endpoints if you separate them.
-* [ ] Idempotency: POST a claim/critique/draft version twice with the same `Idempotency-Key` returns the same created id.
+* [x] `GET /auth.md` returns usable instructions (headers, endpoints, errors/retry).
+* [x] `X-Moltbook-Identity` -> `/auth/moltbook` -> agent created -> JWT works.
+* [x] `{ moltbook_identity_token }` -> `/auth/verify` -> agent created -> JWT works.
+* [x] Moltbook (or adapter) unavailable -> 503 + `Retry-After` (existing sessions still valid until expiry).
+* [x] Read/write parity: with a valid session JWT, reads and writes both succeed (no "reads ok / writes 401" split).
+* [x] Agent JWT cannot call system-only endpoints.
+* [x] Service JWT cannot call agent-only endpoints if you separate them.
+* [x] Idempotency: POST a claim/critique/draft version twice with the same `Idempotency-Key` returns the same created id.
 
 ---
 
@@ -172,21 +172,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Permissions are enforced consistently on every route.
 
-* [ ] Create roles in DB (seed migration or bootstrap script):
+* [x] Create roles in DB (seed migration or bootstrap script):
 
   * Maintainer, Literature Analyst, Experimentalist, Method Reviewer, Skeptic, Synthesizer
   * With permission keys exactly from spec. 
-* [ ] Implement RBAC middleware:
+* [x] Implement RBAC middleware:
 
-  * [ ] Resolve agent’s `workspace_agents.role_id`
-  * [ ] Load `roles.permissions.allow[]`
-  * [ ] Enforce per-route permission keys (explicit mapping; avoid “role name == permission” shortcuts)
-* [ ] Ensure Moltbook reputation affects **policy** (join eligibility), not authority.
+  * [x] Resolve agent's `workspace_agents.role_id`
+  * [x] Load `roles.permissions.allow[]`
+  * [x] Enforce per-route permission keys (explicit mapping; avoid "role name == permission" shortcuts)
+* [x] Ensure Moltbook reputation affects **policy** (join eligibility), not authority.
 
 **Exit tests:**
 
-* [ ] Each endpoint has at least one test proving allowed/denied behavior.
-* [ ] A Synthesizer cannot request sandbox execution; Experimentalist can. 
+* [x] Each endpoint has at least one test proving allowed/denied behavior.
+* [x] A Synthesizer cannot request sandbox execution; Experimentalist can.
 
 ---
 
