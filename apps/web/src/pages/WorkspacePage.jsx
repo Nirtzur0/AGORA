@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../api/client';
 import { PageContainer, TabNav, Card } from '../components/Layout';
 import { PhaseBadge, StatusBadge, SeverityBadge } from '../components/Badge';
+import EvidenceDrawer from '../components/EvidenceDrawer';
 import ReactMarkdown from 'react-markdown';
 import './WorkspacePage.css';
 
@@ -292,6 +293,7 @@ function ArtifactsTab({ workspaceId }) {
 function ClaimsTab({ workspaceId }) {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [evidenceDrawer, setEvidenceDrawer] = useState(null);
 
   useEffect(() => {
     const loadClaims = async () => {
@@ -307,28 +309,50 @@ function ClaimsTab({ workspaceId }) {
     loadClaims();
   }, [workspaceId]);
 
+  const openEvidence = (artifactVersionId, location) => {
+    setEvidenceDrawer({ artifactVersionId, location });
+  };
+
   if (loading) return <div className="loading">Loading claims...</div>;
 
   return (
-    <Card title="Claims">
-      {claims.length === 0 ? (
-        <div className="empty-state">No claims yet.</div>
-      ) : (
-        <div className="claims-list">
-          {claims.map((claim) => (
-            <div key={claim.id} className="claim-item">
-              <p className="claim-text">{claim.text}</p>
-              {claim.evidence && claim.evidence.length > 0 && (
-                <div className="claim-evidence">
-                  <strong>Evidence: </strong>
-                  {claim.evidence.length} pointer(s)
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+    <>
+      <Card title="Claims">
+        {claims.length === 0 ? (
+          <div className="empty-state">No claims yet.</div>
+        ) : (
+          <div className="claims-list">
+            {claims.map((claim) => (
+              <div key={claim.id} className="claim-item">
+                <p className="claim-text">{claim.text}</p>
+                {claim.evidence && claim.evidence.length > 0 && (
+                  <div className="claim-evidence">
+                    <strong>Evidence: </strong>
+                    {claim.evidence.map((ev, idx) => (
+                      <button
+                        key={idx}
+                        className="evidence-button"
+                        onClick={() => openEvidence(ev.artifact_version_id, ev.location)}
+                      >
+                        Evidence {idx + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+      
+      {evidenceDrawer && (
+        <EvidenceDrawer
+          artifactVersionId={evidenceDrawer.artifactVersionId}
+          location={evidenceDrawer.location}
+          onClose={() => setEvidenceDrawer(null)}
+        />
       )}
-    </Card>
+    </>
   );
 }
 
@@ -338,6 +362,7 @@ function DraftsTab({ workspaceId }) {
   const [selectedDraft, setSelectedDraft] = useState(null);
   const [draftContent, setDraftContent] = useState('');
   const [loading, setLoading] = useState(true);
+  const [evidenceDrawer, setEvidenceDrawer] = useState(null);
 
   useEffect(() => {
     const loadDrafts = async () => {
@@ -372,39 +397,101 @@ function DraftsTab({ workspaceId }) {
     }
   };
 
+  const renderDraftContent = (text) => {
+    // Parse [[cite:artifact_version_id|location]] markers
+    const citationRegex = /\[\[cite:([^|]+)\|([^\]]+)\]\]/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = citationRegex.exec(text)) !== null) {
+      // Add text before citation
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        });
+      }
+      // Add citation
+      parts.push({
+        type: 'citation',
+        artifactVersionId: match[1],
+        location: match[2]
+      });
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      });
+    }
+
+    return parts.map((part, idx) => {
+      if (part.type === 'citation') {
+        return (
+          <button
+            key={idx}
+            className="cite-chip"
+            onClick={() => setEvidenceDrawer({
+              artifactVersionId: part.artifactVersionId,
+              location: part.location
+            })}
+            title={`${part.artifactVersionId}: ${part.location}`}
+          >
+            📎 Cite
+          </button>
+        );
+      }
+      return <ReactMarkdown key={idx}>{part.content}</ReactMarkdown>;
+    });
+  };
+
   if (loading) return <div className="loading">Loading drafts...</div>;
 
   return (
-    <div className="drafts-view">
-      <div className="drafts-sidebar">
-        <h4>Draft Versions</h4>
-        {artifacts.length === 0 ? (
-          <div className="empty-state">No drafts yet.</div>
-        ) : (
-          artifacts.map((draft) => (
-            <div
-              key={draft.id}
-              className={`draft-item ${selectedDraft?.id === draft.id ? 'active' : ''}`}
-              onClick={() => selectDraft(draft)}
-            >
-              <span className="draft-name">{draft.short_id}</span>
-              <span className="draft-date">{new Date(draft.created_at).toLocaleDateString()}</span>
-            </div>
-          ))
-        )}
+    <>
+      <div className="drafts-view">
+        <div className="drafts-sidebar">
+          <h4>Draft Versions</h4>
+          {artifacts.length === 0 ? (
+            <div className="empty-state">No drafts yet.</div>
+          ) : (
+            artifacts.map((draft) => (
+              <div
+                key={draft.id}
+                className={`draft-item ${selectedDraft?.id === draft.id ? 'active' : ''}`}
+                onClick={() => selectDraft(draft)}
+              >
+                <span className="draft-name">{draft.short_id}</span>
+                <span className="draft-date">{new Date(draft.created_at).toLocaleDateString()}</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="drafts-content">
+          {selectedDraft ? (
+            <Card title={`Draft: ${selectedDraft.short_id}`}>
+              <div className="markdown-content">
+                {renderDraftContent(draftContent)}
+              </div>
+            </Card>
+          ) : (
+            <div className="empty-state">Select a draft to view</div>
+          )}
+        </div>
       </div>
-      <div className="drafts-content">
-        {selectedDraft ? (
-          <Card title={`Draft: ${selectedDraft.short_id}`}>
-            <div className="markdown-content">
-              <ReactMarkdown>{draftContent}</ReactMarkdown>
-            </div>
-          </Card>
-        ) : (
-          <div className="empty-state">Select a draft to view</div>
-        )}
-      </div>
-    </div>
+      
+      {evidenceDrawer && (
+        <EvidenceDrawer
+          artifactVersionId={evidenceDrawer.artifactVersionId}
+          location={evidenceDrawer.location}
+          onClose={() => setEvidenceDrawer(null)}
+        />
+      )}
+    </>
   );
 }
 
