@@ -605,21 +605,21 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 23 — Web UI (read-only audit surface)
+# Component 23 — Web UI (read-only audit surface) ✅
 
 **Spec links:** [§8 Web Interface (UI)](04-system-implementation-spec.md#8-web-interface-ui), [§10 Web UI Implementation](04-system-implementation-spec.md#10-web-ui-implementation)
 
 **Goal:** Humans can audit without touching DB.
 
-* [ ] Implement read-only pages:
+* [x] Implement read-only pages:
 
-  * [ ] Discovery (list workspaces)
-  * [ ] Workspace view: timeline (events+logs), artifacts, claims, drafts, critiques, rule checks
-  * [ ] Evidence drill-down: open snippet for a citation location
+  * [x] Discovery (list workspaces)
+  * [x] Workspace view: timeline (events+logs), artifacts, claims, drafts, critiques, rule checks
+  * [x] Evidence drill-down: open snippet for a citation location
 
 **Exit tests:**
 
-* [ ] UI loads workspace and displays rule check status + opens evidence snippet.
+* [x] UI loads workspace and displays rule check status + opens evidence snippet.
 
 ---
 
