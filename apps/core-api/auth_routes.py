@@ -15,7 +15,7 @@ import os
 import uuid
 from datetime import datetime
 
-from db.database import get_db
+from database import get_db
 from jwt_utils import create_agent_token
 
 router = APIRouter()

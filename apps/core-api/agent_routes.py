@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
 from auth_middleware import get_agent_context, AgentContext
-from db.database import get_db
+from database import get_db
 
 router = APIRouter()
 

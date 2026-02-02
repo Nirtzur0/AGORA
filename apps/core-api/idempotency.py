@@ -10,7 +10,7 @@ import hashlib
 import json
 from datetime import datetime
 
-from db.database import get_db
+from database import get_db
 
 
 def compute_payload_hash(payload: Any) -> str:
