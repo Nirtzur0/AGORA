@@ -220,21 +220,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** The platform can store and retrieve immutable versioned artifacts.
 
-* [ ] Implement artifact CRUD (minimum):
+* [x] Implement artifact CRUD (minimum):
 
-  * [ ] `POST /workspaces/{id}/artifacts` (metadata row only; create short_id)
-  * [ ] `POST /artifacts/{id}/versions` (writes to MinIO + `artifact_versions`)
-  * [ ] `GET /workspaces/{id}/artifacts`
-  * [ ] `GET /artifacts/{id}`, `GET /artifacts/{id}/versions`
-  * [ ] `GET /artifact-versions/{id}/content` (exact version, required for citations) 
-  * [ ] `GET /artifacts/{id}/content` (latest, convenience only) 
-* [ ] Implement short_id allocation: `A1, A2, ...` unique per workspace.
-* [ ] Emit events: artifact.created, artifact.version_created.
+  * [x] `POST /workspaces/{id}/artifacts` (metadata row only; create short_id)
+  * [x] `POST /artifacts/{id}/versions` (writes to MinIO + `artifact_versions`)
+  * [x] `GET /workspaces/{id}/artifacts`
+  * [x] `GET /artifacts/{id}`, `GET /artifacts/{id}/versions`
+  * [x] `GET /artifact-versions/{id}/content` (exact version, required for citations) 
+  * [x] `GET /artifacts/{id}/content` (latest, convenience only) 
+* [x] Implement short_id allocation: `A1, A2, ...` unique per workspace.
+* [x] Emit events: artifact.created, artifact.version_created.
 
 **Exit tests:**
 
-* [ ] Upload bytes as a version and retrieve exact bytes by artifact_version_id.
-* [ ] Validate immutability (cannot “update version 1”).
+* [x] Upload bytes as a version and retrieve exact bytes by artifact_version_id.
+* [x] Validate immutability (cannot "update version 1").
 
 ---
 

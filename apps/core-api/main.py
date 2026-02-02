@@ -9,6 +9,7 @@ from config import settings
 from auth_routes import router as auth_router
 from agent_routes import router as agent_router
 from workspace_routes import router as workspace_router
+from artifact_routes import router as artifact_router
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +29,7 @@ app = FastAPI(
 app.include_router(auth_router, tags=["Authentication"])
 app.include_router(agent_router, tags=["Agents"])
 app.include_router(workspace_router, tags=["Workspaces"])
+app.include_router(artifact_router, tags=["Artifacts"])
 
 
 @app.get("/health")
