@@ -10,9 +10,9 @@ This endpoint is the canonical evidence pointer resolver used by:
 - claim-evidence validation
 """
 from fastapi import APIRouter, Query, Depends, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-from auth_middleware import get_current_agent_or_system
+from auth_middleware import get_optional_agent_context, AgentContext
 from evidence_resolver import create_resolver
 from storage import create_storage_from_env
 from database import get_db
@@ -50,7 +50,7 @@ def get_storage():
 def resolve_evidence(
     artifact_version_id: str = Query(..., description="UUID of artifact_versions.id"),
     location: str = Query(..., description="Location string (pdf:..., repo:..., log:...)"),
-    current_user: Dict[str, Any] = Depends(get_current_agent_or_system),
+    agent_context: Optional[AgentContext] = Depends(get_optional_agent_context),
     db = Depends(get_db),
     storage = Depends(get_storage)
 ) -> Dict[str, Any]:
