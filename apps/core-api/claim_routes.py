@@ -17,11 +17,16 @@ import uuid
 
 from auth_middleware import get_current_agent
 from evidence_resolver import create_resolver
-from storage import get_storage
+from storage import create_storage_from_env
 from database import get_db
 
 
 router = APIRouter(tags=["Claims"])
+
+# Storage dependency
+def get_storage():
+    """Dependency to get storage instance."""
+    return create_storage_from_env()
 
 
 # Request/Response Models
