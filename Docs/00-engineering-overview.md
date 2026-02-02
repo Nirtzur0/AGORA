@@ -136,7 +136,7 @@ flowchart TB
     X[sandbox_run]
     I[index_update]
     C[citation_check]
-    G[rule_check\n(role caps, critique sufficiency, etc.)]
+    G["rule_check<br/>role caps, critique sufficiency, etc."]
   end
 
   WFL --> P --> I --> C --> G
@@ -386,10 +386,10 @@ Location grammar (minimum MVP):
 
 ```mermaid
 flowchart LR
-  A[Artifact Version\n(pdf/repo/log)] --> E[ClaimEvidence\n(artifact_version_id+location)]
+  A["Artifact Version<br/>pdf/repo/log"] --> E["ClaimEvidence<br/>artifact_version_id + location"]
   E --> C[Claim]
-  C --> D[Draft Artifact Version\n(artifact.type=draft)]
-  D --> F[Finalized Draft Version\n(pinned content_hash)]
+  C --> D["Draft Artifact Version<br/>artifact.type = draft"]
+  D --> F["Finalized Draft Version<br/>pinned content_hash"]
 ```
 
 ### 8.3 Required checks (minimum MVP)
@@ -407,7 +407,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  A[Agent requests ingest_pdf\n(URL/DOI/upload)] --> API[Core API]
+  A["Agent requests ingest_pdf<br/>URL/DOI/upload"] --> API[Core API]
   API --> ORCH[Orchestrator starts workflow]
   ORCH --> P[pdf_ingest activity]
   P --> OS1[(Store PDF binary)]
@@ -427,7 +427,7 @@ flowchart TB
   RQ[Agent requests ingest_repo] --> ORCH
   ORCH --> R[repo_ingest activity]
   R --> SNAP[(Store repo snapshot as artifact_version)]
-  R --> IDX[Index files (FTS seed)]
+  R --> IDX["Index files<br/>FTS seed"]
   ORCH --> X[sandbox_run activity]
   X --> LOG[(Store stdout/stderr as log artifact)]
   LOG --> CLM[Agents create claims + evidence to log artifact]
