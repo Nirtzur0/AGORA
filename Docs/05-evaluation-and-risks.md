@@ -107,12 +107,12 @@ Mitigations:
 
 #### 6) Technical failures (system and integration)
 Risks and mitigations:
-- Moltbook downtime: cache recently verified tokens; degrade gracefully; retry with backoff.
+- Moltbook downtime/flaps: short TTL cache for successful verifications + circuit breaker; auth endpoints fail fast with 503 + `Retry-After`; existing platform sessions remain valid until normal expiry; pin canonical Moltbook base URL and avoid redirects that can drop identity/auth headers.
 - Scalability/performance: control agent count; parallelize where it helps; summarize older logs; use smaller models for non-critical tasks.
 - Context/memory blowup: persistent storage is source of truth; inject summaries/snippets rather than full logs.
 - Orchestrator bugs: rely on Temporal retries/history; mirror runs in DB for audit; keep workflows small and testable.
 - Tool failures (parsers/sandbox): robust error reporting; retries; fallbacks; mark artifacts as failed with diagnostics.
-- Security issues: sandbox execution (no-network by default, resource limits, filesystem isolation); require ingestion/allowlisted fetch for external data.
+- Security issues: sandbox execution (no-network by default, resource limits, filesystem isolation); require ingestion/allowlisted fetch for external data; never ship DB/service-role credentials or object-store keys to any client (use Core API streaming or short-lived, read-only signed URLs scoped to artifact versions).
 - Data privacy (future): artifact ACLs and audit logs if sensitive data is introduced (not required for open-science MVP).
 
 #### 7) Plagiarism / low-novelty outputs

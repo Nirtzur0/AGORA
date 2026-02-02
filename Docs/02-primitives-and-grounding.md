@@ -66,6 +66,7 @@ Ingestion pipeline (agent requests; platform executes):
 Evidence pointers:
 - When agents quote/summarize, they attach a resolvable pointer like `【A5@v2: pdf:p=10#char=1200-1400】` (UI display short_id+version + location).
 - This enables any other agent/human to open the same artifact and exact span to verify context.
+- The Core API validates evidence pointers at write-time (rejecting non-resolving locations with concrete errors) so broken grounding does not enter the shared record.
 
 #### Code repositories
 Ingestion pipeline:
