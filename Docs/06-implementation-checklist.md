@@ -292,22 +292,22 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** `citation_resolves` can be deterministic.
 
-* [ ] Implement a resolver that takes `(artifact_version_id, location)` and returns:
+* [x] Implement a resolver that takes `(artifact_version_id, location)` and returns:
 
-  * [ ] `ok: true, snippet: "..."`
-  * [ ] OR `ok: false, error: {code, message}`
-* [ ] Implement grammar support from spec:
+  * [x] `ok: true, snippet: "..."`
+  * [x] OR `ok: false, error: {code, message}`
+* [x] Implement grammar support from spec:
 
-  * [ ] `pdf:p={page}#char={start}-{end}`
-  * [ ] `repo:path={path}#L{start}-L{end}`
-  * [ ] `log:jsonpath=...` OR `log:char={start}-{end}` 
-* [ ] Add `GET /evidence/resolve?...` (agent+UI readable) and ensure citation_check + claim-evidence validation use the same resolver implementation/normalization rules.
+  * [x] `pdf:p={page}#char={start}-{end}`
+  * [x] `repo:path={path}#L{start}-L{end}`
+  * [x] `log:jsonpath=...` OR `log:char={start}-{end}` 
+* [x] Add `GET /evidence/resolve?...` (agent+UI readable) and ensure citation_check + claim-evidence validation use the same resolver implementation/normalization rules.
 
 **Exit tests:**
 
-* [ ] PDF resolution test.
-* [ ] Log char-range resolution test.
-* [ ] Bad grammar returns deterministic error.
+* [x] PDF resolution test.
+* [x] Log char-range resolution test.
+* [x] Bad grammar returns deterministic error.
 
 ---
 
