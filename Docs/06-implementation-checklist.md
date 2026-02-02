@@ -317,21 +317,21 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Claims are always grounded or explicitly fail.
 
-* [ ] Implement:
+* [x] Implement:
 
-  * [ ] `POST /workspaces/{id}/claims`
-  * [ ] `POST /claims/{id}/evidence`
-  * [ ] `GET /workspaces/{id}/claims`
-* [ ] Validation rules:
+  * [x] `POST /workspaces/{id}/claims`
+  * [x] `POST /claims/{id}/evidence`
+  * [x] `GET /workspaces/{id}/claims`
+* [x] Validation rules:
 
-  * [ ] referenced `artifact_version_id` exists and is in same workspace
-  * [ ] location grammar parses
-  * [ ] location resolves (call resolver) — recommended to prevent junk evidence pointers
+  * [x] referenced `artifact_version_id` exists and is in same workspace
+  * [x] location grammar parses
+  * [x] location resolves (call resolver) — recommended to prevent junk evidence pointers
 
 **Exit tests:**
 
-* [ ] Evidence add fails if location doesn’t resolve.
-* [ ] Evidence add fails if version is from another workspace.
+* [x] Evidence add fails if location doesn't resolve.
+* [x] Evidence add fails if version is from another workspace.
 
 ---
 
