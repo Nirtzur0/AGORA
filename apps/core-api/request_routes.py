@@ -11,7 +11,7 @@ All endpoints start workflows/activities and return tracking IDs.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 import uuid
 
 from database import DBWrapper, get_db
@@ -48,6 +48,25 @@ class IngestRepoResponse(BaseModel):
     request_id: str
     activity_run_id: str
     artifact_id: str
+    message: str
+
+
+class RunSandboxRequest(BaseModel):
+    """Request to run sandbox execution."""
+    script_artifact_id: str = Field(..., description="UUID of artifact containing script to execute")
+    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Execution parameters (env vars, args)")
+    image: Optional[str] = Field(default="python:3.11-slim", description="Docker image to use")
+    timeout_seconds: Optional[int] = Field(default=300, description="Execution timeout in seconds")
+    memory_limit: Optional[str] = Field(default="512m", description="Container memory limit")
+    cpu_limit: Optional[str] = Field(default="1.0", description="Container CPU limit")
+
+
+class RunSandboxResponse(BaseModel):
+    """Response for sandbox execution request."""
+    request_id: str
+    activity_run_id: str
+    log_artifact_id: str
+    config_artifact_id: str
     message: str
 
 
@@ -327,6 +346,201 @@ async def request_ingest_repo(
         )
         db.commit()
         raise HTTPException(status_code=500, detail=f"Repo ingestion failed: {str(e)}")
+
+
+@router.post("/workspaces/{workspace_id}/requests/run_sandbox", response_model=RunSandboxResponse, tags=["Request Actions"])
+async def request_run_sandbox(
+    workspace_id: uuid.UUID,
+    request: RunSandboxRequest,
+    current_agent: dict = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db)
+):
+    """
+    Execute script in sandbox Docker container.
+    
+    Per spec §4.15, §6.4:
+    - Runs script in constrained Docker container (no network, resource limits)
+    - Captures stdout/stderr as log artifact
+    - Stores execution config/provenance
+    - Enforces per-workspace sandbox budget
+    
+    Returns:
+        RunSandboxResponse with tracking IDs
+        
+    Raises:
+        429: Sandbox budget exhausted (with Retry-After header)
+        404: Workspace or script artifact not found
+        400: Invalid request
+    """
+    workspace_id_str = str(workspace_id)
+    
+    # Verify workspace exists
+    ws_row = db.execute(
+        "SELECT id, phase FROM workspaces WHERE id = :id",
+        {"id": workspace_id_str}
+    ).fetchone()
+    
+    if not ws_row:
+        raise HTTPException(status_code=404, detail=f"Workspace {workspace_id_str} not found")
+    
+    # Check sandbox budget (enforce per-workspace limits)
+    # Per spec: reject with 429 + Retry-After when exhausted
+    sandbox_limit = 100  # MVP: 100 executions per workspace
+    existing_runs = db.execute(
+        """
+        SELECT COUNT(*)
+        FROM activity_runs ar
+        JOIN artifacts a ON ar.input::jsonb->>'artifact_id' = a.id::text
+        WHERE a.workspace_id = :workspace_id
+          AND ar.activity_type = 'sandbox_run'
+          AND ar.status IN ('running', 'completed')
+        """,
+        {"workspace_id": workspace_id_str}
+    ).fetchone()
+    
+    if existing_runs and existing_runs[0] >= sandbox_limit:
+        # Return 429 with Retry-After header
+        from fastapi import Response
+        raise HTTPException(
+            status_code=429,
+            detail=f"Sandbox budget exhausted ({existing_runs[0]}/{sandbox_limit} executions used). Contact workspace admin.",
+            headers={"Retry-After": "3600"}  # Retry after 1 hour
+        )
+    
+    # Verify script artifact exists and belongs to workspace
+    script_row = db.execute(
+        """
+        SELECT a.id, a.type, a.workspace_id
+        FROM artifacts a
+        WHERE a.id = :id
+        """,
+        {"id": request.script_artifact_id}
+    ).fetchone()
+    
+    if not script_row:
+        raise HTTPException(status_code=404, detail=f"Script artifact {request.script_artifact_id} not found")
+    
+    if script_row[2] != workspace_id_str:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Script artifact {request.script_artifact_id} does not belong to workspace {workspace_id_str}"
+        )
+    
+    if script_row[1] not in ("code", "script"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Artifact {request.script_artifact_id} is not executable (type={script_row[1]})"
+        )
+    
+    # Create log artifact
+    log_artifact_id = str(uuid.uuid4())
+    
+    db.execute(
+        """
+        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+        VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
+        """,
+        {
+            "id": log_artifact_id,
+            "workspace_id": workspace_id_str,
+            "short_id": f"LOG{abs(hash(log_artifact_id)) % 10000}",
+            "type": "log",
+            "metadata": json.dumps({"source": "sandbox_execution", "script_artifact_id": request.script_artifact_id}),
+            "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
+            "created_by": current_agent["agent_id"]
+        }
+    )
+    
+    # Create activity_run for tracking
+    activity_run_id = str(uuid.uuid4())
+    db.execute(
+        """
+        INSERT INTO activity_runs (id, workflow_run_id, activity_type, status, input, created_at)
+        VALUES (:id, :workflow_run_id, :activity_type, :status, :input, NOW())
+        """,
+        {
+            "id": activity_run_id,
+            "workflow_run_id": None,  # Standalone activity
+            "activity_type": "sandbox_run",
+            "status": "running",
+            "input": json.dumps({
+                "artifact_id": log_artifact_id,
+                "workspace_id": workspace_id_str,
+                "script_artifact_id": request.script_artifact_id,
+                "parameters": request.parameters,
+                "image": request.image,
+                "timeout_seconds": request.timeout_seconds,
+                "memory_limit": request.memory_limit,
+                "cpu_limit": request.cpu_limit,
+                "created_by": current_agent["agent_id"]
+            })
+        }
+    )
+    
+    db.commit()
+    
+    # Execute sandbox_run activity (synchronously for MVP)
+    import sys
+    sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+    from sandbox_run import SandboxRunActivity
+    from storage import get_storage
+    
+    try:
+        storage = get_storage()
+        sandbox_activity = SandboxRunActivity(storage, db)
+        
+        result = sandbox_activity.run_sandbox(
+            artifact_id=log_artifact_id,
+            workspace_id=workspace_id_str,
+            script_artifact_id=request.script_artifact_id,
+            parameters=request.parameters,
+            created_by=current_agent["agent_id"],
+            activity_run_id=activity_run_id,
+            image=request.image or "python:3.11-slim",
+            timeout_seconds=request.timeout_seconds or 300,
+            memory_limit=request.memory_limit or "512m",
+            cpu_limit=request.cpu_limit or "1.0"
+        )
+        
+        # Update activity_run status
+        db.execute(
+            """
+            UPDATE activity_runs
+            SET status = :status, output = :output, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": activity_run_id,
+                "status": "completed",
+                "output": json.dumps(result)
+            }
+        )
+        db.commit()
+        
+        return RunSandboxResponse(
+            request_id=str(uuid.uuid4()),
+            activity_run_id=activity_run_id,
+            log_artifact_id=result["artifact_id"],
+            config_artifact_id=result["config_artifact_id"],
+            message=f"Sandbox execution completed with exit code {result['exit_code']} in {result['execution_time_seconds']:.2f}s"
+        )
+    
+    except Exception as e:
+        # Update activity_run with failure
+        db.execute(
+            """
+            UPDATE activity_runs
+            SET status = :status, output = :output, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": activity_run_id,
+                "status": "failed",
+                "output": json.dumps({"error": str(e)})
+            }
+        )
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"Sandbox execution failed: {str(e)}")
 
 
 @router.post("/workspaces/{workspace_id}/requests/finalize_draft", response_model=FinalizeDraftResponse, tags=["Request Actions"])

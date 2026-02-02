@@ -378,66 +378,42 @@ class EvidenceResolver:
         version,
         artifact
     ) -> ResolverResult:
-        """Resolve plain-text log with char range."""
-        # Parse char range
-        match = re.match(r"log:char=(\d+)-(\d+)", location)
-        if not match:
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="INVALID_LOCATION_FORMAT",
-                message=f"Invalid log char format: {location}"
-            )
+        """
+        Resolve plain-text log with char range.
         
-        start_char = int(match.group(1))
-        end_char = int(match.group(2))
-        
-        # Validate char range
-        if start_char < 0 or end_char < start_char:
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="CHAR_RANGE_INVALID",
-                message=f"Invalid char range: {start_char}-{end_char}"
-            )
-        
-        # Get log content from storage
-        log_key = f"{artifact.workspace_id}/artifacts/{version.artifact_id}/v{version.version}/log.txt"
+        Uses SandboxRunActivity for resolution logic.
+        """
+        # Import sandbox activity for resolution
+        import sys
+        sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+        from sandbox_run import SandboxRunActivity
         
         try:
-            log_content = self.storage.get_object("agora", log_key).decode("utf-8")
-        except Exception:
+            snippet = SandboxRunActivity.resolve_log_evidence(
+                artifact_version_id=artifact_version_id,
+                location=location,
+                db=self.db
+            )
+            
+            return ResolverResult(
+                ok=True,
+                artifact_version_id=artifact_version_id,
+                normalized_location=location,
+                mime="text/plain",
+                snippet=snippet,
+                source={
+                    "artifact_id": version.artifact_id,
+                    "type": "log",
+                    "version": version.version
+                }
+            )
+        except ValueError as e:
             return ResolverResult(
                 ok=False,
                 artifact_version_id=artifact_version_id,
-                code="ARTIFACT_NOT_FOUND",
-                message=f"Log file not found"
+                code="RESOLUTION_ERROR",
+                message=str(e)
             )
-        
-        # Validate char range
-        if end_char > len(log_content):
-            return ResolverResult(
-                ok=False,
-                artifact_version_id=artifact_version_id,
-                code="CHAR_RANGE_INVALID",
-                message=f"Char range {start_char}-{end_char} exceeds log length ({len(log_content)} chars)"
-            )
-        
-        # Extract snippet
-        snippet = log_content[start_char:end_char]
-        
-        return ResolverResult(
-            ok=True,
-            artifact_version_id=artifact_version_id,
-            normalized_location=location,
-            mime="text/plain",
-            snippet=snippet,
-            source={
-                "artifact_id": version.artifact_id,
-                "type": "log",
-                "version": version.version
-            }
-        )
 
 
 def create_resolver(storage, db) -> EvidenceResolver:

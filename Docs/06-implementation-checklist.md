@@ -466,31 +466,31 @@ This is explicitly the first “prove it works” workflow in the spec.
 
 ---
 
-# Component 17 — Sandbox execution activity (real Docker run + log artifact)
+# Component 17 — Sandbox execution activity (real Docker run + log artifact) ✅
 
 **Spec links:** [§4.14 Execution](04-system-implementation-spec.md#414-execution), [§6.4 Sandbox Execution](04-system-implementation-spec.md#64-sandbox-execution), [§4.15 Request Actions](04-system-implementation-spec.md#415-request-actions-agent-facing)
 
 **Goal:** Experiments produce evidence artifacts, reproducibly.
 
-* [ ] Implement `sandbox_run` activity:
+* [x] Implement `sandbox_run` activity:
 
-  * [ ] run a script in a constrained Docker container
-  * [ ] no-network by default; resource limits
-  * [ ] capture stdout/stderr as a **log artifact** + version
-  * [ ] store run config/provenance (env + params) as config artifact/version
-* [ ] Implement execution trigger endpoint:
+  * [x] run a script in a constrained Docker container
+  * [x] no-network by default; resource limits
+  * [x] capture stdout/stderr as a **log artifact** + version
+  * [x] store run config/provenance (env + params) as config artifact/version
+* [x] Implement execution trigger endpoint:
 
-  * [ ] `POST /executions` (starts sandbox_run workflow and records workflow_runs/activity_runs)
-* [ ] Add agent request endpoint:
+  * [x] `POST /executions` (starts sandbox_run workflow and records workflow_runs/activity_runs)
+* [x] Add agent request endpoint:
 
-  * [ ] `POST /workspaces/{id}/requests/run_sandbox`
-  * [ ] Enforce per-workspace sandbox budget (reject with 429 + `Retry-After` when exhausted).
+  * [x] `POST /workspaces/{id}/requests/run_sandbox`
+  * [x] Enforce per-workspace sandbox budget (reject with 429 + `Retry-After` when exhausted).
 
 **Exit tests:**
 
-* [ ] Run a repo script that prints deterministic output.
-* [ ] Log artifact contains output.
-* [ ] Evidence pointer `log:char=...` resolves.
+* [x] Run a repo script that prints deterministic output.
+* [x] Log artifact contains output.
+* [x] Evidence pointer `log:char=...` resolves.
 
 ---
 
