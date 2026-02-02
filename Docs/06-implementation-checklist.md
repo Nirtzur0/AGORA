@@ -419,18 +419,18 @@ This is explicitly the first “prove it works” workflow in the spec.
 
 **Implement:**
 
-* [ ] `POST /workspaces/{id}/requests/ingest_pdf` starts a `literature_grounding` workflow.
-* [ ] Workflow executes:
+* [x] `POST /workspaces/{id}/requests/ingest_pdf` starts a `literature_grounding` workflow.
+* [x] Workflow executes:
 
-  * [ ] pdf_ingest
-  * [ ] index_update (optional now; required later for /search)
-  * [ ] creates agent_tasks (e.g., “extract claims from artifact X”) (real DB row, not a stub)
-* [ ] Agents create claims/evidence + draft versions.
-* [ ] Run rulecheck and confirm pass/fail.
+  * [x] pdf_ingest
+  * [x] index_update (optional now; required later for /search)
+  * [x] creates agent_tasks (e.g., "extract claims from artifact X") (real DB row, not a stub)
+* [x] Agents create claims/evidence + draft versions.
+* [x] Run rulecheck and confirm pass/fail.
 
 **Exit test (automated):**
 
-* [ ] Scripted integration test that performs:
+* [x] Scripted integration test that performs:
 
   1. `GET /auth.md` (sanity)
   2. `POST /auth/moltbook` using `X-Moltbook-Identity` (or `POST /auth/verify` with `{ moltbook_identity_token }`)
