@@ -262,4 +262,5 @@ async def require_system_token(
 
 # Aliases for backward compatibility
 get_current_agent = get_agent_context
-get_current_system = get_system_contextrequire_agent_token = get_agent_context
+get_current_system = get_system_context
+require_agent_token = get_agent_context
