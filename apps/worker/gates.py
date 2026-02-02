@@ -491,3 +491,263 @@ class GateEvaluator:
             "required_actions": required_actions,
             "snapshot": snapshot
         }
+    
+    @staticmethod
+    def evaluate_finalization_gate(snapshot: dict) -> dict:
+        """
+        Deterministic evaluation of finalization gate per spec §5.6.
+        
+        Gate criteria (all must pass):
+        1. Citation coverage pass
+        2. Citation resolves pass
+        3. Critique sufficiency pass
+        4. No open blocking critiques
+        5. Skeptic present
+        6. Method Reviewer present (if sandbox runs exist)
+        
+        Returns gate response with status PASS/FAIL/BLOCK and reasons.
+        """
+        reasons = []
+        required_actions = []
+        status = GateStatus.PASS
+        
+        # Check citation coverage
+        if not snapshot.get("citation_coverage_pass", False):
+            reasons.append("Citation coverage check failed")
+            required_actions.append({
+                "type": "add_citations",
+                "description": "Add citations to cover all claims in the draft"
+            })
+            status = GateStatus.FAIL
+        
+        # Check citation resolves
+        if not snapshot.get("citation_resolves_pass", False):
+            reasons.append("Citation resolve check failed")
+            required_actions.append({
+                "type": "fix_citations",
+                "description": "Ensure all citations resolve to valid artifact versions"
+            })
+            status = GateStatus.FAIL
+        
+        # Check critique sufficiency
+        if not snapshot.get("critique_sufficiency_pass", False):
+            reasons.append("Critique sufficiency check failed")
+            required_actions.append({
+                "type": "address_critiques",
+                "description": "Address or respond to all critiques"
+            })
+            status = GateStatus.FAIL
+        
+        # Check open blocking critiques
+        blocking_count = snapshot.get("open_blocking_critiques_count", 0)
+        if blocking_count > 0:
+            reasons.append(f"{blocking_count} open blocking critique(s) remain")
+            required_actions.append({
+                "type": "resolve_blocking_critiques",
+                "description": f"Resolve {blocking_count} open blocking critique(s)",
+                "count": blocking_count
+            })
+            status = GateStatus.BLOCK
+        
+        # Check Skeptic presence (required)
+        if not snapshot.get("skeptic_present", False):
+            reasons.append("Skeptic role not assigned")
+            required_actions.append({
+                "type": "assign_skeptic",
+                "description": "Assign a Skeptic to the workspace"
+            })
+            # Block because this is a structural requirement
+            status = GateStatus.BLOCK
+        
+        # Check Method Reviewer presence (if sandbox runs exist)
+        sandbox_runs_exist = snapshot.get("sandbox_runs_exist", False)
+        method_reviewer_present = snapshot.get("method_reviewer_present", False)
+        if sandbox_runs_exist and not method_reviewer_present:
+            reasons.append("Method Reviewer required when sandbox runs exist")
+            required_actions.append({
+                "type": "assign_method_reviewer",
+                "description": "Assign a Method Reviewer to review sandbox executions"
+            })
+            # Block because this is a structural requirement
+            status = GateStatus.BLOCK
+        
+        # If all checks pass
+        if not reasons:
+            reasons.append("All finalization criteria met")
+        
+        return {
+            "gate_name": "finalization",
+            "status": status.value,
+            "reasons": reasons,
+            "required_actions": required_actions,
+            "snapshot": snapshot
+        }
+    
+    def gather_finalization_gate_snapshot(
+        self,
+        workspace_id: str,
+        draft_artifact_id: str,
+        draft_artifact_version_id: str
+    ) -> dict:
+        """
+        Gather snapshot for finalization gate.
+        
+        Gate criteria per spec §5.6:
+        - citation check passes (coverage + resolves)
+        - critique sufficiency passes for key claims and draft version
+        - role caps pass (Skeptic + Method Reviewer if needed)
+        - no open blocking critiques
+        - draft content_hash is pinned
+        
+        Args:
+            workspace_id: Workspace ID
+            draft_artifact_id: Draft artifact ID
+            draft_artifact_version_id: Specific draft version ID to finalize
+            
+        Returns:
+            Snapshot dict with all required state
+        """
+        # Verify draft artifact and version match
+        artifact_row = self.db.execute(
+            """
+            SELECT id, type, metadata
+            FROM artifacts
+            WHERE id = :id AND workspace_id = :workspace_id
+            """,
+            {"id": draft_artifact_id, "workspace_id": workspace_id}
+        ).fetchone()
+        
+        if not artifact_row or artifact_row[1] != "draft":
+            raise ValueError(f"Draft artifact not found or wrong type: {draft_artifact_id}")
+        
+        version_row = self.db.execute(
+            """
+            SELECT id, artifact_id, content_hash, created_by
+            FROM artifact_versions
+            WHERE id = :id AND artifact_id = :artifact_id
+            """,
+            {"id": draft_artifact_version_id, "artifact_id": draft_artifact_id}
+        ).fetchone()
+        
+        if not version_row:
+            raise ValueError(
+                f"Draft version not found or doesn't match artifact: "
+                f"{draft_artifact_version_id} vs {draft_artifact_id}"
+            )
+        
+        content_hash = version_row[2]
+        draft_author = version_row[3]
+        
+        # Get latest citation_check rule_checks for this draft version
+        citation_coverage_checks = self.db.execute(
+            """
+            SELECT status, details
+            FROM rule_checks
+            WHERE workspace_id = :workspace_id
+              AND rule_type = 'citation_check'
+              AND target_id = :version_id
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchall()
+        
+        citation_coverage_pass = all(
+            row[0] == 'pass' for row in citation_coverage_checks
+        ) if citation_coverage_checks else False
+        
+        # Check if citations resolve
+        citation_resolves_pass = True
+        if citation_coverage_checks:
+            for row in citation_coverage_checks:
+                details = json.loads(row[1]) if row[1] else {}
+                if not details.get("all_citations_resolve", True):
+                    citation_resolves_pass = False
+                    break
+        
+        # Get latest critique_sufficiency rule_checks
+        critique_sufficiency_checks = self.db.execute(
+            """
+            SELECT status, details
+            FROM rule_checks
+            WHERE workspace_id = :workspace_id
+              AND rule_type = 'critique_sufficiency'
+              AND target_id = :version_id
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchall()
+        
+        critique_sufficiency_pass = all(
+            row[0] == 'pass' for row in critique_sufficiency_checks
+        ) if critique_sufficiency_checks else False
+        
+        # Count open blocking critiques targeting the draft version
+        open_blocking_critiques = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM critiques
+            WHERE workspace_id = :workspace_id
+              AND target_type = 'artifact_version'
+              AND target_id = :version_id
+              AND status = 'open'
+              AND severity = 'blocking'
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchone()[0]
+        
+        # Check role presence (Skeptic required)
+        skeptic_present = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM workspace_agents wa
+            JOIN roles r ON wa.role_id = r.id
+            WHERE wa.workspace_id = :workspace_id
+              AND wa.status = 'active'
+              AND r.name = 'Skeptic'
+            """,
+            {"workspace_id": workspace_id}
+        ).fetchone()[0] > 0
+        
+        # Check if sandbox runs happened (Method Reviewer required if true)
+        sandbox_runs_exist = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM activity_runs
+            WHERE workspace_id = :workspace_id
+              AND activity_type = 'sandbox_run'
+            """,
+            {"workspace_id": workspace_id}
+        ).fetchone()[0] > 0
+        
+        method_reviewer_present = False
+        if sandbox_runs_exist:
+            method_reviewer_present = self.db.execute(
+                """
+                SELECT COUNT(*)
+                FROM workspace_agents wa
+                JOIN roles r ON wa.role_id = r.id
+                WHERE wa.workspace_id = :workspace_id
+                  AND wa.status = 'active'
+                  AND r.name = 'Method Reviewer'
+                """,
+                {"workspace_id": workspace_id}
+            ).fetchone()[0] > 0
+        
+        return {
+            "draft_artifact_id": draft_artifact_id,
+            "draft_artifact_version_id": draft_artifact_version_id,
+            "content_hash": content_hash,
+            "draft_author": draft_author,
+            "citation_coverage_pass": citation_coverage_pass,
+            "citation_resolves_pass": citation_resolves_pass,
+            "critique_sufficiency_pass": critique_sufficiency_pass,
+            "open_blocking_critiques_count": open_blocking_critiques,
+            "skeptic_present": skeptic_present,
+            "sandbox_runs_exist": sandbox_runs_exist,
+            "method_reviewer_present": method_reviewer_present,
+            "citation_coverage_checks_count": len(citation_coverage_checks),
+            "critique_sufficiency_checks_count": len(critique_sufficiency_checks),
+            "snapshot_type": "finalization_gate"
+        }

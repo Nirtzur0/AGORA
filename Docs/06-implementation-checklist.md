@@ -555,34 +555,34 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 21 — Draft finalization workflow + finalization gate
+# Component 21 — Draft finalization workflow + finalization gate ✅
 
 **Spec links:** [§5.6 Finalization Gate](04-system-implementation-spec.md#56-finalization-gate), [§4.10 Drafts and Versions](04-system-implementation-spec.md#410-drafts-and-versions), [§4.15 Request Actions](04-system-implementation-spec.md#415-request-actions-agent-facing), [§12.4 Draft Finalization](04-system-implementation-spec.md#124-draft-finalization)
 
 **Goal:** Final outputs are blocked unless governance passes.
 
-* [ ] Implement `draft_finalization` workflow and `POST /workspaces/{id}/requests/finalize_draft`. 
-  * [ ] Request body includes `{ draft_artifact_id, draft_artifact_version_id }` and the orchestrator finalizes exactly that version.
-* [ ] Finalization gate checks:
+* [x] Implement `draft_finalization` workflow and `POST /workspaces/{id}/requests/finalize_draft`. 
+  * [x] Request body includes `{ draft_artifact_id, draft_artifact_version_id }` and the orchestrator finalizes exactly that version.
+* [x] Finalization gate checks:
 
-  * [ ] citation_coverage PASS
-  * [ ] citation_resolves PASS
-  * [ ] critique sufficiency PASS
-  * [ ] role caps PASS (Skeptic present; Method Reviewer present if any sandbox runs happened)
-  * [ ] no open blocking critiques
-  * [ ] draft content_hash pinned 
-* [ ] On success:
+  * [x] citation_coverage PASS
+  * [x] citation_resolves PASS
+  * [x] critique sufficiency PASS
+  * [x] role caps PASS (Skeptic present; Method Reviewer present if any sandbox runs happened)
+  * [x] no open blocking critiques
+  * [x] draft content_hash pinned 
+* [x] On success:
 
-  * [ ] set draft status to final (draft artifact metadata)
-  * [ ] emit `draft.finalized` + `workspace.finalized`
+  * [x] set draft status to final (draft artifact metadata)
+  * [x] emit `draft.finalized` + `workspace.finalized`
 
 **Exit tests:**
 
-* [ ] Missing citation blocks finalization.
-* [ ] Open blocking critique blocks finalization.
-* [ ] After fixes, finalization succeeds and events exist.
-* [ ] Regression: agent (including Maintainer) cannot call `POST /drafts/{id}/finalize` (system-only); only orchestrator/service token can.
-* [ ] Lock: after workspace is FINALIZED, `POST /drafts/{id}/versions` is rejected (409) unless the orchestrator rolls the phase back with an explicit event.
+* [x] Missing citation blocks finalization.
+* [x] Open blocking critique blocks finalization.
+* [x] After fixes, finalization succeeds and events exist.
+* [x] Regression: agent (including Maintainer) cannot call `POST /drafts/{id}/finalize` (system-only); only orchestrator/service token can.
+* [x] Lock: after workspace is FINALIZED, `POST /drafts/{id}/versions` is rejected (409) unless the orchestrator rolls the phase back with an explicit event.
 
 ---
 

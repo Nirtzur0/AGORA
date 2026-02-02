@@ -544,23 +544,40 @@ async def request_run_sandbox(
 
 
 @router.post("/workspaces/{workspace_id}/requests/finalize_draft", response_model=FinalizeDraftResponse, tags=["Request Actions"])
-def request_finalize_draft(
+async def request_finalize_draft(
     workspace_id: uuid.UUID,
     request: FinalizeDraftRequest,
     current_agent: dict = Depends(require_agent_token),
     db: DBWrapper = Depends(get_db)
 ):
     """
-    Request draft finalization (SYSTEM will finalize after gates pass).
+    Start draft finalization workflow.
     
-    Per spec §4.15, §12.4:
-    - Citation checks run continuously on draft versions
-    - If all rule checks pass, orchestrator finalizes the draft
-    - This endpoint validates and queues the finalization request
+    Per spec §5.6, §4.10, §12.4:
+    - System-only endpoint (orchestrator authority)
+    - Validates workspace phase == FINALIZED
+    - Starts DraftFinalizationWorkflow to check gate and finalize draft
+    - Gate checks: citation coverage/resolves, critique sufficiency, role caps, no blocking critiques
+    - On success: sets metadata status=final, emits draft.finalized + workspace.finalized events
+    
+    Returns:
+        Workflow run ID for tracking finalization progress
+    
+    Raises:
+        403: If agent attempts to call (system-only)
+        400: If IDs don't match or workspace not in FINALIZED phase
+        404: If workspace/draft/version not found
     """
+    # SYSTEM-ONLY: Agents cannot call finalize (orchestrator authority)
+    if current_agent.get("token_type") != "system":
+        raise HTTPException(
+            status_code=403,
+            detail="Draft finalization is system-only. Only the orchestrator can finalize drafts."
+        )
+    
     workspace_id_str = str(workspace_id)
     
-    # Verify workspace exists
+    # Validate workspace exists and is in FINALIZED phase
     ws_row = db.execute(
         "SELECT id, phase FROM workspaces WHERE id = :id",
         {"id": workspace_id_str}
@@ -568,6 +585,12 @@ def request_finalize_draft(
     
     if not ws_row:
         raise HTTPException(status_code=404, detail=f"Workspace {workspace_id_str} not found")
+    
+    if ws_row[1] != "FINALIZED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot finalize draft: workspace phase is {ws_row[1]}, must be FINALIZED"
+        )
     
     # Verify draft artifact exists and belongs to workspace
     draft_row = db.execute(
@@ -594,7 +617,7 @@ def request_finalize_draft(
             detail=f"Artifact {request.draft_artifact_id} is not a draft (type={draft_row[1]})"
         )
     
-    # Verify draft version exists
+    # Verify draft version exists and belongs to artifact
     version_row = db.execute(
         """
         SELECT id, artifact_id
@@ -613,63 +636,49 @@ def request_finalize_draft(
             detail=f"Version {request.draft_artifact_version_id} does not belong to draft {request.draft_artifact_id}"
         )
     
-    # Check rule checks for this version
-    import json
-    rule_checks = db.execute(
-        """
-        SELECT rule_name, status, details
-        FROM rule_checks
-        WHERE target_type = 'draft_version'
-          AND target_id = :version_id
-        ORDER BY created_at DESC
-        """,
-        {"version_id": request.draft_artifact_version_id}
-    ).fetchall()
-    
-    # Verify required rule checks exist and passed
-    required_rules = {"citation_coverage", "citation_resolves"}
-    found_rules = {}
-    
-    for rule_name, status, details in rule_checks:
-        if rule_name in required_rules:
-            found_rules[rule_name] = status
-    
-    missing_rules = required_rules - set(found_rules.keys())
-    if missing_rules:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Missing required rule checks: {', '.join(missing_rules)}. Run citation check first."
-        )
-    
-    failed_rules = [rule for rule, status in found_rules.items() if status != "pass"]
-    if failed_rules:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Rule checks failed: {', '.join(failed_rules)}. Cannot finalize draft with failed checks."
-        )
-    
-    # All checks passed - finalize the draft (SYSTEM action via draft_routes)
-    # For MVP, we call the finalize endpoint directly
-    from draft_routes import finalize_draft, FinalizeDraftRequest as DraftFinalizeRequest
-    
-    mock_system = {"token_type": "system"}
+    # Start DraftFinalizationWorkflow
+    from temporalio.client import Client as TemporalClient
+    from apps.worker.draft_finalization_workflow import DraftFinalizationWorkflow
     
     try:
-        finalize_draft(
-            draft_id=uuid.UUID(request.draft_artifact_id),
-            request=DraftFinalizeRequest(draft_artifact_version_id=request.draft_artifact_version_id),
-            system_token=mock_system,
-            db=db
+        temporal_client = await TemporalClient.connect("localhost:7233")
+        
+        workflow_id = f"finalize-draft-{workspace_id_str}-{request.draft_artifact_version_id}-{uuid.uuid4()}"
+        
+        workflow_handle = await temporal_client.start_workflow(
+            DraftFinalizationWorkflow.run,
+            args=[workspace_id_str, request.draft_artifact_id, request.draft_artifact_version_id],
+            id=workflow_id,
+            task_queue="agora-workers",
         )
         
-        request_id = str(uuid.uuid4())
+        # Record workflow run in activity_runs
+        activity_run_id = str(uuid.uuid4())
+        db.execute(
+            """
+            INSERT INTO activity_runs (id, workspace_id, activity_type, status, input_params, created_at)
+            VALUES (:id, :workspace_id, 'draft_finalization', 'running', :params, NOW())
+            """,
+            {
+                "id": activity_run_id,
+                "workspace_id": workspace_id_str,
+                "params": {
+                    "draft_artifact_id": request.draft_artifact_id,
+                    "draft_artifact_version_id": request.draft_artifact_version_id,
+                    "workflow_id": workflow_id
+                }
+            }
+        )
+        
+        db.commit()
         
         return FinalizeDraftResponse(
-            request_id=request_id,
+            request_id=activity_run_id,
             draft_artifact_id=request.draft_artifact_id,
             draft_artifact_version_id=request.draft_artifact_version_id,
-            message="Draft finalized successfully. All rule checks passed."
+            message=f"Draft finalization workflow started: {workflow_id}"
         )
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to finalize draft: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to start finalization workflow: {str(e)}")

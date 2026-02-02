@@ -8,6 +8,7 @@ from temporalio import activity
 from database import get_db
 from apps.worker.phase_machine import PhaseAdvancementActivity, PhaseMachine
 from apps.worker.gates import GateEvaluationActivity
+from apps.worker.finalization_activities import finalize_draft_artifact
 import logging
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,32 @@ async def gather_internal_review_exit_snapshot(workspace_id: str) -> dict:
         return activity_impl.gather_internal_review_exit_snapshot(workspace_id)
 
 
+@activity.defn(name="gather_finalization_gate_snapshot")
+async def gather_finalization_gate_snapshot(
+    workspace_id: str,
+    draft_artifact_id: str,
+    draft_artifact_version_id: str
+) -> dict:
+    """
+    Gather snapshot for finalization gate.
+    
+    Args:
+        workspace_id: Workspace ID
+        draft_artifact_id: Draft artifact ID
+        draft_artifact_version_id: Draft artifact version ID
+        
+    Returns:
+        Snapshot dict
+    """
+    with get_db() as db:
+        activity_impl = GateEvaluationActivity(db)
+        return activity_impl.gather_finalization_gate_snapshot(
+            workspace_id,
+            draft_artifact_id,
+            draft_artifact_version_id
+        )
+
+
 # List of all phase management activities to register with worker
 PHASE_ACTIVITIES = [
     get_workspace_phase,
@@ -179,5 +206,7 @@ PHASE_ACTIVITIES = [
     create_required_action_tasks,
     gather_lit_review_exit_snapshot,
     gather_experimentation_exit_snapshot,
-    gather_internal_review_exit_snapshot
+    gather_internal_review_exit_snapshot,
+    gather_finalization_gate_snapshot,
+    finalize_draft_artifact
 ]
