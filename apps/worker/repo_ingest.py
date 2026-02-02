@@ -493,6 +493,81 @@ class RepoIngestActivity:
                 "message": str(e)
             }
     
+    def read_file_from_repo(
+        self,
+        artifact_version_id: str,
+        file_path: str
+    ) -> str:
+        """
+        Read a file from a stored repo snapshot.
+        
+        Args:
+            artifact_version_id: UUID of repo artifact version
+            file_path: Path to file within repo
+            
+        Returns:
+            File content as string
+            
+        Raises:
+            ValueError: If artifact not found or file doesn't exist
+        """
+        # Get artifact details
+        result = self.db.execute(
+            """
+            SELECT a.storage_uri, av.content_hash, a.workspace_id, a.id
+            FROM artifact_versions av
+            JOIN artifacts a ON av.artifact_id = a.id
+            WHERE av.id = :version_id
+            """,
+            {"version_id": artifact_version_id}
+        ).fetchone()
+        
+        if not result:
+            raise ValueError(f"Artifact version {artifact_version_id} not found")
+        
+        storage_uri, commit_hash, workspace_id, artifact_id = result
+        
+        # Download repo snapshot from MinIO
+        object_path = f"{workspace_id}/artifacts/{artifact_id}/v{artifact_version_id}/repo.tar.gz"
+        
+        try:
+            response = self.storage.get_object("agora", object_path)
+            tar_data = response.read()
+            response.close()
+            response.release_conn()
+        except Exception as e:
+            raise ValueError(f"Failed to retrieve repo snapshot: {str(e)}")
+        
+        # Extract file from tarball
+        import tarfile
+        import tempfile
+        
+        with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+            tmp.write(tar_data)
+            tmp_path = tmp.name
+        
+        try:
+            with tarfile.open(tmp_path, 'r:gz') as tar:
+                # Find file in archive
+                member = None
+                for m in tar.getmembers():
+                    if m.name.endswith(file_path) or m.name == file_path:
+                        member = m
+                        break
+                
+                if not member:
+                    raise ValueError(f"File {file_path} not found in repo archive")
+                
+                file_obj = tar.extractfile(member)
+                if not file_obj:
+                    raise ValueError(f"Could not extract {file_path} from archive")
+                
+                content = file_obj.read().decode('utf-8')
+                return content
+        finally:
+            import os
+            os.unlink(tmp_path)
+    
     def _write_log(
         self,
         workspace_id: str,

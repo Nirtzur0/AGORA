@@ -494,21 +494,21 @@ This is explicitly the first “prove it works” workflow in the spec.
 
 ---
 
-# Component 18 — Workflow B: Code replication (second real end-to-end slice)
+# Component 18 — Workflow B: Code replication (second real end-to-end slice) ✅
 
 **Spec links:** [§1 Minimum workflows to prove the system](04-system-implementation-spec.md#minimum-workflows-to-prove-the-system), [§5.2 Workflow Templates](04-system-implementation-spec.md#52-workflow-templates), [§12.3 Experiment Run](04-system-implementation-spec.md#123-experiment-run)
 
-This is the other “minimum workflow to prove the system.” 
+This is the other "minimum workflow to prove the system." 
 
-* [ ] `code_replication` workflow:
+* [x] `code_replication` workflow:
 
-  * [ ] repo_ingest
-  * [ ] sandbox_run
-  * [ ] rulecheck/citation check on a synthesizer draft that cites the log artifact
+  * [x] repo_ingest
+  * [x] sandbox_run
+  * [x] rulecheck/citation check on a synthesizer draft that cites the log artifact
 
 **Exit test (automated):**
 
-* [ ] Full run: ingest repo -> run sandbox -> claim + cite log -> draft -> citation_check PASS.
+* [x] Full run: ingest repo -> run sandbox -> claim + cite log -> draft -> citation_check PASS.
 
 ---
 
