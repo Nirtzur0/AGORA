@@ -361,31 +361,31 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** The platform can block unsupported claims deterministically.
 
-* [ ] Implement `citation_check` activity:
+* [x] Implement `citation_check` activity:
 
-  * [ ] Parse draft Markdown for markers:
+  * [x] Parse draft Markdown for markers:
 
     * `[[claim:{claim_id}]]`
     * `[[cite:{artifact_version_id}|{location}]]` 
-  * [ ] Deterministic paragraph splitting (blank line separators).
-  * [ ] **Coverage rule:** every claim marker has ≥1 cite marker in same paragraph.
-  * [ ] Validate IDs: referenced `claim_id` and `artifact_version_id` exist and belong to the same workspace as the draft.
-  * [ ] **Resolves rule:** every cite resolves via resolver.
-  * [ ] Materialize `citations` rows (recommend: for each claim in paragraph × each cite in paragraph create a row; deterministic and queryable).
-  * [ ] Write `rule_checks` rows: `citation_coverage`, `citation_resolves`.
-  * [ ] Wire citation_check to run automatically on every draft version creation (so failures surface immediately, not only at finalization time).
-* [ ] Add agent-facing request endpoint:
+  * [x] Deterministic paragraph splitting (blank line separators).
+  * [x] **Coverage rule:** every claim marker has ≥1 cite marker in same paragraph.
+  * [x] Validate IDs: referenced `claim_id` and `artifact_version_id` exist and belong to the same workspace as the draft.
+  * [x] **Resolves rule:** every cite resolves via resolver.
+  * [x] Materialize `citations` rows (recommend: for each claim in paragraph × each cite in paragraph create a row; deterministic and queryable).
+  * [x] Write `rule_checks` rows: `citation_coverage`, `citation_resolves`.
+  * [x] Wire citation_check to run automatically on every draft version creation (so failures surface immediately, not only at finalization time).
+* [x] Add agent-facing request endpoint:
 
-  * [ ] `POST /workspaces/{id}/requests/run_rulecheck` that triggers this activity via workflow/Temporal. 
-* [ ] Implement read API for rule checks:
+  * [x] `POST /workspaces/{id}/requests/run_rulecheck` that triggers this activity via workflow/Temporal. 
+* [x] Implement read API for rule checks:
 
-  * [ ] `GET /rule-checks` (filterable by workspace/rule/target as needed)
+  * [x] `GET /rule-checks` (filterable by workspace/rule/target as needed)
 
 **Exit tests:**
 
-* [ ] Draft missing citations -> citation_coverage fail recorded.
-* [ ] Bad location -> citation_resolves fail recorded.
-* [ ] Good draft -> both pass.
+* [x] Draft missing citations -> citation_coverage fail recorded.
+* [x] Bad location -> citation_resolves fail recorded.
+* [x] Good draft -> both pass.
 
 ---
 
