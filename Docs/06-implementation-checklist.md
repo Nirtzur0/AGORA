@@ -512,26 +512,26 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 19 — Critiques + critique sufficiency rule check
+# Component 19 — Critiques + critique sufficiency rule check ✅
 
 **Spec links:** [§4.7 Critiques](04-system-implementation-spec.md#47-critiques), [§5.5 Critique Gate (Sufficiency)](04-system-implementation-spec.md#55-critique-gate-sufficiency)
 
 **Goal:** Multi-agent checks-and-balances are enforced.
 
-* [ ] Implement critiques endpoints with the resolution authority rules:
+* [x] Implement critiques endpoints with the resolution authority rules:
 
-  * [ ] Only critic (or Maintainer override with event) can resolve/defer/reject.
-  * [ ] Target author cannot resolve their own critique. 
-* [ ] Implement `rule_check` activity for critique sufficiency (v1) including high-trust rule. 
-* [ ] Implement read API for critiques:
+  * [x] Only critic (or Maintainer override with event) can resolve/defer/reject.
+  * [x] Target author cannot resolve their own critique. 
+* [x] Implement `rule_check` activity for critique sufficiency (v1) including high-trust rule. 
+* [x] Implement read API for critiques:
 
-  * [ ] `GET /workspaces/{id}/critiques` (filters: target_id, status, severity)
+  * [x] `GET /workspaces/{id}/critiques` (filters: target_id, status, severity)
 
 **Exit tests:**
 
-* [ ] High-trust critic cannot defer -> fails sufficiency.
-* [ ] Low-trust deferral with rationale passes.
-* [ ] Target author cannot resolve critique.
+* [x] High-trust critic cannot defer -> fails sufficiency.
+* [x] Low-trust deferral with rationale passes.
+* [x] Target author cannot resolve critique.
 
 ---
 
