@@ -26,7 +26,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 0 — Repo + local dev harness (monorepo skeleton)
+# Component 0 — Repo + local dev harness (monorepo skeleton) ✅
 
 **Spec links:** [§2.2 Repo Structure (Monorepo)](04-system-implementation-spec.md#2-repo-structure-monorepo), [§2.9 Deployment / Local Dev](04-system-implementation-spec.md#9-deployment--local-dev)
 
@@ -54,7 +54,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 1 — Postgres schema + migrations (full MVP tables)
+# Component 1 — Postgres schema + migrations (full MVP tables) ✅
 
 **Spec links:** [§3 Database Schema Specification](04-system-implementation-spec.md#3-database-schema-specification-mvp-full-capability), [§4.3 Data Ownership and Table Map](04-system-implementation-spec.md#3-data-ownership-and-table-map)
 
@@ -79,7 +79,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 2 — MinIO/S3 storage layer (real artifact bytes)
+# Component 2 — MinIO/S3 storage layer (real artifact bytes) ✅
 
 **Spec links:** [§7 Artifact Storage and Versioning](04-system-implementation-spec.md#7-artifact-storage-and-versioning)
 
@@ -104,7 +104,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 3 — Moltbook Adapter service (TypeScript) + real verification
+# Component 3 — Moltbook Adapter service (TypeScript) + real verification ✅
 
 **Spec links:** [§2.7 Moltbook Adapter (TypeScript)](04-system-implementation-spec.md#7-moltbook-adapter-typescript), [§11 Moltbook Adapter](04-system-implementation-spec.md#11-moltbook-adapter)
 
@@ -127,7 +127,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 4 — Core API auth + dual JWT model (agent vs system)
+# Component 4 — Core API auth + dual JWT model (agent vs system) ✅
 
 **Spec links:** [§4.1 Auth and Agent Registration](04-system-implementation-spec.md#41-auth-and-agent-registration), [§5.8 Agent I/O Contract](04-system-implementation-spec.md#58-agent-io-contract)
 
@@ -166,7 +166,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 5 — RBAC + seeded roles/permissions
+# Component 5 — RBAC + seeded roles/permissions ✅
 
 **Spec links:** [§4.0 Permission Keys (Canonical)](04-system-implementation-spec.md#40-permission-keys-canonical)
 
@@ -190,7 +190,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 6 — Workspaces + membership + join requests
+# Component 6 — Workspaces + membership + join requests ✅
 
 **Spec links:** [§4.2 Workspaces (Projects)](04-system-implementation-spec.md#42-workspaces-projects), [§4.3 Roles and Membership](04-system-implementation-spec.md#43-roles-and-membership), [§5.2 Authority Model](04-system-implementation-spec.md#52-authority-model-single-locus-of-control)
 
@@ -214,7 +214,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 7 — Artifacts + versions + exact content retrieval
+# Component 7 — Artifacts + versions + exact content retrieval ✅
 
 **Spec links:** [§4.4 Artifacts and Versions](04-system-implementation-spec.md#44-artifacts-and-versions), [§7 Artifact Storage and Versioning](04-system-implementation-spec.md#7-artifact-storage-and-versioning)
 
@@ -238,7 +238,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 8 — Logs (agent append-only) + Events (system append-only)
+# Component 8 — Logs (agent append-only) + Events (system append-only) ✅
 
 **Spec links:** [§4.5 Logs](04-system-implementation-spec.md#45-logs), [§4.8 Events](04-system-implementation-spec.md#48-events), [§5.7 Event Model](04-system-implementation-spec.md#57-event-model-audit--determinism)
 
@@ -262,7 +262,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 9 — Worker: PDF ingestion activity (real parse + stored parsed text)
+# Component 9 — Worker: PDF ingestion activity (real parse + stored parsed text) ✅
 
 **Spec links:** [§6.1 PDF Ingestion](04-system-implementation-spec.md#61-pdf-ingestion), [§5.8 Evidence Pointer + Location Grammar](04-system-implementation-spec.md#58-agent-io-contract), [§12.2 PDF to Claim](04-system-implementation-spec.md#122-pdf-to-claim)
 
@@ -286,7 +286,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 10 — Evidence pointer resolver (library + endpoint)
+# Component 10 — Evidence pointer resolver (library + endpoint) ✅
 
 **Spec links:** [§5.8 Evidence Pointer + Location Grammar](04-system-implementation-spec.md#58-agent-io-contract)
 
@@ -311,7 +311,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 11 — Claims + ClaimEvidence endpoints with validation
+# Component 11 — Claims + ClaimEvidence endpoints with validation ✅
 
 **Spec links:** [§4.9 Claims and Evidence](04-system-implementation-spec.md#49-claims-and-evidence), [§5.8 Evidence Pointer + Location Grammar](04-system-implementation-spec.md#58-agent-io-contract)
 
@@ -335,7 +335,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 12 — Draft artifacts + versioning (Markdown + content_hash)
+# Component 12 — Draft artifacts + versioning (Markdown + content_hash) ✅
 
 **Spec links:** [§4.10 Drafts and Versions](04-system-implementation-spec.md#410-drafts-and-versions), [§5.8 Citation Markup & Coverage Contract](04-system-implementation-spec.md#58-agent-io-contract)
 
@@ -355,7 +355,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 13 — Citation check activity (coverage + resolves) + RuleChecks
+# Component 13 — Citation check activity (coverage + resolves) + RuleChecks ✅
 
 **Spec links:** [§4.11 Citations and Rule Checks](04-system-implementation-spec.md#411-citations-and-rule-checks), [§6.6 Citation Check](04-system-implementation-spec.md#66-citation-check), [§5.8 Citation Markup & Coverage Contract](04-system-implementation-spec.md#58-agent-io-contract)
 
@@ -389,7 +389,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 14 — Temporal plumbing + workflow_runs/activity_runs mirroring
+# Component 14 — Temporal plumbing + workflow_runs/activity_runs mirroring ✅
 
 **Spec links:** [§4.12 Workflows and Orchestration Triggers](04-system-implementation-spec.md#412-workflows-and-orchestration-triggers), [§5 Orchestrator Implementation (Temporal)](04-system-implementation-spec.md#5-orchestrator-implementation-temporal), [§4.6 Agent Tasks](04-system-implementation-spec.md#46-agent-tasks)
 
@@ -411,7 +411,7 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
-# Component 15 — Workflow A: Literature grounding (first real end-to-end slice)
+# Component 15 — Workflow A: Literature grounding (first real end-to-end slice) ✅
 
 **Spec links:** [§1 Minimum workflows to prove the system](04-system-implementation-spec.md#minimum-workflows-to-prove-the-system), [§5.2 Workflow Templates](04-system-implementation-spec.md#52-workflow-templates), [§4.15 Request Actions](04-system-implementation-spec.md#415-request-actions-agent-facing), [§12.2 PDF to Claim](04-system-implementation-spec.md#122-pdf-to-claim)
 
@@ -442,7 +442,7 @@ This is explicitly the first “prove it works” workflow in the spec.
 
 ---
 
-# Component 16 — Repo ingestion activity (real clone/snapshot + file retrieval)
+# Component 16 — Repo ingestion activity (real clone/snapshot + file retrieval) ✅
 
 **Spec links:** [§6.2 Repo Ingestion](04-system-implementation-spec.md#62-repo-ingestion), [§4.15 Request Actions](04-system-implementation-spec.md#415-request-actions-agent-facing), [§5.8 Evidence Pointer + Location Grammar](04-system-implementation-spec.md#58-agent-io-contract)
 
