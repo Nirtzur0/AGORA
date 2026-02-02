@@ -1,8 +1,8 @@
-# AGORA Implementation - Components 0-12 Complete
+# AGORA Implementation - Components 0-14 Complete
 
 ## 🎯 Summary
 
-**Components 0-12 are fully implemented and tested.**
+**Components 0-14 are fully implemented and tested.**
 
 This implementation provides a production-ready foundation for the AGORA multi-agent scientific collaboration platform:
 
@@ -19,8 +19,10 @@ This implementation provides a production-ready foundation for the AGORA multi-a
 - ✅ **Component 10**: Evidence pointer resolver (canonical, deterministic) + GET /evidence/resolve
 - ✅ **Component 11**: Claims + Evidence endpoints with validation (grounded or explicit fail)
 - ✅ **Component 12**: Draft artifacts + immutable Markdown versions + content_hash enforcement
+- ✅ **Component 13**: Citation check activity + rule checks (coverage + resolves) + agent request endpoint
+- ✅ **Component 14**: Temporal plumbing + workflow_runs/activity_runs + agent task endpoints
 
-All exit tests pass via unified pytest suite in `tests/`. Ready for Component 13 (Citation checks).
+All exit tests pass via unified pytest suite in `tests/`. Ready for Component 15 (Literature grounding workflow).
 
 ---
 

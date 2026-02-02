@@ -395,19 +395,19 @@ Each component below is intended to be **implemented + tested fully before movin
 
 **Goal:** Orchestrated work is real and observable.
 
-* [ ] Core API can start workflows and persists `workflow_runs`.
-* [ ] Worker persists `activity_runs` as activities execute.
-* [ ] Ensure retries are via Temporal retry policy (not hand-rolled). 
-* [ ] Implement agent task endpoints:
+* [x] Core API can start workflows and persists `workflow_runs`.
+* [x] Worker persists `activity_runs` as activities execute.
+* [x] Ensure retries are via Temporal retry policy (not hand-rolled). 
+* [x] Implement agent task endpoints:
 
-  * [ ] `POST /workspaces/{id}/tasks` (SYSTEM-only)
-  * [ ] `GET /workspaces/{id}/tasks`
-  * [ ] `PATCH /tasks/{id}` (assignee-only updates)
+  * [x] `POST /workspaces/{id}/tasks` (SYSTEM-only)
+  * [x] `GET /workspaces/{id}/tasks`
+  * [x] `PATCH /tasks/{id}` (assignee-only updates)
 
 **Exit tests:**
 
-* [ ] Start a workflow -> workflow_runs row created -> completes -> status updated.
-* [ ] Activities produce activity_runs rows.
+* [x] Start a workflow -> workflow_runs row created -> completes -> status updated.
+* [x] Activities produce activity_runs rows.
 
 ---
 

@@ -14,6 +14,8 @@ from log_event_routes import router as log_event_router
 from evidence_routes import router as evidence_router
 from claim_routes import router as claim_router
 from draft_routes import router as draft_router
+from rulecheck_routes import router as rulecheck_router
+from task_routes import router as task_router
 
 # Configure logging
 logging.basicConfig(
@@ -38,6 +40,8 @@ app.include_router(log_event_routes, tags=["Logs & Events"])
 app.include_router(evidence_router, tags=["Evidence Resolution"])
 app.include_router(claim_router, tags=["Claims"])
 app.include_router(draft_router, tags=["Drafts"])
+app.include_router(rulecheck_router, tags=["Rule Checks"])
+app.include_router(task_router, tags=["Agent Tasks"])
 
 
 @app.get("/health")
