@@ -26,6 +26,7 @@ from rulecheck_routes import router as rulecheck_router
 from task_routes import router as task_router
 from request_routes import router as request_router
 from critique_routes import router as critique_router
+from phase_routes import router as phase_router
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +55,7 @@ app.include_router(rulecheck_router, tags=["Rule Checks"])
 app.include_router(task_router, tags=["Agent Tasks"])
 app.include_router(request_router, tags=["Request Actions"])
 app.include_router(critique_router, tags=["Critiques"])
+app.include_router(phase_router, tags=["Phase Management"])
 
 
 @app.get("/health")

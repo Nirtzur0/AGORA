@@ -535,23 +535,23 @@ This is the other "minimum workflow to prove the system."
 
 ---
 
-# Component 20 — Orchestrator phase machine + gates (system-only)
+# Component 20 — Orchestrator phase machine + gates (system-only) ✅
 
 **Spec links:** [§5.3 Workspace State Machine](04-system-implementation-spec.md#53-workspace-state-machine), [§5.4 Gates](04-system-implementation-spec.md#54-gates-how-decisions-are-made), [§5.7 Event Model](04-system-implementation-spec.md#57-event-model-audit--determinism)
 
 **Goal:** Workspace phases exist and only orchestrator advances them.
 
-* [ ] Implement workspace phase state machine + allowed transitions. 
-* [ ] Implement gates as deterministic predicates over persisted state (counts + rule_checks + critiques + role presence). 
-* [ ] Orchestrator writes:
+* [x] Implement workspace phase state machine + allowed transitions. 
+* [x] Implement gates as deterministic predicates over persisted state (counts + rule_checks + critiques + role presence). 
+* [x] Orchestrator writes:
 
-  * [ ] `workspace.phase_changed` events
-  * [ ] agent_tasks required_actions when gates fail/block
+  * [x] `workspace.phase_changed` events
+  * [x] agent_tasks required_actions when gates fail/block
 
 **Exit tests:**
 
-* [ ] Agent cannot change phase.
-* [ ] Orchestrator can, and emits event with previous/next phase and gate summary.
+* [x] Agent cannot change phase.
+* [x] Orchestrator can, and emits event with previous/next phase and gate summary.
 
 ---
 
