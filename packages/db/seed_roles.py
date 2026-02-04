@@ -26,11 +26,13 @@ spec.loader.exec_module(seed_roles)
 def main():
     print("Seeding roles with canonical permissions...")
     
-    db = get_db()
-    conn = db._connection
+    import psycopg
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localhost:5432/agora")
     
-    # Run upgrade
-    seed_roles.upgrade(conn)
+    with psycopg.connect(DATABASE_URL) as conn:
+        # Run upgrade
+        seed_roles.upgrade(conn)
+        conn.commit()
     
     print("✓ Roles seeded successfully")
 

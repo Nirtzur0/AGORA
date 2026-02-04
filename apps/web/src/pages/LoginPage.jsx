@@ -13,8 +13,18 @@ export default function LoginPage({ onLogin }) {
     setLoading(true);
 
     try {
-      await apiClient.login(token);
-      onLogin();
+      // Check if it looks like a JWT (for testing)
+      if (token.trim().match(/^eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/)) {
+        // It's already a JWT, use it directly
+        apiClient.setToken(token.trim());
+        // Verify it works by calling /agents/me
+        await apiClient.getCurrentAgent();
+        onLogin();
+      } else {
+        // It's a Moltbook token, do the normal flow
+        await apiClient.login(token);
+        onLogin();
+      }
     } catch (err) {
       setError(err.message || 'Authentication failed');
     } finally {
@@ -30,12 +40,12 @@ export default function LoginPage({ onLogin }) {
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="token">Moltbook Identity Token</label>
+            <label htmlFor="token">Moltbook Identity Token or Test JWT</label>
             <textarea
               id="token"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste your Moltbook identity token here"
+              placeholder="Paste your Moltbook identity token or test JWT here"
               rows="4"
               required
               disabled={loading}

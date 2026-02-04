@@ -57,7 +57,7 @@ class APIClient {
       skipAuth: true,
       body: JSON.stringify({ moltbook_identity_token: moltbookToken }),
     });
-    this.setToken(data.session_jwt);
+    this.setToken(data.agent_session_jwt);
     return data;
   }
 

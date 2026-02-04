@@ -124,7 +124,7 @@ async def create_workspace(
             if existing:
                 # Return existing workspace
                 result = db.execute(
-                    "SELECT id, name, description, phase, reputation_config, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+                    "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
                     (existing["result_id"],)
                 ).fetchone()
                 
@@ -133,10 +133,10 @@ async def create_workspace(
                     name=result[1],
                     description=result[2],
                     phase=result[3],
-                    reputation_config=result[4],
-                    created_by=result[5],
-                    created_at=result[6],
-                    updated_at=result[7]
+                    reputation_config={},
+                    created_by=result[4],
+                    created_at=result[5],
+                    updated_at=result[6]
                 )
         
         # Check agent's reputation meets Maintainer requirement
@@ -156,15 +156,14 @@ async def create_workspace(
         
         db.execute(
             """
-            INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+            INSERT INTO workspaces (id, name, description, phase, created_by, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
             """,
             (
                 workspace_id,
                 request.name,
                 request.description,
                 "INIT",  # All workspaces start in INIT phase
-                {},  # Default empty reputation config
                 agent.agent_id
             )
         )
@@ -233,7 +232,7 @@ async def create_workspace(
         
         # Return created workspace
         result = db.execute(
-            "SELECT id, name, description, phase, reputation_config, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
@@ -242,15 +241,15 @@ async def create_workspace(
             name=result[1],
             description=result[2],
             phase=result[3],
-            reputation_config=result[4],
-            created_by=result[5],
-            created_at=result[6],
-            updated_at=result[7]
+            reputation_config={},
+            created_by=result[4],
+            created_at=result[5],
+            updated_at=result[6]
         )
 
 
 @router.get("", response_model=List[WorkspaceResponse])
-async def list_workspaces(
+async def list_workspaces_FIXED(
     phase: Optional[str] = None,
     agent: AgentContext = Depends(get_agent_context)
 ):
@@ -262,7 +261,7 @@ async def list_workspaces(
     """
     with get_db() as db:
         query = """
-            SELECT id, name, description, phase, reputation_config, created_by, created_at, updated_at
+            SELECT id, name, description, phase, created_by, created_at
             FROM workspaces
         """
         params = []
@@ -281,10 +280,10 @@ async def list_workspaces(
                 name=row[1],
                 description=row[2],
                 phase=row[3],
-                reputation_config=row[4],
-                created_by=row[5],
-                created_at=row[6],
-                updated_at=row[7]
+                reputation_config={},
+                created_by=row[4],
+                created_at=row[5],
+                updated_at=row[5]  # Use created_at for both since updated_at doesn't exist
             )
             for row in results
         ]
@@ -301,7 +300,7 @@ async def get_workspace(
     with get_db() as db:
         # Get workspace
         workspace_result = db.execute(
-            "SELECT id, name, description, phase, reputation_config, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
@@ -331,10 +330,10 @@ async def get_workspace(
             name=workspace_result[1],
             description=workspace_result[2],
             phase=workspace_result[3],
-            reputation_config=workspace_result[4],
-            created_by=workspace_result[5],
-            created_at=workspace_result[6],
-            updated_at=workspace_result[7]
+            reputation_config={},
+            created_by=workspace_result[4],
+            created_at=workspace_result[5],
+            updated_at=workspace_result[6]
         )
         
         team = [
@@ -395,7 +394,7 @@ async def update_workspace(
         
         # Return updated workspace
         result = db.execute(
-            "SELECT id, name, description, phase, reputation_config, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
@@ -404,10 +403,10 @@ async def update_workspace(
             name=result[1],
             description=result[2],
             phase=result[3],
-            reputation_config=result[4],
-            created_by=result[5],
-            created_at=result[6],
-            updated_at=result[7]
+            reputation_config={},
+            created_by=result[4],
+            created_at=result[5],
+            updated_at=result[6]
         )
 
 

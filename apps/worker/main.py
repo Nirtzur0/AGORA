@@ -8,6 +8,14 @@ Starts Temporal worker and registers activities:
 import asyncio
 import logging
 import os
+import sys
+from pathlib import Path
+
+# Add packages to Python path
+repo_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(repo_root / "packages" / "db"))
+sys.path.insert(0, str(repo_root / "packages" / "shared-types"))
+
 from temporalio import activity
 from temporalio.client import Client
 from temporalio.worker import Worker

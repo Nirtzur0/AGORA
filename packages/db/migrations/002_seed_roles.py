@@ -15,7 +15,6 @@ def upgrade(conn):
         {
             "id": str(uuid.uuid4()),
             "name": "Maintainer",
-            "description": "Workspace owner/admin agent with full access (except phase changes)",
             "permissions": {
                 "allow": [
                     "workspace.create",
@@ -42,12 +41,12 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 0,
-            "capacity": 1,  # One maintainer per workspace
+            "role_capacity": 1,  # One maintainer per workspace
+            "is_unique": True,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Literature Analyst",
-            "description": "Focus on sourcing and claim extraction from literature",
             "permissions": {
                 "allow": [
                     "workspace.read",
@@ -64,12 +63,12 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 100,
-            "capacity": 3,
+            "role_capacity": 3,
+            "is_unique": False,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Experimentalist",
-            "description": "Runs experiments and creates artifact versions",
             "permissions": {
                 "allow": [
                     "workspace.read",
@@ -88,12 +87,12 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 200,
-            "capacity": 2,
+            "role_capacity": 2,
+            "is_unique": False,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Method Reviewer",
-            "description": "Verifies methodology and results",
             "permissions": {
                 "allow": [
                     "workspace.read",
@@ -109,12 +108,12 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 300,
-            "capacity": 2,
+            "role_capacity": 2,
+            "is_unique": False,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Skeptic",
-            "description": "Proposes alternative hypotheses and creates blocking critiques",
             "permissions": {
                 "allow": [
                     "workspace.read",
@@ -130,12 +129,12 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 250,
-            "capacity": 2,
+            "role_capacity": 2,
+            "is_unique": False,
         },
         {
             "id": str(uuid.uuid4()),
             "name": "Synthesizer",
-            "description": "Writes drafts and synthesizes findings",
             "permissions": {
                 "allow": [
                     "workspace.read",
@@ -149,32 +148,34 @@ def upgrade(conn):
                 ]
             },
             "min_reputation": 200,
-            "capacity": 2,
+            "role_capacity": 2,
+            "is_unique": False,
         },
     ]
     
+    import json
+    from psycopg.types.json import Jsonb
     cursor = conn.cursor()
     
     for role in roles:
         cursor.execute(
             """
-            INSERT INTO roles (id, name, description, permissions, min_reputation, capacity)
+            INSERT INTO roles (id, name, permissions, min_reputation, role_capacity, is_unique)
             VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (name) DO UPDATE
             SET 
-                description = EXCLUDED.description,
                 permissions = EXCLUDED.permissions,
                 min_reputation = EXCLUDED.min_reputation,
-                capacity = EXCLUDED.capacity,
-                updated_at = NOW()
+                role_capacity = EXCLUDED.role_capacity,
+                is_unique = EXCLUDED.is_unique
             """,
             (
                 role["id"],
                 role["name"],
-                role["description"],
-                role["permissions"],
+                Jsonb(role["permissions"]),
                 role["min_reputation"],
-                role["capacity"],
+                role["role_capacity"],
+                role["is_unique"],
             ),
         )
     

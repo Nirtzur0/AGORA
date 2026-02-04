@@ -72,6 +72,20 @@ export class MoltbookVerifier {
       return cached;
     }
 
+    // DEBUG MODE BYPASS
+    if (this.config.enableDebugMode && identityToken.startsWith('debug-token-')) {
+      console.log('DEBUG MODE: Bypassing Moltbook verification for debug token');
+      return {
+        moltbook_id: 'mb_debug_user_001',
+        name: 'Debug User',
+        reputation: 999,
+        profile_meta: {
+          role: 'debugger',
+          environment: 'local'
+        }
+      };
+    }
+
     // Check circuit breaker
     if (!this.circuitBreaker.canAttempt()) {
       throw new VerificationError(

@@ -11,6 +11,7 @@ export interface Config {
   verificationCacheTtl: number; // seconds
   circuitBreakerThreshold: number; // failures before opening circuit
   circuitBreakerTimeout: number; // seconds to wait before retry
+  enableDebugMode: boolean;
 }
 
 function getEnvRequired(key: string): string {
@@ -33,5 +34,6 @@ export function loadConfig(): Config {
     verificationCacheTtl: parseInt(getEnvOptional('VERIFICATION_CACHE_TTL', '300'), 10),
     circuitBreakerThreshold: parseInt(getEnvOptional('CIRCUIT_BREAKER_THRESHOLD', '5'), 10),
     circuitBreakerTimeout: parseInt(getEnvOptional('CIRCUIT_BREAKER_TIMEOUT', '60'), 10),
+    enableDebugMode: getEnvOptional('ENABLE_DEBUG_MODE', 'false') === 'true',
   };
 }

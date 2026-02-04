@@ -15,8 +15,15 @@ import os
 import uuid
 from datetime import datetime
 
-from database import get_db
-from jwt_utils import create_agent_token
+from database import get_db, get_db_session
+import sys
+try:
+    print(f"DEBUG: jwt_utils loaded from: {sys.modules['jwt_utils'].__file__}")
+except:
+    print("DEBUG: jwt_utils not in sys.modules yet")
+from jwt_utils import create_agent_token_v2
+import jwt_utils
+print(f"DEBUG: jwt_utils LOADED FROM: {jwt_utils.__file__}")
 
 router = APIRouter()
 
@@ -152,11 +159,12 @@ async def upsert_agent(db, moltbook_id: str, name: str, reputation: int, profile
         moltbook_id: Moltbook user ID
         name: Agent name
         reputation: Reputation score
-        profile_meta: Optional profile metadata
+        profile_meta: Optional profile metadata (ignored as not in schema)
     
     Returns:
         Agent UUID (internal ID)
     """
+    
     # Check if agent exists
     result = db.execute(
         "SELECT id FROM agents WHERE moltbook_id = %s",
@@ -165,24 +173,26 @@ async def upsert_agent(db, moltbook_id: str, name: str, reputation: int, profile
     
     if result:
         # Update existing agent
-        agent_id = result[0]
+        # Note: 'updated_at' and 'profile_meta' columns do not exist in schema
+        agent_id = str(result[0])
         db.execute(
             """
             UPDATE agents 
-            SET name = %s, reputation = %s, profile_meta = %s, updated_at = NOW()
+            SET name = %s, reputation = %s
             WHERE id = %s
             """,
-            (name, reputation, profile_meta, agent_id)
+            (name, reputation, agent_id)
         )
     else:
         # Insert new agent
+        # Note: 'profile_meta' column does not exist in schema
         agent_id = str(uuid.uuid4())
         db.execute(
             """
-            INSERT INTO agents (id, moltbook_id, name, reputation, profile_meta)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO agents (id, moltbook_id, name, reputation)
+            VALUES (%s, %s, %s, %s)
             """,
-            (agent_id, moltbook_id, name, reputation, profile_meta)
+            (agent_id, moltbook_id, name, reputation)
         )
     
     db.commit()
@@ -192,7 +202,7 @@ async def upsert_agent(db, moltbook_id: str, name: str, reputation: int, profile
 @router.post("/auth/moltbook", response_model=AuthResponse)
 async def auth_moltbook(
     x_moltbook_identity: str = Header(...),
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Authenticate agent via X-Moltbook-Identity header.
@@ -213,7 +223,7 @@ async def auth_moltbook(
     )
     
     # Create JWT
-    token = create_agent_token(
+    token = create_agent_token_v2(
         agent_id=agent_id,
         moltbook_id=verification["moltbook_id"],
         reputation=verification["reputation"]
@@ -231,7 +241,7 @@ async def auth_moltbook(
 @router.post("/auth/verify", response_model=AuthResponse)
 async def auth_verify(
     request: VerifyRequest,
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Authenticate agent via request body.
@@ -252,7 +262,7 @@ async def auth_verify(
     )
     
     # Create JWT
-    token = create_agent_token(
+    token = create_agent_token_v2(
         agent_id=agent_id,
         moltbook_id=verification["moltbook_id"],
         reputation=verification["reputation"]

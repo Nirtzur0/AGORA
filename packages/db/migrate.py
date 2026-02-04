@@ -39,11 +39,6 @@ def migrate_up():
     versions_dir = migrations_dir / "versions"
     versions_dir.mkdir(exist_ok=True)
     
-    # Import and run the migration directly for MVP simplicity
-    # In production, this would use proper Alembic migration history
-    from . import migrations
-    migration_001 = __import__('db.migrations.001_initial_schema', fromlist=['upgrade'])
-    
     with engine.begin() as conn:
         # Check if tables exist
         result = conn.execute(text("""
@@ -61,24 +56,26 @@ def migrate_up():
             # Execute the upgrade function with proper Alembic op context
             from alembic.runtime.migration import MigrationContext
             from alembic.operations import Operations
+            import alembic.op
             
             context = MigrationContext.configure(conn)
             op = Operations(context)
             
-            # Monkey-patch op into the migration module's namespace
-            import db.migrations
-            original_op = getattr(db.migrations, 'op', None)
-            db.migrations.op = op
+            # Bind the op object to alembic.op module
+            import sys
+            alembic.op._proxy = op
             
-            try:
-                migration_001.upgrade()
-                logger.info("✓ Initial schema migration applied successfully")
-            finally:
-                # Restore original state
-                if original_op is None:
-                    delattr(db.migrations, 'op')
-                else:
-                    db.migrations.op = original_op
+            # Now load and execute the migration
+            import importlib.util
+            migration_file = migrations_dir / "migrations" / "001_initial_schema.py"
+            spec = importlib.util.spec_from_file_location("migration_001", migration_file)
+            migration_001 = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(migration_001)
+            
+            # Call the upgrade function
+            migration_001.upgrade()
+            
+            logger.info("✓ Initial schema migration applied successfully")
         else:
             logger.info("Schema already exists, skipping migration")
     

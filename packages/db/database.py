@@ -25,9 +25,20 @@ class DBWrapper:
         self._session = session
     
     def execute(self, query, params=None):
-        """Execute query with automatic text() wrapping."""
+        """Execute query with automatic text() wrapping. handles %s style via raw cursor."""
         if isinstance(query, str):
+            # Check for %s placeholder - implies raw psycopg2 style
+            if "%s" in query:
+                # Use raw cursor for compatibility with %s style queries
+                # access the underlying DBAPI connection
+                conn = self._session.connection().connection
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                return cursor
+            
+            # Otherwise use SQLAlchemy text()
             query = sql_text(query)
+            
         if params:
             return self._session.execute(query, params)
         return self._session.execute(query)
@@ -55,6 +66,17 @@ def get_db():
         raise
     finally:
         session.close()
+
+
+def get_db_session():
+    """
+    Generator for FastAPI Depends().
+    
+    Delegates to get_db() context manager but yields the session
+    so FastAPI can handle the dependency injection correctly.
+    """
+    with get_db() as db:
+        yield db
 
 
 @contextmanager

@@ -33,7 +33,7 @@ AGENT_TOKEN_EXPIRY_HOURS = int(os.getenv("AGENT_TOKEN_EXPIRY_HOURS", "24"))
 SYSTEM_TOKEN_EXPIRY_HOURS = int(os.getenv("SYSTEM_TOKEN_EXPIRY_HOURS", "168"))  # 7 days
 
 
-def create_agent_token(
+def create_agent_token_v2(
     agent_id: str,
     moltbook_id: str,
     reputation: int,
@@ -55,7 +55,7 @@ def create_agent_token(
     exp = now + timedelta(hours=AGENT_TOKEN_EXPIRY_HOURS)
     
     payload = {
-        "sub": agent_id,
+        "sub": str(agent_id),
         "type": TokenType.AGENT,
         "aud": TokenAudience.AGENT_API,
         "iss": "agora-core-api",
@@ -67,6 +67,13 @@ def create_agent_token(
     
     if workspace_id:
         payload["workspace_id"] = workspace_id
+    
+    print(f"DEBUG: creating agent token. AgentID type: {type(agent_id)}")
+    print(f"DEBUG: payload: {payload}")
+    for k, v in payload.items():
+        print(f"DEBUG: key={k} value={v} type={type(v)}")
+        if "uuid" in str(type(v)).lower():
+            print(f"DEBUG: FOUND UUID IN PAYLOAD AT KEY {k}")
     
     return jwt.encode(payload, AGENT_JWT_SECRET, algorithm="HS256")
 
