@@ -12,6 +12,8 @@ import uuid
 
 from workflow_client import WorkflowClient, create_activity_run, update_activity_run
 from database import DBWrapper
+from agent_tasks import TaskPayload, TaskInput, RoleName, TaskStatus, TaskPriority
+from queries.agent_tasks import insert_agent_task
 
 
 async def literature_grounding_workflow(
@@ -80,38 +82,39 @@ async def literature_grounding_workflow(
         # Step 2: Create agent_task for claim extraction (system-assigned)
         task_id = str(uuid.uuid4())
         
-        db.execute(
-            """
-            INSERT INTO agent_tasks (
-                id,
-                workspace_id,
-                title,
-                description,
-                task_type,
-                target_artifact_id,
-                workflow_run_id,
-                status
-            ) VALUES (
-                :id,
-                :workspace_id,
-                :title,
-                :description,
-                :task_type,
-                :target_artifact_id,
-                :workflow_run_id,
-                :status
-            )
-            """,
-            {
-                "id": task_id,
-                "workspace_id": workspace_id,
-                "title": "Extract claims from PDF",
-                "description": f"Review the parsed PDF (artifact_version {artifact_version_id}) and create claims with evidence",
-                "task_type": "extract_claims",
-                "target_artifact_id": artifact_id,
-                "workflow_run_id": workflow_run_id,
-                "status": "pending"
-            }
+        task_payload = TaskPayload(
+            objective="Extract claims from the PDF and add evidence.",
+            inputs=[
+                TaskInput(
+                    artifact_version_id=artifact_version_id,
+                    label="Parsed PDF"
+                )
+            ],
+            required_outputs=[
+                "claim.create",
+                "claim.evidence.add",
+                "draft.version.create"
+            ],
+            context_links=[
+                {"type": "artifact", "id": artifact_id}
+            ],
+            acceptance_criteria=[
+                "At least 2 claims created with evidence pointers",
+                "A draft version created with citations"
+            ],
+            priority=TaskPriority.HIGH.value,
+            workflow_run_id=workflow_run_id,
+            assignee_role=RoleName.LITERATURE_ANALYST.value
+        ).model_dump()
+
+        insert_agent_task(
+            db,
+            task_id=task_id,
+            workspace_id=workspace_id,
+            assignee_agent_id=None,
+            task_type="extract_claims",
+            status=TaskStatus.OPEN.value,
+            payload=task_payload,
         )
         
         db.commit()

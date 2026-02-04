@@ -156,19 +156,24 @@ class CritiqueSufficiencyActivity:
         
         rows = self.db.execute(query, params).fetchall()
         
-        return [
-            {
-                "id": row[0],
-                "critic_agent_id": row[1],
-                "status": row[2],
-                "severity": row[3],
-                "message": row[4],
-                "resolution": json.loads(row[5]) if row[5] else None,
-                "created_at": row[6],
-                "critic_reputation": row[7] or 0.0
-            }
-            for row in rows
-        ]
+        critiques = []
+        for row in rows:
+            resolution = row[5]
+            if isinstance(resolution, str):
+                resolution = json.loads(resolution)
+            critiques.append(
+                {
+                    "id": row[0],
+                    "critic_agent_id": row[1],
+                    "status": row[2],
+                    "severity": row[3],
+                    "message": row[4],
+                    "resolution": resolution if resolution else None,
+                    "created_at": row[6],
+                    "critic_reputation": row[7] or 0.0,
+                }
+            )
+        return critiques
     
     def _evaluate_sufficiency(
         self,
@@ -279,7 +284,7 @@ class CritiqueSufficiencyActivity:
                 "target_id": target_id,
                 "target_location": target_location,
                 "status": status,
-                "details": json.dumps(details)
+                "details": json.dumps(details, default=str)
             }
         )
         

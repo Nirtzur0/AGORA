@@ -12,6 +12,7 @@ import os
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import IntegrityError
 import uuid
+from sqlalchemy import text
 
 # Use test database
 TEST_DATABASE_URL = os.getenv(

@@ -8,12 +8,20 @@ Per spec §4.6:
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
-from database import DBWrapper, get_db
-from auth_middleware import require_agent_token, require_system_token
+from database import DBWrapper, get_db_session
+from auth_middleware import require_agent_token, require_system_token, AgentContext
+from agent_tasks import (
+    TaskPayload,
+    TaskInput,
+    TaskResultLink,
+    TaskStatus,
+    TASK_STATUS_VALUES,
+)
+from queries.agent_tasks import insert_agent_task, fetch_agent_task
 
 
 router = APIRouter()
@@ -23,36 +31,28 @@ router = APIRouter()
 
 class CreateTaskRequest(BaseModel):
     """Request to create an agent task (SYSTEM-ONLY)."""
-    title: str = Field(..., description="Task title")
-    description: str = Field(..., description="Task description")
-    task_type: str = Field(..., description="Type of task (e.g., extract_claims, review_draft)")
+    type: str = Field(..., description="Task type (e.g., extract_claims, review_draft)")
     assignee_agent_id: Optional[str] = Field(None, description="UUID of assignee agent")
-    assignee_role_id: Optional[str] = Field(None, description="UUID of assignee role")
-    target_artifact_id: Optional[str] = Field(None, description="UUID of target artifact")
-    workflow_run_id: Optional[str] = Field(None, description="UUID of parent workflow_run")
+    payload: TaskPayload = Field(..., description="Structured task payload")
 
 
 class TaskResponse(BaseModel):
     """Response for an agent task."""
     id: str
     workspace_id: str
-    title: str
-    description: str
-    task_type: str
     assignee_agent_id: Optional[str]
-    assignee_role_id: Optional[str]
-    target_artifact_id: Optional[str]
-    workflow_run_id: Optional[str]
+    type: str
     status: str
-    result_artifact_id: Optional[str]
+    payload: Dict[str, Any]
     created_at: datetime
     completed_at: Optional[datetime]
 
 
 class UpdateTaskRequest(BaseModel):
     """Request to update task status."""
-    status: str = Field(..., description="New status (in_progress, completed, failed)")
-    result_artifact_id: Optional[str] = Field(None, description="UUID of result artifact")
+    status: str = Field(..., description="New status (open, in_progress, blocked, completed)")
+    result_links: Optional[List[TaskResultLink]] = Field(None, description="Result pointers")
+    notes: Optional[str] = Field(None, description="Optional notes or blockers")
 
 
 # Endpoints
@@ -62,7 +62,7 @@ def create_task(
     workspace_id: uuid.UUID,
     request: CreateTaskRequest,
     system_token: dict = Depends(require_system_token),
-    db: DBWrapper = Depends(get_db)
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Create an agent task (SYSTEM-ONLY).
@@ -90,121 +90,59 @@ def create_task(
         
         if not agent_row:
             raise HTTPException(status_code=404, detail=f"Agent {request.assignee_agent_id} not found")
-    
-    # Verify assignee role if provided
-    if request.assignee_role_id:
-        role_row = db.execute(
-            "SELECT id FROM roles WHERE id = :id",
-            {"id": request.assignee_role_id}
-        ).fetchone()
-        
-        if not role_row:
-            raise HTTPException(status_code=404, detail=f"Role {request.assignee_role_id} not found")
-    
-    # Verify target artifact if provided
-    if request.target_artifact_id:
-        artifact_row = db.execute(
+
+    # Validate input artifact versions belong to workspace
+    for task_input in request.payload.inputs:
+        version_row = db.execute(
             """
-            SELECT id FROM artifacts
-            WHERE id = :id AND workspace_id = :workspace_id
+            SELECT av.id
+            FROM artifact_versions av
+            JOIN artifacts a ON av.artifact_id = a.id
+            WHERE av.id = :version_id AND a.workspace_id = :workspace_id
             """,
-            {"id": request.target_artifact_id, "workspace_id": workspace_id_str}
+            {"version_id": task_input.artifact_version_id, "workspace_id": workspace_id_str}
         ).fetchone()
         
-        if not artifact_row:
+        if not version_row:
             raise HTTPException(
                 status_code=404,
-                detail=f"Artifact {request.target_artifact_id} not found in workspace {workspace_id_str}"
-            )
-    
-    # Verify workflow_run if provided
-    if request.workflow_run_id:
-        workflow_row = db.execute(
-            """
-            SELECT id FROM workflow_runs
-            WHERE id = :id AND workspace_id = :workspace_id
-            """,
-            {"id": request.workflow_run_id, "workspace_id": workspace_id_str}
-        ).fetchone()
-        
-        if not workflow_row:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Workflow run {request.workflow_run_id} not found in workspace {workspace_id_str}"
+                detail=f"Artifact version {task_input.artifact_version_id} not found in workspace {workspace_id_str}"
             )
     
     # Create task
     task_id = str(uuid.uuid4())
     
-    db.execute(
-        """
-        INSERT INTO agent_tasks (
-            id,
-            workspace_id,
-            title,
-            description,
-            task_type,
-            assignee_agent_id,
-            assignee_role_id,
-            target_artifact_id,
-            workflow_run_id,
-            status
-        ) VALUES (
-            :id,
-            :workspace_id,
-            :title,
-            :description,
-            :task_type,
-            :assignee_agent_id,
-            :assignee_role_id,
-            :target_artifact_id,
-            :workflow_run_id,
-            :status
-        )
-        """,
-        {
-            "id": task_id,
-            "workspace_id": workspace_id_str,
-            "title": request.title,
-            "description": request.description,
-            "task_type": request.task_type,
-            "assignee_agent_id": request.assignee_agent_id,
-            "assignee_role_id": request.assignee_role_id,
-            "target_artifact_id": request.target_artifact_id,
-            "workflow_run_id": request.workflow_run_id,
-            "status": "pending"
-        }
+    payload_dict = request.payload.model_dump()
+
+    insert_agent_task(
+        db,
+        task_id=task_id,
+        workspace_id=workspace_id_str,
+        assignee_agent_id=request.assignee_agent_id,
+        task_type=request.type,
+        status=TaskStatus.OPEN.value,
+        payload=payload_dict,
     )
     
     db.commit()
     
     # Fetch and return
-    row = db.execute(
-        """
-        SELECT id, workspace_id, title, description, task_type,
-               assignee_agent_id, assignee_role_id, target_artifact_id,
-               workflow_run_id, status, result_artifact_id,
-               created_at, completed_at
-        FROM agent_tasks
-        WHERE id = :id
-        """,
-        {"id": task_id}
-    ).fetchone()
+    row = fetch_agent_task(db, task_id=task_id)
     
+    payload = row[5] or {}
+    if isinstance(payload, str):
+        import json
+        payload = json.loads(payload)
+
     return TaskResponse(
-        id=row[0],
-        workspace_id=row[1],
-        title=row[2],
-        description=row[3],
-        task_type=row[4],
-        assignee_agent_id=row[5],
-        assignee_role_id=row[6],
-        target_artifact_id=row[7],
-        workflow_run_id=row[8],
-        status=row[9],
-        result_artifact_id=row[10],
-        created_at=row[11],
-        completed_at=row[12]
+        id=str(row[0]),
+        workspace_id=str(row[1]),
+        assignee_agent_id=str(row[2]) if row[2] else None,
+        type=row[3],
+        status=row[4],
+        payload=payload,
+        created_at=row[6],
+        completed_at=row[7]
     )
 
 
@@ -213,8 +151,8 @@ def list_tasks(
     workspace_id: uuid.UUID,
     assignee_agent_id: Optional[str] = Query(None, description="Filter by assignee agent"),
     status: Optional[str] = Query(None, description="Filter by status"),
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     List agent tasks with optional filters.
@@ -241,15 +179,18 @@ def list_tasks(
         params["assignee_agent_id"] = assignee_agent_id
     
     if status:
+        if status not in TASK_STATUS_VALUES:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid status. Must be one of: open, in_progress, blocked, completed"
+            )
         conditions.append("status = :status")
         params["status"] = status
     
     where_clause = " AND ".join(conditions)
     
     query = f"""
-        SELECT id, workspace_id, title, description, task_type,
-               assignee_agent_id, assignee_role_id, target_artifact_id,
-               workflow_run_id, status, result_artifact_id,
+        SELECT id, workspace_id, assignee_agent_id, type, status, payload,
                created_at, completed_at
         FROM agent_tasks
         WHERE {where_clause}
@@ -261,20 +202,20 @@ def list_tasks(
     
     results = []
     for row in rows:
+        payload = row[5] or {}
+        if isinstance(payload, str):
+            import json
+            payload = json.loads(payload)
+
         results.append(TaskResponse(
-            id=row[0],
-            workspace_id=row[1],
-            title=row[2],
-            description=row[3],
-            task_type=row[4],
-            assignee_agent_id=row[5],
-            assignee_role_id=row[6],
-            target_artifact_id=row[7],
-            workflow_run_id=row[8],
-            status=row[9],
-            result_artifact_id=row[10],
-            created_at=row[11],
-            completed_at=row[12]
+            id=str(row[0]),
+            workspace_id=str(row[1]),
+            assignee_agent_id=str(row[2]) if row[2] else None,
+            type=row[3],
+            status=row[4],
+            payload=payload,
+            created_at=row[6],
+            completed_at=row[7]
         ))
     
     return results
@@ -284,8 +225,8 @@ def list_tasks(
 def update_task(
     task_id: uuid.UUID,
     request: UpdateTaskRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Update task status (assignee-only).
@@ -294,12 +235,12 @@ def update_task(
     Only the assignee agent can update the task.
     """
     task_id_str = str(task_id)
-    agent_id = current_agent["agent_id"]
+    agent_id = current_agent.agent_id
     
     # Fetch task
     task_row = db.execute(
         """
-        SELECT id, assignee_agent_id, workspace_id, status
+        SELECT id, assignee_agent_id, workspace_id, status, payload
         FROM agent_tasks
         WHERE id = :id
         """,
@@ -317,92 +258,67 @@ def update_task(
         )
     
     # Validate status transition
-    valid_statuses = ["pending", "in_progress", "completed", "failed"]
-    if request.status not in valid_statuses:
+    if request.status not in TASK_STATUS_VALUES:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            detail="Invalid status. Must be one of: open, in_progress, blocked, completed"
         )
     
-    # Verify result artifact if provided
-    if request.result_artifact_id:
-        artifact_row = db.execute(
-            """
-            SELECT id FROM artifacts
-            WHERE id = :id AND workspace_id = :workspace_id
-            """,
-            {"id": request.result_artifact_id, "workspace_id": task_row[2]}
-        ).fetchone()
-        
-        if not artifact_row:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Result artifact {request.result_artifact_id} not found in workspace"
-            )
-    
+    # Update task payload with results/notes
+    payload = task_row[4] or {}
+    if isinstance(payload, str):
+        import json
+        payload = json.loads(payload)
+    if request.result_links is not None:
+        payload["result_links"] = [link.model_dump() for link in request.result_links]
+    if request.notes is not None:
+        payload["notes"] = request.notes
+
     # Update task
     completed_at = None
-    if request.status in ["completed", "failed"]:
+    if request.status == "completed":
         completed_at = datetime.utcnow()
-    
-    if completed_at:
-        db.execute(
-            """
-            UPDATE agent_tasks
-            SET status = :status,
-                result_artifact_id = :result_artifact_id,
-                completed_at = :completed_at
-            WHERE id = :id
-            """,
-            {
-                "id": task_id_str,
-                "status": request.status,
-                "result_artifact_id": request.result_artifact_id,
-                "completed_at": completed_at
-            }
-        )
-    else:
-        db.execute(
-            """
-            UPDATE agent_tasks
-            SET status = :status,
-                result_artifact_id = :result_artifact_id
-            WHERE id = :id
-            """,
-            {
-                "id": task_id_str,
-                "status": request.status,
-                "result_artifact_id": request.result_artifact_id
-            }
-        )
+
+    db.execute(
+        """
+        UPDATE agent_tasks
+        SET status = :status,
+            payload = :payload,
+            completed_at = :completed_at
+        WHERE id = :id
+        """,
+        {
+            "id": task_id_str,
+            "status": request.status,
+            "payload": payload,
+            "completed_at": completed_at
+        }
+    )
     
     db.commit()
     
     # Fetch and return
     row = db.execute(
         """
-        SELECT id, workspace_id, title, description, task_type,
-               assignee_agent_id, assignee_role_id, target_artifact_id,
-               workflow_run_id, status, result_artifact_id,
-               created_at, completed_at
+        SELECT id, workspace_id, assignee_agent_id, type, status, payload, created_at, completed_at
         FROM agent_tasks
         WHERE id = :id
         """,
         {"id": task_id_str}
     ).fetchone()
+
+    payload = row[5] or {}
+    if isinstance(payload, str):
+        import json
+        payload = json.loads(payload)
     
     return TaskResponse(
-        id=row[0],
-        workspace_id=row[1],
-        title=row[2],
-        description=row[3],
-        task_type=row[4],
-        assignee_agent_id=row[5],
-        assignee_role_id=row[6],
-        target_artifact_id=row[7],
-        workflow_run_id=row[8],
-        status=row[9],
-        result_artifact_id=row[10],
-        created_at=row[11],
-        completed_at=row[12]
+        id=str(row[0]),
+        workspace_id=str(row[1]),
+        assignee_agent_id=str(row[2]) if row[2] else None,
+        type=row[3],
+        status=row[4],
+        payload=payload,
+        created_at=row[6],
+        completed_at=row[7]
     )

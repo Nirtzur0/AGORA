@@ -16,6 +16,9 @@ Tests sandbox execution per spec §6.4:
 import pytest
 import uuid
 import json
+from database import get_raw_db
+
+TEST_AGENT_ID = "00000000-0000-0000-0000-000000000001"
 import tempfile
 import shutil
 from pathlib import Path
@@ -59,29 +62,21 @@ print("Line 2")
 print("Line 3")
 """
     version_id = str(uuid.uuid4())
-    script_path = f"{workspace_id}/artifacts/{script_artifact_id}/v{version_id}/script.py"
-    
-    from io import BytesIO
-    test_storage.put_object(
-        "agora",
-        script_path,
-        BytesIO(script_content.encode('utf-8')),
-        len(script_content.encode('utf-8')),
-        content_type="text/plain"
-    )
+    script_storage_uri = f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/v1/script.py"
+    test_storage.put_object(script_storage_uri, script_content.encode("utf-8"))
     
     # Create artifact version
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-        VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
         """,
         {
             "id": version_id,
             "artifact_id": script_artifact_id,
-            "version_number": 1,
+            "version": 1,
+            "storage_uri": script_storage_uri,
             "content_hash": "test_hash",
-            "location": "script.py",
             "created_by": "test_agent"
         }
     )
@@ -130,19 +125,17 @@ print("Line 3")
     
     # Verify log artifact version created
     log_version = test_db.execute(
-        "SELECT id, content_hash, location FROM artifact_versions WHERE artifact_id = :id",
+        "SELECT id, content_hash, storage_uri FROM artifact_versions WHERE artifact_id = :id",
         {"id": log_artifact_id}
     ).fetchone()
     
     assert log_version is not None
-    assert log_version[2].startswith("log:char=")
+    assert log_version[2].startswith(f"s3://agora/{workspace_id}/artifacts/{log_artifact_id}/v")
+    assert log_version[2].endswith("/log.txt")
     
     # Verify log content in MinIO
-    log_path = f"{workspace_id}/artifacts/{log_artifact_id}/v{log_version[0]}/log.txt"
-    response = test_storage.get_object("agora", log_path)
-    log_content = response.read().decode('utf-8')
-    response.close()
-    response.release_conn()
+    log_storage_uri = log_version[2]
+    log_content = test_storage.get_object(log_storage_uri).read().decode("utf-8")
     
     assert "Hello from sandbox!" in log_content
     assert "Line 2" in log_content
@@ -207,28 +200,20 @@ import os
 print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
 """
     version_id = str(uuid.uuid4())
-    script_path = f"{workspace_id}/artifacts/{script_artifact_id}/v{version_id}/script.py"
-    
-    from io import BytesIO
-    test_storage.put_object(
-        "agora",
-        script_path,
-        BytesIO(script_content.encode('utf-8')),
-        len(script_content.encode('utf-8')),
-        content_type="text/plain"
-    )
+    script_storage_uri = f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/v1/script.py"
+    test_storage.put_object(script_storage_uri, script_content.encode("utf-8"))
     
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-        VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
         """,
         {
             "id": version_id,
             "artifact_id": script_artifact_id,
-            "version_number": 1,
+            "version": 1,
+            "storage_uri": script_storage_uri,
             "content_hash": "test_hash2",
-            "location": "script.py",
             "created_by": "test_agent"
         }
     )
@@ -267,15 +252,11 @@ print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
     
     # Verify log contains env var
     log_version = test_db.execute(
-        "SELECT id FROM artifact_versions WHERE artifact_id = :id",
+        "SELECT storage_uri FROM artifact_versions WHERE artifact_id = :id",
         {"id": log_artifact_id}
     ).fetchone()
     
-    log_path = f"{workspace_id}/artifacts/{log_artifact_id}/v{log_version[0]}/log.txt"
-    response = test_storage.get_object("agora", log_path)
-    log_content = response.read().decode('utf-8')
-    response.close()
-    response.release_conn()
+    log_content = test_storage.get_object(log_version[0]).read().decode("utf-8")
     
     assert "ENV_VAR=test_value" in log_content
 
@@ -312,29 +293,21 @@ def test_log_evidence_resolution(test_db, test_storage):
     
     # Store log content
     log_content = "Hello from sandbox!\nLine 2\nLine 3\n"
-    log_path = f"{workspace_id}/artifacts/{artifact_id}/v{version_id}/log.txt"
-    
-    from io import BytesIO
-    test_storage.put_object(
-        "agora",
-        log_path,
-        BytesIO(log_content.encode('utf-8')),
-        len(log_content.encode('utf-8')),
-        content_type="text/plain"
-    )
+    log_storage_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v1/log.txt"
+    test_storage.put_object(log_storage_uri, log_content.encode("utf-8"))
     
     # Create artifact version
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-        VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
         """,
         {
             "id": version_id,
             "artifact_id": artifact_id,
-            "version_number": 1,
+            "version": 1,
+            "storage_uri": log_storage_uri,
             "content_hash": "test_hash3",
-            "location": f"log:char=0-{len(log_content)}",
             "created_by": "test_agent"
         }
     )
@@ -380,56 +353,56 @@ def test_sandbox_run_endpoint(test_client, test_db, test_storage, mock_agent_tok
     """Test POST /workspaces/{id}/requests/run_sandbox endpoint."""
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
-    agent_id = "test_agent_id"
+    agent_id = TEST_AGENT_ID
     
-    # Create workspace
-    test_db.execute(
-        "INSERT INTO workspaces (id, name, phase) VALUES (:id, :name, :phase)",
-        {"id": workspace_id, "name": "Test Workspace", "phase": "active"}
-    )
-    
-    # Create script artifact
-    test_db.execute(
-        """
-        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
-        VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
-        """,
-        {
-            "id": script_artifact_id,
-            "workspace_id": workspace_id,
-            "short_id": "SCR4",
-            "type": "code",
-            "metadata": json.dumps({"language": "python"}),
-            "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-            "created_by": agent_id
-        }
-    )
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (agent_id, "test_moltbook_id", "Test Agent", 0.0)
+        )
+        cursor.execute(
+            "INSERT INTO workspaces (id, name, phase) VALUES (%s, %s, %s)",
+            (workspace_id, "Test Workspace", "active")
+        )
+        cursor.execute(
+            """
+            INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (
+                script_artifact_id,
+                workspace_id,
+                "SCR4",
+                "code",
+                json.dumps({"language": "python"}),
+                f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
+                agent_id,
+            ),
+        )
+        conn.commit()
     
     # Store script
     script_content = """print("Test output")"""
     version_id = str(uuid.uuid4())
-    script_path = f"{workspace_id}/artifacts/{script_artifact_id}/v{version_id}/script.py"
-    
-    from io import BytesIO
-    test_storage.put_object(
-        "agora",
-        script_path,
-        BytesIO(script_content.encode('utf-8')),
-        len(script_content.encode('utf-8')),
-        content_type="text/plain"
-    )
+    script_storage_uri = f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/v1/script.py"
+    test_storage.put_object(script_storage_uri, script_content.encode("utf-8"))
     
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-        VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
         """,
         {
             "id": version_id,
             "artifact_id": script_artifact_id,
-            "version_number": 1,
+            "version": 1,
+            "storage_uri": script_storage_uri,
             "content_hash": "test_hash4",
-            "location": "script.py",
             "created_by": agent_id
         }
     )
@@ -480,27 +453,51 @@ def test_sandbox_budget_enforcement(test_client, test_db, mock_agent_token):
     """Test per-workspace sandbox budget enforcement (429 + Retry-After)."""
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
-    agent_id = "test_agent_id"
+    agent_id = TEST_AGENT_ID
     
-    # Create workspace
-    test_db.execute(
-        "INSERT INTO workspaces (id, name, phase) VALUES (:id, :name, :phase)",
-        {"id": workspace_id, "name": "Test Workspace", "phase": "active"}
-    )
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (agent_id, "test_moltbook_id", "Test Agent", 0.0)
+        )
+        cursor.execute(
+            "INSERT INTO workspaces (id, name, phase) VALUES (%s, %s, %s)",
+            (workspace_id, "Test Workspace", "active")
+        )
+        cursor.execute(
+            """
+            INSERT INTO artifacts (id, workspace_id, short_id, type, storage_uri, created_by, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (
+                script_artifact_id,
+                workspace_id,
+                "SCR5",
+                "code",
+                f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
+                agent_id,
+            ),
+        )
+        conn.commit()
     
-    # Create script artifact
+    # Create workflow_run for sandbox activity tracking
+    workflow_run_id = str(uuid.uuid4())
     test_db.execute(
         """
-        INSERT INTO artifacts (id, workspace_id, short_id, type, storage_uri, created_by, created_at)
-        VALUES (:id, :workspace_id, :short_id, :type, :storage_uri, :created_by, NOW())
+        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
+        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
         """,
         {
-            "id": script_artifact_id,
+            "id": workflow_run_id,
             "workspace_id": workspace_id,
-            "short_id": "SCR5",
-            "type": "code",
-            "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-            "created_by": agent_id
+            "workflow_type": "sandbox_run",
+            "temporal_workflow_id": f"sandbox_run_{workflow_run_id}",
+            "status": "completed"
         }
     )
     
@@ -509,15 +506,15 @@ def test_sandbox_budget_enforcement(test_client, test_db, mock_agent_token):
         run_id = str(uuid.uuid4())
         test_db.execute(
             """
-            INSERT INTO activity_runs (id, workflow_run_id, activity_type, status, input, created_at)
-            VALUES (:id, :workflow_run_id, :activity_type, :status, :input, NOW())
+            INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
+            VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
             """,
             {
                 "id": run_id,
-                "workflow_run_id": None,
+                "workflow_run_id": workflow_run_id,
                 "activity_type": "sandbox_run",
-                "status": "completed",
-                "input": json.dumps({"artifact_id": str(uuid.uuid4()), "workspace_id": workspace_id})
+                "temporal_activity_id": f"sandbox_run_{run_id}",
+                "status": "completed"
             }
         )
     
@@ -567,28 +564,20 @@ def test_sandbox_run_timeout(test_db, test_storage):
     
     script_content = """import time\ntime.sleep(1000)"""
     version_id = str(uuid.uuid4())
-    script_path = f"{workspace_id}/artifacts/{script_artifact_id}/v{version_id}/script.py"
-    
-    from io import BytesIO
-    test_storage.put_object(
-        "agora",
-        script_path,
-        BytesIO(script_content.encode('utf-8')),
-        len(script_content.encode('utf-8')),
-        content_type="text/plain"
-    )
+    script_storage_uri = f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/v1/script.py"
+    test_storage.put_object(script_storage_uri, script_content.encode("utf-8"))
     
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-        VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
         """,
         {
             "id": version_id,
             "artifact_id": script_artifact_id,
-            "version_number": 1,
+            "version": 1,
+            "storage_uri": script_storage_uri,
             "content_hash": "test_hash6",
-            "location": "script.py",
             "created_by": "test_agent"
         }
     )

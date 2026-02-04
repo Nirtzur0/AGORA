@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any, List
 import jwt as pyjwt
 
 from jwt_utils import verify_agent_token, verify_system_token, TokenType
-from database import get_db
+from database import get_db_session
 
 # HTTP Bearer scheme for JWT tokens
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -159,7 +159,7 @@ def require_permissions(required_permissions: List[str]):
     
     async def permission_checker(
         agent: AgentContext = Depends(get_agent_context),
-        db = Depends(get_db),
+        db = Depends(get_db_session),
         workspace_id: Optional[str] = None
     ) -> AgentContext:
         # Use workspace_id from agent context if not provided
@@ -213,7 +213,7 @@ def require_role(required_role: str):
     
     async def role_checker(
         agent: AgentContext = Depends(get_agent_context),
-        db = Depends(get_db),
+        db = Depends(get_db_session),
         workspace_id: Optional[str] = None
     ) -> AgentContext:
         # Use workspace_id from agent context if not provided

@@ -9,7 +9,7 @@ Agents cannot directly change workspace.phase.
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from database import get_db
+from database import get_db_session
 import logging
 
 router = APIRouter()
@@ -32,7 +32,7 @@ class PhaseStatus(BaseModel):
 @router.get("/workspaces/{workspace_id}/phase", response_model=PhaseStatus)
 async def get_phase_status(
     workspace_id: str,
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Get current phase and allowed transitions.
@@ -65,7 +65,7 @@ async def get_phase_status(
 async def advance_phase(
     workspace_id: str,
     request: PhaseAdvancementRequest,
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Trigger phase advancement workflow (system/orchestrator only).
@@ -140,7 +140,7 @@ async def advance_phase(
 @router.get("/workspaces/{workspace_id}/gate-status")
 async def get_gate_status(
     workspace_id: str,
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Get current gate evaluation status for workspace.

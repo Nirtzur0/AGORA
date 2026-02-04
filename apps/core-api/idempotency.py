@@ -10,7 +10,7 @@ import hashlib
 import json
 from datetime import datetime
 
-from database import get_db
+from database import get_db_session
 
 
 def compute_payload_hash(payload: Any) -> str:
@@ -136,7 +136,7 @@ class IdempotencyChecker:
             request: ClaimRequest,
             idempotency: IdempotencyChecker = Depends(IdempotencyChecker("create_claim")),
             agent: AgentContext = Depends(get_agent_context),
-            db = Depends(get_db)
+            db = Depends(get_db_session)
         ):
             # Check for duplicate
             cached = await idempotency.check(request, agent, db)

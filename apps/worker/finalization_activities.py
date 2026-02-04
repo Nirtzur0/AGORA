@@ -5,7 +5,7 @@ This module implements Temporal activities for draft finalization.
 Activities are non-deterministic and interact with the database and external systems.
 
 Per spec §5.6, §4.10, §12.4:
-- finalize_draft_artifact: Sets metadata status=final, emits events
+    - finalize_draft_artifact: Sets draft artifact metadata status=final, emits events
 - Must validate workspace.phase == FINALIZED before allowing finalization
 """
 
@@ -28,7 +28,7 @@ async def finalize_draft_artifact(
     Finalize a draft artifact by setting its metadata and emitting events.
     
     Per spec §5.6:
-    - Set artifact_versions.metadata status=final
+    - Set draft artifact metadata status=final
     - Emit draft.finalized event
     - Emit workspace.finalized event
     - Validate workspace.phase == FINALIZED
@@ -68,25 +68,20 @@ async def finalize_draft_artifact(
                 f"must be FINALIZED"
             )
         
-        # Get current metadata
-        version_row = conn.execute(
+        # Get current draft metadata
+        artifact_row = conn.execute(
             text("""
-                SELECT av.metadata, av.artifact_id
-                FROM artifact_versions av
-                WHERE av.id = :version_id
+                SELECT metadata
+                FROM artifacts
+                WHERE id = :artifact_id
             """),
-            {"version_id": draft_artifact_version_id}
+            {"artifact_id": draft_artifact_id}
         ).fetchone()
         
-        if not version_row:
-            raise ValueError(f"Artifact version {draft_artifact_version_id} not found")
+        if not artifact_row:
+            raise ValueError(f"Draft artifact {draft_artifact_id} not found")
         
-        if version_row[1] != draft_artifact_id:
-            raise ValueError(
-                f"Version {draft_artifact_version_id} does not belong to artifact {draft_artifact_id}"
-            )
-        
-        current_metadata = version_row[0] or {}
+        current_metadata = artifact_row[0] or {}
         finalization_timestamp = datetime.now(timezone.utc).isoformat()
         
         # Update metadata with finalization status
@@ -97,16 +92,15 @@ async def finalize_draft_artifact(
             "finalization_timestamp": finalization_timestamp
         }
         
-        # Update artifact_versions metadata
+        # Update draft artifact metadata
         conn.execute(
             text("""
-                UPDATE artifact_versions
-                SET metadata = :metadata,
-                    updated_at = NOW()
-                WHERE id = :version_id
+                UPDATE artifacts
+                SET metadata = :metadata
+                WHERE id = :artifact_id
             """),
             {
-                "version_id": draft_artifact_version_id,
+                "artifact_id": draft_artifact_id,
                 "metadata": new_metadata
             }
         )
@@ -114,12 +108,12 @@ async def finalize_draft_artifact(
         # Emit draft.finalized event
         conn.execute(
             text("""
-                INSERT INTO events (id, workspace_id, event_type, entity_type, entity_id, payload, created_at)
-                VALUES (gen_random_uuid(), :workspace_id, 'draft.finalized', 'artifact_version', :version_id, :payload, NOW())
+                INSERT INTO events (id, workspace_id, actor_type, actor_id, event_type, payload, created_at)
+                VALUES (gen_random_uuid(), :workspace_id, 'system', :actor_id, 'draft.finalized', :payload, NOW())
             """),
             {
                 "workspace_id": workspace_id,
-                "version_id": draft_artifact_version_id,
+                "actor_id": workspace_id,
                 "payload": {
                     "draft_artifact_id": draft_artifact_id,
                     "draft_artifact_version_id": draft_artifact_version_id,
@@ -131,11 +125,12 @@ async def finalize_draft_artifact(
         # Emit workspace.finalized event
         conn.execute(
             text("""
-                INSERT INTO events (id, workspace_id, event_type, entity_type, entity_id, payload, created_at)
-                VALUES (gen_random_uuid(), :workspace_id, 'workspace.finalized', 'workspace', :workspace_id, :payload, NOW())
+                INSERT INTO events (id, workspace_id, actor_type, actor_id, event_type, payload, created_at)
+                VALUES (gen_random_uuid(), :workspace_id, 'system', :actor_id, 'workspace.finalized', :payload, NOW())
             """),
             {
                 "workspace_id": workspace_id,
+                "actor_id": workspace_id,
                 "payload": {
                     "draft_artifact_id": draft_artifact_id,
                     "draft_artifact_version_id": draft_artifact_version_id,

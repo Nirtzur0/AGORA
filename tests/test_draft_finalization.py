@@ -11,6 +11,7 @@ Per spec §5.6, §4.10, §12.4:
 import pytest
 import uuid
 from datetime import datetime, timezone
+from sqlalchemy import text as sql_text
 from apps.worker.gates import GateEvaluator, GateStatus
 from apps.worker.draft_finalization_workflow import DraftFinalizationWorkflow
 from apps.worker.finalization_activities import finalize_draft_artifact
@@ -25,27 +26,47 @@ def test_db(request):
     conn = get_db_connection()
     
     # Clean up before test
-    conn.execute("DELETE FROM events WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM rule_checks WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM critiques WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM workspace_agents WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM activity_runs WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM artifact_versions WHERE artifact_id IN (SELECT id FROM artifacts WHERE workspace_id LIKE 'test-%')")
-    conn.execute("DELETE FROM artifacts WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM workspaces WHERE id LIKE 'test-%'")
+    conn.execute(sql_text("DELETE FROM events WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM rule_checks WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM critiques WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM workspace_agents WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(
+        sql_text(
+        """
+        DELETE FROM activity_runs
+        USING workflow_runs
+        WHERE activity_runs.workflow_run_id = workflow_runs.id
+          AND workflow_runs.workspace_id LIKE 'test-%'
+        """
+        )
+    )
+    conn.execute(sql_text("DELETE FROM workflow_runs WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM artifact_versions WHERE artifact_id IN (SELECT id FROM artifacts WHERE workspace_id LIKE 'test-%')"))
+    conn.execute(sql_text("DELETE FROM artifacts WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM workspaces WHERE id LIKE 'test-%'"))
     conn.commit()
     
     yield conn
     
     # Clean up after test
-    conn.execute("DELETE FROM events WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM rule_checks WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM critiques WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM workspace_agents WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM activity_runs WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM artifact_versions WHERE artifact_id IN (SELECT id FROM artifacts WHERE workspace_id LIKE 'test-%')")
-    conn.execute("DELETE FROM artifacts WHERE workspace_id LIKE 'test-%'")
-    conn.execute("DELETE FROM workspaces WHERE id LIKE 'test-%'")
+    conn.execute(sql_text("DELETE FROM events WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM rule_checks WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM critiques WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM workspace_agents WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(
+        sql_text(
+        """
+        DELETE FROM activity_runs
+        USING workflow_runs
+        WHERE activity_runs.workflow_run_id = workflow_runs.id
+          AND workflow_runs.workspace_id LIKE 'test-%'
+        """
+        )
+    )
+    conn.execute(sql_text("DELETE FROM workflow_runs WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM artifact_versions WHERE artifact_id IN (SELECT id FROM artifacts WHERE workspace_id LIKE 'test-%')"))
+    conn.execute(sql_text("DELETE FROM artifacts WHERE workspace_id LIKE 'test-%'"))
+    conn.execute(sql_text("DELETE FROM workspaces WHERE id LIKE 'test-%'"))
     conn.commit()
     conn.close()
 
@@ -78,8 +99,8 @@ def finalized_workspace_with_draft(test_db):
     # Create draft version
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_at)
-        VALUES (:id, :artifact_id, 1, 'hash123', 's3://bucket/draft', NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, content_hash, storage_uri, created_at)
+        VALUES (:id, :artifact_id, 1, 'hash123', 's3://bucket/draft.md', NOW())
         """,
         {"id": draft_version_id, "artifact_id": draft_artifact_id}
     )
@@ -419,13 +440,13 @@ def test_finalized_workspace_rejects_new_versions(finalized_workspace_with_draft
     
     assert "finalization_timestamp" in result
     
-    # Verify metadata updated
-    version_row = test_db.execute(
-        "SELECT metadata FROM artifact_versions WHERE id = :id",
-        {"id": ws["draft_version_id"]}
+    # Verify metadata updated on draft artifact
+    artifact_row = test_db.execute(
+        "SELECT metadata FROM artifacts WHERE id = :id",
+        {"id": ws["draft_artifact_id"]}
     ).fetchone()
     
-    assert version_row[0]["status"] == "final"
+    assert artifact_row[0]["status"] == "final"
     
     # Verify events emitted
     events = test_db.execute(
@@ -498,14 +519,27 @@ def test_finalization_gate_method_reviewer_required_with_sandbox(finalized_works
     ws = finalized_workspace_with_draft
     
     # Add sandbox run
+    workflow_run_id = str(uuid.uuid4())
     test_db.execute(
         """
-        INSERT INTO activity_runs (id, workspace_id, activity_type, status, created_at)
-        VALUES (:id, :workspace_id, 'sandbox_run', 'completed', NOW())
+        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status, started_at)
+        VALUES (:id, :workspace_id, 'sandbox_execution', :temporal_workflow_id, 'completed', NOW())
+        """,
+        {
+            "id": workflow_run_id,
+            "workspace_id": ws["workspace_id"],
+            "temporal_workflow_id": f"sandbox-test-{workflow_run_id}"
+        }
+    )
+    test_db.execute(
+        """
+        INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status, started_at)
+        VALUES (:id, :workflow_run_id, 'sandbox_run', :temporal_activity_id, 'completed', NOW())
         """,
         {
             "id": str(uuid.uuid4()),
-            "workspace_id": ws["workspace_id"]
+            "workflow_run_id": workflow_run_id,
+            "temporal_activity_id": f"sandbox-act-{workflow_run_id}"
         }
     )
     

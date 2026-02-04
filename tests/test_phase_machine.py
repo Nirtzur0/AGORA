@@ -13,6 +13,9 @@ Tests phase machine and gates per spec §5.3, §5.4:
 """
 import pytest
 import uuid
+from database import get_raw_db
+
+TEST_AGENT_ID = "00000000-0000-0000-0000-000000000001"
 import json
 
 
@@ -177,17 +180,18 @@ def test_phase_advancement_invalid_transition(test_db):
 def test_agent_cannot_change_phase_directly(test_client, test_db, mock_agent_token):
     """Test that agents cannot directly modify workspace.phase."""
     workspace_id = str(uuid.uuid4())
-    agent_id = "test_agent_id"
+    agent_id = TEST_AGENT_ID
     
-    # Create workspace
-    test_db.execute(
-        """
-        INSERT INTO workspaces (id, name, phase, created_at)
-        VALUES (:id, :name, :phase, NOW())
-        """,
-        {"id": workspace_id, "name": "Test Workspace", "phase": "INIT"}
-    )
-    test_db.commit()
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO workspaces (id, name, phase, created_at)
+            VALUES (%s, %s, %s, NOW())
+            """,
+            (workspace_id, "Test Workspace", "INIT")
+        )
+        conn.commit()
     
     # Agent tries to directly update phase (this should fail)
     # Note: There is no PATCH /workspaces/{id} endpoint that allows phase updates
@@ -389,12 +393,12 @@ def test_required_action_tasks_created(test_db):
     required_actions = [
         {
             "type": "assign_task",
-            "role": "LITERATURE_ANALYST",
+            "role": "Literature Analyst",
             "payload": {"task": "ingest_literature"}
         },
         {
             "type": "assign_task",
-            "role": "SKEPTIC",
+            "role": "Skeptic",
             "payload": {"task": "review_claims"}
         }
     ]
@@ -411,7 +415,7 @@ def test_required_action_tasks_created(test_db):
     # Verify tasks created
     tasks = test_db.execute(
         """
-        SELECT role, task_type, status
+        SELECT payload, status, type
         FROM agent_tasks
         WHERE workspace_id = :workspace_id
         """,
@@ -419,6 +423,12 @@ def test_required_action_tasks_created(test_db):
     ).fetchall()
     
     assert len(tasks) == 2
-    roles = [task[0] for task in tasks]
-    assert "LITERATURE_ANALYST" in roles
-    assert "SKEPTIC" in roles
+    roles = []
+    for task in tasks:
+        payload = task[0] or {}
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        roles.append(payload.get("assignee_role"))
+        assert task[1] == "open"
+    assert "Literature Analyst" in roles
+    assert "Skeptic" in roles

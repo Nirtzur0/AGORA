@@ -11,6 +11,7 @@ Tests run against real containers (Postgres, MinIO, not mocked).
 import pytest
 import uuid
 import json
+from sqlalchemy import text
 
 from storage import create_storage_from_env
 
@@ -34,6 +35,7 @@ def workspace_with_agent_and_artifacts(db_session):
         reputation_score=100
     )
     db_session.add(agent)
+    db_session.flush()
     
     # Create a PDF artifact for citations
     pdf_artifact = Artifact(
@@ -46,22 +48,27 @@ def workspace_with_agent_and_artifacts(db_session):
     db_session.add(pdf_artifact)
     
     # Create PDF version with parsed text
-    pdf_text = """This is page 1.
-Second line of page 1.
-
-This is page 2.
-Second line of page 2."""
+    page_1_text = "This is page 1.\nSecond line of page 1."
+    page_2_text = "This is page 2.\nSecond line of page 2."
+    pdf_text = f"{page_1_text}\n\n{page_2_text}"
     
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{pdf_artifact.id}/v1/parsed.txt"
-    storage.put_object("agora", storage_key, pdf_text.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{pdf_artifact.id}/v1/parsed.txt"
+    storage.put_object(storage_uri, pdf_text.encode("utf-8"))
+    storage.put_object(
+        f"s3://agora/{ws.id}/artifacts/{pdf_artifact.id}/v1/pages/page_1.txt",
+        page_1_text.encode("utf-8")
+    )
+    storage.put_object(
+        f"s3://agora/{ws.id}/artifacts/{pdf_artifact.id}/v1/pages/page_2.txt",
+        page_2_text.encode("utf-8")
+    )
     
     pdf_version = ArtifactVersion(
         id=str(uuid.uuid4()),
         artifact_id=pdf_artifact.id,
         version=1,
-        location=storage_key,
-        size_bytes=len(pdf_text.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="abc123"
     )
     db_session.add(pdf_version)
@@ -71,6 +78,7 @@ Second line of page 2."""
         id=str(uuid.uuid4()),
         workspace_id=ws.id,
         agent_id=agent.id,
+        kind="fact",
         statement="Test claim 1",
         status="open"
     )
@@ -80,6 +88,7 @@ Second line of page 2."""
         id=str(uuid.uuid4()),
         workspace_id=ws.id,
         agent_id=agent.id,
+        kind="fact",
         statement="Test claim 2",
         status="open"
     )
@@ -135,35 +144,22 @@ This is another paragraph without claims or citations.
     
     # Store Markdown
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{draft_id}/v1/draft.md"
-    storage.put_object("agora", storage_key, markdown.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft_id}/v1/draft.md"
+    storage.put_object(storage_uri, markdown.encode("utf-8"))
     
     draft_version_id = str(uuid.uuid4())
     draft_version = ArtifactVersion(
         id=draft_version_id,
         artifact_id=draft_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(markdown.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="def456"
     )
     db_session.add(draft_version)
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Run citation check
     result = citation_check_activity(draft_version_id, db_wrapper)
@@ -171,7 +167,7 @@ This is another paragraph without claims or citations.
     # Verify coverage failed
     assert result.coverage_pass is False
     assert len(result.coverage_failures) == 1
-    assert result.coverage_failures[0]["claim_id"] == claim1.id
+    assert result.coverage_failures[0]["claim_id"] == str(claim1.id)
     assert result.coverage_failures[0]["reason"] == "no_citation_in_paragraph"
     
     # Verify rule check created
@@ -190,7 +186,9 @@ This is another paragraph without claims or citations.
     assert rule_check[0] == "citation_coverage"
     assert rule_check[1] == "fail"
     
-    details = json.loads(rule_check[2])
+    details = rule_check[2]
+    if isinstance(details, str):
+        details = json.loads(details)
     assert "failures" in details
     assert len(details["failures"]) == 1
 
@@ -233,35 +231,22 @@ This is a paragraph with a claim [[claim:{claim1.id}]] and a bad citation [[cite
     
     # Store Markdown
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{draft_id}/v1/draft.md"
-    storage.put_object("agora", storage_key, markdown.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft_id}/v1/draft.md"
+    storage.put_object(storage_uri, markdown.encode("utf-8"))
     
     draft_version_id = str(uuid.uuid4())
     draft_version = ArtifactVersion(
         id=draft_version_id,
         artifact_id=draft_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(markdown.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="ghi789"
     )
     db_session.add(draft_version)
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Run citation check
     result = citation_check_activity(draft_version_id, db_wrapper)
@@ -269,7 +254,7 @@ This is a paragraph with a claim [[claim:{claim1.id}]] and a bad citation [[cite
     # Verify resolves failed
     assert result.resolves_pass is False
     assert len(result.resolves_failures) == 1
-    assert result.resolves_failures[0]["artifact_version_id"] == pdf_version.id
+    assert result.resolves_failures[0]["artifact_version_id"] == str(pdf_version.id)
     assert result.resolves_failures[0]["location"] == "pdf:p=999#char=0-10"
     assert "PAGE_OUT_OF_RANGE" in result.resolves_failures[0]["error_code"]
     
@@ -289,7 +274,9 @@ This is a paragraph with a claim [[claim:{claim1.id}]] and a bad citation [[cite
     assert rule_check[0] == "citation_resolves"
     assert rule_check[1] == "fail"
     
-    details = json.loads(rule_check[2])
+    details = rule_check[2]
+    if isinstance(details, str):
+        details = json.loads(details)
     assert "failures" in details
     assert len(details["failures"]) == 1
 
@@ -336,35 +323,22 @@ This is another paragraph with claim 2 [[claim:{claim2.id}]] and another citatio
     
     # Store Markdown
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{draft_id}/v1/draft.md"
-    storage.put_object("agora", storage_key, markdown.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft_id}/v1/draft.md"
+    storage.put_object(storage_uri, markdown.encode("utf-8"))
     
     draft_version_id = str(uuid.uuid4())
     draft_version = ArtifactVersion(
         id=draft_version_id,
         artifact_id=draft_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(markdown.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="jkl012"
     )
     db_session.add(draft_version)
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Run citation check
     result = citation_check_activity(draft_version_id, db_wrapper)
@@ -453,35 +427,22 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
 """
     
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{draft_id}/v1/draft.md"
-    storage.put_object("agora", storage_key, markdown.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft_id}/v1/draft.md"
+    storage.put_object(storage_uri, markdown.encode("utf-8"))
     
     draft_version_id = str(uuid.uuid4())
     draft_version = ArtifactVersion(
         id=draft_version_id,
         artifact_id=draft_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(markdown.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="mno345"
     )
     db_session.add(draft_version)
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Mock current_agent
     mock_agent = {"agent_id": agent.id}
@@ -489,7 +450,7 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
     # Call endpoint
     request = RunRuleCheckRequest(draft_artifact_version_id=draft_version_id)
     response = request_run_rulecheck(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -531,16 +492,15 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
 """
     
     storage = create_storage_from_env()
-    storage_key = f"{ws.id}/artifacts/{draft_id}/v1/draft.md"
-    storage.put_object("agora", storage_key, markdown.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft_id}/v1/draft.md"
+    storage.put_object(storage_uri, markdown.encode("utf-8"))
     
     draft_version_id = str(uuid.uuid4())
     draft_version = ArtifactVersion(
         id=draft_version_id,
         artifact_id=draft_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(markdown.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="pqr678"
     )
     db_session.add(draft_version)
@@ -549,19 +509,7 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
     # Run citation check
     from citation_check import citation_check_activity
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     citation_check_activity(draft_version_id, db_wrapper)
     
     # Mock current_agent
@@ -580,7 +528,7 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
     
     # Verify results
     assert len(results) == 1
-    assert results[0].workspace_id == ws.id
+    assert results[0].workspace_id == str(ws.id)
     assert results[0].rule_name == "citation_coverage"
     assert results[0].target_id == draft_version_id
     assert results[0].status == "pass"

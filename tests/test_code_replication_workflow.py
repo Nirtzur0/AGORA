@@ -130,11 +130,11 @@ print("Experiment complete!")
         assert log_artifact[0] == "log"
         
         # Verify log content
-        log_path = f"{workspace_id}/artifacts/{result['log_artifact_id']}/v{result['log_artifact_version_id']}/log.txt"
-        response = test_storage.get_object("agora", log_path)
-        log_content = response.read().decode('utf-8')
-        response.close()
-        response.release_conn()
+        log_row = test_db.execute(
+            "SELECT storage_uri FROM artifact_versions WHERE id = :id",
+            {"id": result["log_artifact_version_id"]}
+        ).fetchone()
+        log_content = test_storage.get_object(log_row[0]).read().decode("utf-8")
         
         assert "Experiment starting..." in log_content
         assert "Result: 12.0" in log_content
@@ -142,14 +142,17 @@ print("Experiment complete!")
         
         # Verify agent_task created
         task = test_db.execute(
-            "SELECT task_type, status, target_artifact_id FROM agent_tasks WHERE id = :id",
+            "SELECT type, status, payload FROM agent_tasks WHERE id = :id",
             {"id": result["task_id"]}
         ).fetchone()
         
         assert task is not None
         assert task[0] == "summarize_results"
-        assert task[1] == "pending"
-        assert task[2] == result["log_artifact_id"]
+        assert task[1] == "open"
+        payload = task[2] or {}
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        assert payload["inputs"][0]["artifact_version_id"] == result["log_artifact_version_id"]
         
         # Verify activity_runs created for both activities
         activities = test_db.execute(
@@ -157,7 +160,7 @@ print("Experiment complete!")
             SELECT activity_type, status
             FROM activity_runs
             WHERE workflow_run_id = :workflow_run_id
-            ORDER BY created_at
+            ORDER BY started_at
             """,
             {"workflow_run_id": result["workflow_run_id"]}
         ).fetchall()
@@ -176,7 +179,7 @@ def test_code_replication_with_draft_and_citation_check(test_db, test_storage):
     """Test full workflow including draft creation and citation check."""
     import asyncio
     from apps.worker.code_replication_workflow import code_replication_workflow
-    from apps.worker.citation_check import CitationCheckActivity
+    from apps.worker.citation_check import citation_check_activity
     
     workspace_id = str(uuid.uuid4())
     agent_id = str(uuid.uuid4())
@@ -189,8 +192,17 @@ def test_code_replication_with_draft_and_citation_check(test_db, test_storage):
     
     # Create agent
     test_db.execute(
-        "INSERT INTO agents (id, moltbook_id, display_name) VALUES (:id, :moltbook_id, :display_name)",
-        {"id": agent_id, "moltbook_id": "test_moltbook", "display_name": "Test Agent"}
+        "INSERT INTO agents (id, moltbook_id, name) VALUES (:id, :moltbook_id, :name)",
+        {"id": agent_id, "moltbook_id": "test_moltbook", "name": "Test Agent"}
+    )
+    # Create claim used in draft
+    claim_id = str(uuid.uuid4())
+    test_db.execute(
+        """
+        INSERT INTO claims (id, workspace_id, kind, text, confidence, is_key, status, created_by, created_at)
+        VALUES (:id, :workspace_id, 'fact', 'Mean value was computed', NULL, false, 'active', :created_by, NOW())
+        """,
+        {"id": claim_id, "workspace_id": workspace_id, "created_by": agent_id}
     )
     
     test_db.commit()
@@ -276,11 +288,11 @@ print(f"Median: {statistics.median(data)}")
         log_version_id = workflow_result["log_artifact_version_id"]
         
         # Get actual log length for citation
-        log_path = f"{workspace_id}/artifacts/{workflow_result['log_artifact_id']}/v{log_version_id}/log.txt"
-        response = test_storage.get_object("agora", log_path)
-        log_content = response.read().decode('utf-8')
-        response.close()
-        response.release_conn()
+        log_row = test_db.execute(
+            "SELECT storage_uri FROM artifact_versions WHERE id = :id",
+            {"id": log_version_id}
+        ).fetchone()
+        log_content = test_storage.get_object(log_row[0]).read().decode("utf-8")
         
         # Find position of "Mean:" in log
         mean_pos = log_content.find("Mean:")
@@ -288,26 +300,18 @@ print(f"Median: {statistics.median(data)}")
         
         draft_content = f"""# Experiment Results
 
-[[claim:mean_value]]The analysis computed a mean value.[[/claim]]
-
-[[cite:{log_version_id}:log:char={mean_pos}-{mean_end}]]
+[[claim:{claim_id}]]The analysis computed a mean value.[[/claim]]
+[[cite:{log_version_id}|log:char={mean_pos}-{mean_end}]]
 
 The execution completed successfully.
 """
         
         # Store draft in MinIO
         draft_version_id = str(uuid.uuid4())
-        draft_object_path = f"{workspace_id}/artifacts/{draft_artifact_id}/v{draft_version_id}/draft.md"
+        draft_storage_uri = f"s3://agora/{workspace_id}/artifacts/{draft_artifact_id}/v1/draft.md"
         
-        from io import BytesIO
-        draft_bytes = draft_content.encode('utf-8')
-        test_storage.put_object(
-            "agora",
-            draft_object_path,
-            BytesIO(draft_bytes),
-            len(draft_bytes),
-            content_type="text/markdown"
-        )
+        draft_bytes = draft_content.encode("utf-8")
+        test_storage.put_object(draft_storage_uri, draft_bytes)
         
         # Create draft version
         import hashlib
@@ -315,15 +319,15 @@ The execution completed successfully.
         
         test_db.execute(
             """
-            INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-            VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+            INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+            VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
             """,
             {
                 "id": draft_version_id,
                 "artifact_id": draft_artifact_id,
-                "version_number": 1,
+                "version": 1,
+                "storage_uri": draft_storage_uri,
                 "content_hash": draft_hash,
-                "location": "draft.md",
                 "created_by": agent_id
             }
         )
@@ -331,17 +335,14 @@ The execution completed successfully.
         test_db.commit()
         
         # Run citation check on draft
-        citation_activity = CitationCheckActivity(test_storage, test_db)
-        
-        check_result = citation_activity.check_draft_citations(
+        check_result = citation_check_activity(
             draft_artifact_version_id=draft_version_id,
-            workspace_id=workspace_id
+            db=test_db
         )
         
         # Verify citation check passed
-        assert check_result["status"] == "pass"
-        assert check_result["citation_coverage_pass"] is True
-        assert check_result["citation_resolves_pass"] is True
+        assert check_result.coverage_pass is True
+        assert check_result.resolves_pass is True
         
         # Verify rule_checks created
         rule_checks = test_db.execute(
@@ -436,11 +437,11 @@ print("This won't print")
         assert "log_artifact_id" in result
         
         # Verify error captured in log
-        log_path = f"{workspace_id}/artifacts/{result['log_artifact_id']}/v{result['log_artifact_version_id']}/log.txt"
-        response = test_storage.get_object("agora", log_path)
-        log_content = response.read().decode('utf-8')
-        response.close()
-        response.release_conn()
+        log_row = test_db.execute(
+            "SELECT storage_uri FROM artifact_versions WHERE id = :id",
+            {"id": result["log_artifact_version_id"]}
+        ).fetchone()
+        log_content = test_storage.get_object(log_row[0]).read().decode("utf-8")
         
         assert "Starting..." in log_content
         assert "ValueError" in log_content or "Traceback" in log_content
@@ -519,11 +520,11 @@ print(f"Config: {config_value}")
         )
         
         # Verify log contains env var value
-        log_path = f"{workspace_id}/artifacts/{result['log_artifact_id']}/v{result['log_artifact_version_id']}/log.txt"
-        response = test_storage.get_object("agora", log_path)
-        log_content = response.read().decode('utf-8')
-        response.close()
-        response.release_conn()
+        log_row = test_db.execute(
+            "SELECT storage_uri FROM artifact_versions WHERE id = :id",
+            {"id": result["log_artifact_version_id"]}
+        ).fetchone()
+        log_content = test_storage.get_object(log_row[0]).read().decode("utf-8")
         
         assert "Config: test_value" in log_content
         

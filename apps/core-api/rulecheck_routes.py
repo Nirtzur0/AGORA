@@ -12,8 +12,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import uuid
 
-from database import DBWrapper, get_db
-from auth_middleware import require_agent_token, require_system_token
+from database import DBWrapper, get_db_session
+from auth_middleware import require_agent_token, require_system_token, AgentContext
 
 
 router = APIRouter()
@@ -71,7 +71,7 @@ def get_storage():
 def create_rule_check(
     request: CreateRuleCheckRequest,
     system_token: dict = Depends(require_system_token),
-    db: DBWrapper = Depends(get_db)
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Create a rule check record (SYSTEM-ONLY).
@@ -183,8 +183,8 @@ def list_rule_checks(
     target_type: Optional[str] = Query(None, description="Filter by target_type"),
     target_id: Optional[str] = Query(None, description="Filter by target_id"),
     status: Optional[str] = Query(None, description="Filter by status (pass/fail)"),
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     List rule checks with optional filters.
@@ -231,13 +231,15 @@ def list_rule_checks(
     import json
     results = []
     for row in rows:
-        details_obj = json.loads(row[7]) if row[7] else None
+        details_obj = row[7]
+        if isinstance(details_obj, str):
+            details_obj = json.loads(details_obj)
         results.append(RuleCheckResponse(
-            id=row[0],
-            workspace_id=row[1],
+            id=str(row[0]),
+            workspace_id=str(row[1]),
             rule_name=row[2],
             target_type=row[3],
-            target_id=row[4],
+            target_id=str(row[4]),
             target_location=row[5],
             status=row[6],
             details=details_obj,
@@ -251,8 +253,8 @@ def list_rule_checks(
 def request_run_rulecheck(
     workspace_id: uuid.UUID,
     request: RunRuleCheckRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Agent-facing endpoint to request rule check on a draft version.
@@ -291,7 +293,7 @@ def request_run_rulecheck(
             detail=f"Draft version {request.draft_artifact_version_id} not found"
         )
     
-    if version_row[1] != workspace_id_str:
+    if str(version_row[1]) != workspace_id_str:
         raise HTTPException(
             status_code=403,
             detail=f"Draft version {request.draft_artifact_version_id} does not belong to workspace {workspace_id_str}"

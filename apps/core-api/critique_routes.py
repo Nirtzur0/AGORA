@@ -17,8 +17,8 @@ from typing import Optional, Dict, Any, List
 import uuid
 import json
 
-from database import DBWrapper, get_db
-from auth_middleware import require_agent_token, get_optional_agent_context
+from database import DBWrapper, get_db_session
+from auth_middleware import require_agent_token, get_optional_agent_context, AgentContext
 
 
 router = APIRouter()
@@ -67,8 +67,8 @@ class CritiqueResponse(BaseModel):
 async def create_critique(
     workspace_id: uuid.UUID,
     request: CreateCritiqueRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Create a critique on a target (claim, workflow_run, artifact_version).
@@ -140,7 +140,7 @@ async def create_critique(
             detail=f"Target {request.target_type} {request.target_id} not found"
         )
     
-    if target[1] != workspace_id_str:
+    if str(target[1]) != workspace_id_str:
         raise HTTPException(
             status_code=403,
             detail=f"Target does not belong to workspace {workspace_id_str}"
@@ -165,7 +165,7 @@ async def create_critique(
             "target_type": request.target_type,
             "target_id": request.target_id,
             "target_location": request.target_location,
-            "critic_agent_id": current_agent["agent_id"],
+            "critic_agent_id": current_agent.agent_id,
             "status": "open",
             "severity": request.severity,
             "message": request.message
@@ -187,7 +187,7 @@ async def create_critique(
             "id": str(uuid.uuid4()),
             "workspace_id": workspace_id_str,
             "actor_type": "agent",
-            "actor_id": current_agent["agent_id"],
+            "actor_id": current_agent.agent_id,
             "event_type": "critique.created",
             "payload": json.dumps({
                 "critique_id": critique_id,
@@ -212,12 +212,12 @@ async def create_critique(
     ).fetchone()
     
     return CritiqueResponse(
-        id=critique[0],
-        workspace_id=critique[1],
+        id=str(critique[0]),
+        workspace_id=str(critique[1]),
         target_type=critique[2],
-        target_id=critique[3],
+        target_id=str(critique[3]),
         target_location=critique[4],
-        critic_agent_id=critique[5],
+        critic_agent_id=str(critique[5]),
         status=critique[6],
         severity=critique[7],
         message=critique[8],
@@ -230,8 +230,8 @@ async def create_critique(
 async def update_critique(
     critique_id: uuid.UUID,
     request: UpdateCritiqueRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Update critique status/resolution.
@@ -263,8 +263,8 @@ async def update_critique(
                    ELSE NULL
                END as target_author_id
         FROM critiques c
-        LEFT JOIN claims cl ON c.target_type = 'claim' AND c.target_id = cl.id::text
-        LEFT JOIN artifact_versions av ON c.target_type = 'artifact_version' AND c.target_id = av.id::text
+        LEFT JOIN claims cl ON c.target_type = 'claim' AND c.target_id = cl.id
+        LEFT JOIN artifact_versions av ON c.target_type = 'artifact_version' AND c.target_id = av.id
         WHERE c.id = :id
         """,
         {"id": critique_id_str}
@@ -273,12 +273,12 @@ async def update_critique(
     if not critique:
         raise HTTPException(status_code=404, detail=f"Critique {critique_id_str} not found")
     
-    critic_agent_id = critique[5]
-    target_author_id = critique[11]
+    critic_agent_id = str(critique[5]) if critique[5] is not None else None
+    target_author_id = str(critique[11]) if critique[11] is not None else None
     workspace_id = critique[1]
     
     # Check authorization
-    agent_id = current_agent["agent_id"]
+    agent_id = current_agent.agent_id
     
     # Rule 1: Target author MUST NOT resolve their own critique
     if target_author_id and agent_id == target_author_id:
@@ -294,7 +294,7 @@ async def update_critique(
     is_maintainer = False
     maintainer_check = db.execute(
         """
-        SELECT wa.id
+        SELECT 1
         FROM workspace_agents wa
         JOIN roles r ON wa.role_id = r.id
         WHERE wa.workspace_id = :workspace_id
@@ -416,17 +416,21 @@ async def update_critique(
         {"id": critique_id_str}
     ).fetchone()
     
+    resolution_value = updated[9]
+    if isinstance(resolution_value, str):
+        resolution_value = json.loads(resolution_value)
+
     return CritiqueResponse(
-        id=updated[0],
-        workspace_id=updated[1],
+        id=str(updated[0]),
+        workspace_id=str(updated[1]),
         target_type=updated[2],
-        target_id=updated[3],
+        target_id=str(updated[3]),
         target_location=updated[4],
-        critic_agent_id=updated[5],
+        critic_agent_id=str(updated[5]),
         status=updated[6],
         severity=updated[7],
         message=updated[8],
-        resolution=json.loads(updated[9]) if updated[9] else None,
+        resolution=resolution_value if resolution_value else None,
         created_at=updated[10].isoformat()
     )
 
@@ -437,8 +441,8 @@ async def list_critiques(
     target_id: Optional[str] = Query(None, description="Filter by target_id"),
     status: Optional[str] = Query(None, description="Filter by status"),
     severity: Optional[str] = Query(None, description="Filter by severity"),
-    current_agent: dict = Depends(get_optional_agent_context),
-    db: DBWrapper = Depends(get_db)
+    current_agent: Optional[AgentContext] = Depends(get_optional_agent_context),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     List critiques in workspace with optional filters.
@@ -492,12 +496,12 @@ async def list_critiques(
     
     return [
         CritiqueResponse(
-            id=c[0],
-            workspace_id=c[1],
+            id=str(c[0]),
+            workspace_id=str(c[1]),
             target_type=c[2],
-            target_id=c[3],
+            target_id=str(c[3]),
             target_location=c[4],
-            critic_agent_id=c[5],
+            critic_agent_id=str(c[5]),
             status=c[6],
             severity=c[7],
             message=c[8],

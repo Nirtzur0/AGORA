@@ -67,28 +67,27 @@ def pdf_artifact_with_evidence(storage, db_session, workspace_with_agent):
     pdf_bytes = buffer.read()
     
     # Store PDF binary
-    binary_key = f"{ws.id}/artifacts/{art.id}/v1/document.pdf"
-    storage.put_object("agora", binary_key, pdf_bytes)
+    binary_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/document.pdf"
+    storage.put_object(binary_uri, pdf_bytes)
     
     # Store extracted text
     page1_text = "This PDF contains evidence for claim validation testing."
-    page1_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
-    storage.put_object("agora", page1_key, page1_text.encode("utf-8"))
+    page1_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
+    storage.put_object(page1_uri, page1_text.encode("utf-8"))
     
     # Store metadata
     metadata = {"page_count": 1, "total_chars": len(page1_text)}
-    metadata_key = f"{ws.id}/artifacts/{art.id}/v1/metadata.json"
-    storage.put_object("agora", metadata_key, json.dumps(metadata).encode("utf-8"))
+    metadata_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/metadata.json"
+    storage.put_object(metadata_uri, json.dumps(metadata).encode("utf-8"))
     
     # Create artifact_version
     content_hash = hashlib.sha256(pdf_bytes).hexdigest()
     version = ArtifactVersion(
-        id=f"{art.id}_v1",
+        id=str(uuid.uuid4()),
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
-        size_bytes=len(pdf_bytes),
-        location=f"s3://agora/{ws.id}/artifacts/{art.id}/v1/",
+        storage_uri=binary_uri,
         created_by=agent.id
     )
     db_session.add(version)
@@ -124,6 +123,7 @@ def other_workspace_artifact(storage, db_session):
         reputation_score=50
     )
     db_session.add(agent)
+    db_session.flush()
     
     # Create artifact
     art = Artifact(
@@ -145,28 +145,27 @@ def other_workspace_artifact(storage, db_session):
     pdf_bytes = buffer.read()
     
     # Store PDF
-    binary_key = f"{other_ws.id}/artifacts/{art.id}/v1/document.pdf"
-    storage.put_object("agora", binary_key, pdf_bytes)
+    binary_uri = f"s3://agora/{other_ws.id}/artifacts/{art.id}/v1/document.pdf"
+    storage.put_object(binary_uri, pdf_bytes)
     
     # Store extracted text
     page1_text = "This is from another workspace."
-    page1_key = f"{other_ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
-    storage.put_object("agora", page1_key, page1_text.encode("utf-8"))
+    page1_uri = f"s3://agora/{other_ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
+    storage.put_object(page1_uri, page1_text.encode("utf-8"))
     
     # Store metadata
     metadata = {"page_count": 1, "total_chars": len(page1_text)}
-    metadata_key = f"{other_ws.id}/artifacts/{art.id}/v1/metadata.json"
-    storage.put_object("agora", metadata_key, json.dumps(metadata).encode("utf-8"))
+    metadata_uri = f"s3://agora/{other_ws.id}/artifacts/{art.id}/v1/metadata.json"
+    storage.put_object(metadata_uri, json.dumps(metadata).encode("utf-8"))
     
     # Create artifact_version
     content_hash = hashlib.sha256(pdf_bytes).hexdigest()
     version = ArtifactVersion(
-        id=f"{art.id}_v1",
+        id=str(uuid.uuid4()),
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
-        size_bytes=len(pdf_bytes),
-        location=f"s3://agora/{other_ws.id}/artifacts/{art.id}/v1/",
+        storage_uri=binary_uri,
         created_by=agent.id
     )
     db_session.add(version)
@@ -198,21 +197,17 @@ def test_create_claim(db_session, workspace_with_agent):
     )
     
     # Create mock DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     result = create_claim(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     # Verify claim created
-    assert result.workspace_id == ws.id
+    assert result.workspace_id == str(ws.id)
     assert result.kind == "fact"
     assert result.text == request.text
     assert result.confidence == "high"
@@ -253,11 +248,7 @@ def test_add_evidence_with_valid_location(db_session, pdf_artifact_with_evidence
     # Mock current_agent and db wrapper
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     storage = create_storage_from_env()
     
     # Add evidence with valid location
@@ -266,12 +257,12 @@ def test_add_evidence_with_valid_location(db_session, pdf_artifact_with_evidence
     end_idx = start_idx + len(search_str)
     
     request = AddEvidenceRequest(
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location=f"pdf:p=1#char={start_idx}-{end_idx}"
     )
     
     result = add_evidence_to_claim(
-        claim_id=uuid.UUID(claim.id),
+        claim_id=uuid.UUID(str(claim.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper,
@@ -279,15 +270,15 @@ def test_add_evidence_with_valid_location(db_session, pdf_artifact_with_evidence
     )
     
     # Verify evidence created
-    assert result["claim_id"] == claim.id
-    assert result["artifact_version_id"] == version.id
+    assert result["claim_id"] == str(claim.id)
+    assert result["artifact_version_id"] == str(version.id)
     assert "resolved_snippet" in result
     assert search_str in result["resolved_snippet"]
     
     # Verify in database
     evidence = db_session.query(ClaimEvidence).filter_by(claim_id=claim.id).first()
     assert evidence is not None
-    assert evidence.artifact_version_id == version.id
+    assert str(evidence.artifact_version_id) == str(version.id)
 
 
 def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifact_with_evidence):
@@ -324,22 +315,18 @@ def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifa
     # Mock dependencies
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     storage = create_storage_from_env()
     
     # Test 1: Page out of range
     request1 = AddEvidenceRequest(
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location="pdf:p=999#char=0-10"  # Page 999 doesn't exist
     )
     
     with pytest.raises(HTTPException) as exc_info1:
         add_evidence_to_claim(
-            claim_id=uuid.UUID(claim.id),
+            claim_id=uuid.UUID(str(claim.id)),
             request=request1,
             current_agent=mock_agent,
             db=db_wrapper,
@@ -352,13 +339,13 @@ def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifa
     
     # Test 2: Invalid char range
     request2 = AddEvidenceRequest(
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location="pdf:p=1#char=100-50"  # end < start
     )
     
     with pytest.raises(HTTPException) as exc_info2:
         add_evidence_to_claim(
-            claim_id=uuid.UUID(claim.id),
+            claim_id=uuid.UUID(str(claim.id)),
             request=request2,
             current_agent=mock_agent,
             db=db_wrapper,
@@ -370,13 +357,13 @@ def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifa
     
     # Test 3: Char range exceeds content
     request3 = AddEvidenceRequest(
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location="pdf:p=1#char=0-999999"  # Beyond text length
     )
     
     with pytest.raises(HTTPException) as exc_info3:
         add_evidence_to_claim(
-            claim_id=uuid.UUID(claim.id),
+            claim_id=uuid.UUID(str(claim.id)),
             request=request3,
             current_agent=mock_agent,
             db=db_wrapper,
@@ -427,22 +414,18 @@ def test_exit_2_evidence_fails_if_version_from_another_workspace(
     # Mock dependencies
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     storage = create_storage_from_env()
     
     # Try to add evidence from different workspace
     request = AddEvidenceRequest(
-        artifact_version_id=other_version.id,
+        artifact_version_id=str(other_version.id),
         location="pdf:p=1#char=0-10"
     )
     
     with pytest.raises(HTTPException) as exc_info:
         add_evidence_to_claim(
-            claim_id=uuid.UUID(claim.id),
+            claim_id=uuid.UUID(str(claim.id)),
             request=request,
             current_agent=mock_agent,
             db=db_wrapper,
@@ -489,13 +472,13 @@ def test_list_claims_with_evidence(db_session, pdf_artifact_with_evidence):
     evidence1 = ClaimEvidence(
         id=str(uuid.uuid4()),
         claim_id=claim1.id,
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location="pdf:p=1#char=0-10"
     )
     evidence2 = ClaimEvidence(
         id=str(uuid.uuid4()),
         claim_id=claim1.id,
-        artifact_version_id=version.id,
+        artifact_version_id=str(version.id),
         location="pdf:p=1#char=20-30"
     )
     db_session.add_all([evidence1, evidence2])
@@ -504,30 +487,26 @@ def test_list_claims_with_evidence(db_session, pdf_artifact_with_evidence):
     # Mock dependencies
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # List claims
     result = list_claims(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     # Verify results
-    assert result["workspace_id"] == ws.id
+    assert result["workspace_id"] == str(ws.id)
     assert result["total"] == 2
     assert len(result["claims"]) == 2
     
     # Find claim1 in results
-    claim1_result = next(c for c in result["claims"] if c["id"] == claim1.id)
+    claim1_result = next(c for c in result["claims"] if c["id"] == str(claim1.id))
     assert len(claim1_result["evidence"]) == 2
     
     # Find claim2 in results
-    claim2_result = next(c for c in result["claims"] if c["id"] == claim2.id)
+    claim2_result = next(c for c in result["claims"] if c["id"] == str(claim2.id))
     assert len(claim2_result["evidence"]) == 0
 
 
@@ -543,14 +522,10 @@ def test_claim_kind_defaults_to_fact(db_session, workspace_with_agent):
     
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     result = create_claim(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -572,14 +547,10 @@ def test_is_key_cannot_be_set_by_agent(db_session, workspace_with_agent):
     
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     result = create_claim(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper

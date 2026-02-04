@@ -61,7 +61,7 @@ class TestStorageURIValidation:
         key = storage._validate_storage_uri(uri)
         assert key.startswith(test_workspace_id)
         assert "artifacts" in key
-        assert artifact_id in key
+        assert test_artifact_id in key
         assert "v1" in key
     
     def test_invalid_scheme_fails(self, storage):

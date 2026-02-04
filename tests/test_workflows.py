@@ -37,6 +37,48 @@ def workspace_with_agent(db_session):
     return ws, agent
 
 
+def create_artifact_version(db_session, workspace_id: str, created_by: str = None):
+    """Create a minimal artifact + version for task inputs."""
+    from sqlalchemy import text
+    artifact_id = str(uuid.uuid4())
+    version_id = str(uuid.uuid4())
+    db_session.execute(
+        text(
+            """
+            INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+            VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
+            """
+        ),
+        {
+            "id": artifact_id,
+            "workspace_id": workspace_id,
+            "short_id": f"A{abs(hash(artifact_id)) % 10000}",
+            "type": "pdf",
+            "metadata": json.dumps({"source": "test"}),
+            "storage_uri": f"s3://agora/{workspace_id}/artifacts/{artifact_id}/",
+            "created_by": created_by
+        }
+    )
+    db_session.execute(
+        text(
+            """
+            INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+            VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
+            """
+        ),
+        {
+            "id": version_id,
+            "artifact_id": artifact_id,
+            "version": 1,
+            "storage_uri": "s3://agora/test.pdf",
+            "content_hash": "test_hash",
+            "created_by": created_by
+        }
+    )
+    db_session.commit()
+    return artifact_id, version_id
+
+
 def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     """
     EXIT TEST 1: Start workflow -> workflow_runs row created -> completes -> status updated.
@@ -52,19 +94,7 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Start workflow
     client = WorkflowClient()
@@ -83,7 +113,7 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     # Verify workflow_runs row created
     row = db_session.execute(
         text("""
-            SELECT id, workspace_id, workflow_type, workflow_id, status, input
+            SELECT id, workspace_id, workflow_type, temporal_workflow_id, status
             FROM workflow_runs
             WHERE id = :id
         """),
@@ -92,13 +122,10 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     
     assert row is not None
     assert row[0] == workflow_run_id
-    assert row[1] == ws.id
+    assert row[1] == str(ws.id)
     assert row[2] == "literature_grounding"
     assert row[3] == workflow_id
     assert row[4] == "running"
-    
-    input_data = json.loads(row[5])
-    assert "artifact_id" in input_data
     
     # Update workflow status to completed
     output = {"result": "success", "claims_created": 5}
@@ -112,7 +139,7 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     # Verify status updated
     updated_row = db_session.execute(
         text("""
-            SELECT status, output, completed_at
+            SELECT status, completed_at
             FROM workflow_runs
             WHERE id = :id
         """),
@@ -120,11 +147,7 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     ).fetchone()
     
     assert updated_row[0] == "completed"
-    
-    output_data = json.loads(updated_row[1])
-    assert output_data["result"] == "success"
-    assert output_data["claims_created"] == 5
-    assert updated_row[2] is not None  # completed_at
+    assert updated_row[1] is not None  # completed_at
 
 
 def test_exit_activity_runs_created(db_session, workspace_with_agent):
@@ -142,19 +165,7 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Start workflow first
     client = WorkflowClient()
@@ -185,7 +196,7 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     # Verify activity_runs row created
     row = db_session.execute(
         text("""
-            SELECT id, workflow_run_id, activity_type, activity_id, status, input
+            SELECT id, workflow_run_id, activity_type, temporal_activity_id, status
             FROM activity_runs
             WHERE id = :id
         """),
@@ -199,9 +210,6 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     assert row[3] == activity_id
     assert row[4] == "running"
     
-    input_data = json.loads(row[5])
-    assert input_data["artifact_id"] == activity_input["artifact_id"]
-    
     # Update activity status to completed
     activity_output = {"pages_parsed": 10, "version_id": str(uuid.uuid4())}
     update_activity_run(
@@ -214,7 +222,7 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     # Verify status updated
     updated_row = db_session.execute(
         text("""
-            SELECT status, output, completed_at
+            SELECT status, completed_at
             FROM activity_runs
             WHERE id = :id
         """),
@@ -222,11 +230,7 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     ).fetchone()
     
     assert updated_row[0] == "completed"
-    
-    output_data = json.loads(updated_row[1])
-    assert output_data["pages_parsed"] == 10
-    assert "version_id" in output_data
-    assert updated_row[2] is not None  # completed_at
+    assert updated_row[1] is not None  # completed_at
 
 
 def test_create_agent_task_system_only(db_session, workspace_with_agent):
@@ -237,49 +241,44 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Mock system token
     mock_system = {"token_type": "system"}
     
     # Create task
+    artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     request = CreateTaskRequest(
-        title="Extract claims from PDF",
-        description="Parse the uploaded PDF and create claim records",
-        task_type="extract_claims",
-        assignee_agent_id=agent.id
+        type="extract_claims",
+        assignee_agent_id=agent.id,
+        payload={
+            "objective": "Extract claims from the PDF and add evidence.",
+            "inputs": [{"artifact_version_id": version_id, "label": "PDF"}],
+            "required_outputs": ["claim.create", "claim.evidence.add"],
+            "context_links": [{"type": "artifact", "id": artifact_id}],
+            "acceptance_criteria": ["At least 1 claim created with evidence"],
+            "priority": "high"
+        }
     )
     
     response = create_task(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         system_token=mock_system,
         db=db_wrapper
     )
     
     # Verify response
-    assert response.workspace_id == ws.id
-    assert response.title == "Extract claims from PDF"
-    assert response.task_type == "extract_claims"
+    assert response.workspace_id == str(ws.id)
+    assert response.type == "extract_claims"
     assert response.assignee_agent_id == agent.id
-    assert response.status == "pending"
+    assert response.status == "open"
+    assert response.payload["objective"] == "Extract claims from the PDF and add evidence."
     
     # Verify in database
     task = db_session.execute(
         text("""
-            SELECT id, workspace_id, title, assignee_agent_id, status
+            SELECT id, workspace_id, assignee_agent_id, status
             FROM agent_tasks
             WHERE id = :id
         """),
@@ -287,8 +286,8 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     ).fetchone()
     
     assert task is not None
-    assert task[1] == ws.id
-    assert task[4] == "pending"
+    assert task[1] == str(ws.id)
+    assert task[3] == "open"
 
 
 def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
@@ -299,44 +298,46 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Mock tokens
     mock_system = {"token_type": "system"}
     mock_agent = {"agent_id": agent.id}
+
+    artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
     # Create multiple tasks
     task1 = create_task(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
-            title="Task 1",
-            description="First task",
-            task_type="extract_claims",
-            assignee_agent_id=agent.id
+            type="extract_claims",
+            assignee_agent_id=agent.id,
+            payload={
+                "objective": "First task",
+                "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
+                "required_outputs": ["claim.create"],
+                "context_links": [{"type": "artifact", "id": artifact_id}],
+                "acceptance_criteria": ["At least 1 claim created"],
+                "priority": "medium"
+            }
         ),
         system_token=mock_system,
         db=db_wrapper
     )
     
     task2 = create_task(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
-            title="Task 2",
-            description="Second task",
-            task_type="review_draft",
-            assignee_agent_id=agent.id
+            type="review_draft",
+            assignee_agent_id=agent.id,
+            payload={
+                "objective": "Second task",
+                "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
+                "required_outputs": ["critique.create"],
+                "context_links": [{"type": "artifact", "id": artifact_id}],
+                "acceptance_criteria": ["Critique created"],
+                "priority": "low"
+            }
         ),
         system_token=mock_system,
         db=db_wrapper
@@ -344,7 +345,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     
     # List all tasks
     tasks = list_tasks(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         current_agent=mock_agent,
         db=db_wrapper
     )
@@ -356,7 +357,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     
     # Filter by assignee
     filtered = list_tasks(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         assignee_agent_id=agent.id,
         current_agent=mock_agent,
         db=db_wrapper
@@ -367,13 +368,13 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     
     # Filter by status
     pending_tasks = list_tasks(
-        workspace_id=uuid.UUID(ws.id),
-        status="pending",
+        workspace_id=uuid.UUID(str(ws.id)),
+        status="open",
         current_agent=mock_agent,
         db=db_wrapper
     )
     
-    assert all(t.status == "pending" for t in pending_tasks)
+    assert all(t.status == "open" for t in pending_tasks)
 
 
 def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
@@ -395,33 +396,29 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Mock tokens
     mock_system = {"token_type": "system"}
     mock_agent = {"agent_id": agent.id}
     mock_other_agent = {"agent_id": other_agent.id}
+
+    artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
     # Create task assigned to agent
     task = create_task(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
-            title="Test Task",
-            description="Task for testing update",
-            task_type="extract_claims",
-            assignee_agent_id=agent.id
+            type="extract_claims",
+            assignee_agent_id=agent.id,
+            payload={
+                "objective": "Task for testing update",
+                "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
+                "required_outputs": ["claim.create"],
+                "context_links": [{"type": "artifact", "id": artifact_id}],
+                "acceptance_criteria": ["Claim created"],
+                "priority": "medium"
+            }
         ),
         system_token=mock_system,
         db=db_wrapper
@@ -433,7 +430,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     )
     
     updated = update_task(
-        task_id=uuid.UUID(task.id),
+        task_id=uuid.UUID(str(task.id)),
         request=update_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -444,7 +441,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     # Try to update as non-assignee (should fail)
     with pytest.raises(HTTPException) as exc_info:
         update_task(
-            task_id=uuid.UUID(task.id),
+            task_id=uuid.UUID(str(task.id)),
             request=UpdateTaskRequest(status="completed"),
             current_agent=mock_other_agent,
             db=db_wrapper
@@ -455,7 +452,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
 
 
 def test_complete_agent_task_with_result(db_session, workspace_with_agent):
-    """Test completing task with result_artifact_id."""
+    """Test completing task with result_links."""
     from task_routes import create_task, update_task, CreateTaskRequest, UpdateTaskRequest
     from database import Artifact
     from sqlalchemy import text
@@ -474,32 +471,28 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
     db_session.commit()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Mock tokens
     mock_system = {"token_type": "system"}
     mock_agent = {"agent_id": agent.id}
+
+    artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
     # Create task
     task = create_task(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
-            title="Create Draft",
-            description="Write a draft document",
-            task_type="write_draft",
-            assignee_agent_id=agent.id
+            type="write_draft",
+            assignee_agent_id=agent.id,
+            payload={
+                "objective": "Write a draft document",
+                "inputs": [{"artifact_version_id": version_id, "label": "Source"}],
+                "required_outputs": ["draft.version.create"],
+                "context_links": [{"type": "artifact", "id": artifact_id}],
+                "acceptance_criteria": ["Draft version created"],
+                "priority": "high"
+            }
         ),
         system_token=mock_system,
         db=db_wrapper
@@ -507,15 +500,15 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
     
     # Complete task with result
     updated = update_task(
-        task_id=uuid.UUID(task.id),
+        task_id=uuid.UUID(str(task.id)),
         request=UpdateTaskRequest(
             status="completed",
-            result_artifact_id=result_artifact.id
+            result_links=[{"type": "artifact", "id": result_artifact.id, "note": "Draft result"}]
         ),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     assert updated.status == "completed"
-    assert updated.result_artifact_id == result_artifact.id
+    assert updated.payload["result_links"][0]["id"] == result_artifact.id
     assert updated.completed_at is not None

@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 import uuid
 
-from database import DBWrapper, get_db
-from auth_middleware import require_agent_token
+from database import DBWrapper, get_db_session
+from auth_middleware import require_agent_token, require_system_token, AgentContext, SystemContext
 
 
 router = APIRouter()
@@ -90,8 +90,8 @@ class FinalizeDraftResponse(BaseModel):
 async def request_ingest_pdf(
     workspace_id: uuid.UUID,
     request: IngestPdfRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Start literature_grounding workflow to ingest PDF.
@@ -197,8 +197,8 @@ async def request_ingest_pdf(
 async def request_ingest_repo(
     workspace_id: uuid.UUID,
     request: IngestRepoRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Start repo ingestion activity.
@@ -259,30 +259,40 @@ async def request_ingest_repo(
             "type": "code",
             "metadata": json.dumps({"repo_url": request.repo_url}),
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{artifact_id}/",
-            "created_by": current_agent["agent_id"]
+            "created_by": current_agent.agent_id
         }
     )
     
-    # Create activity_run for tracking
-    activity_run_id = str(uuid.uuid4())
+    # Create workflow_run + activity_run for tracking
+    workflow_run_id = str(uuid.uuid4())
+    temporal_workflow_id = f"repo_ingest_{workflow_run_id}"
     db.execute(
         """
-        INSERT INTO activity_runs (id, workflow_run_id, activity_type, status, input, created_at)
-        VALUES (:id, :workflow_run_id, :activity_type, :status, :input, NOW())
+        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
+        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
+        """,
+        {
+            "id": workflow_run_id,
+            "workspace_id": workspace_id_str,
+            "workflow_type": "repo_ingest",
+            "temporal_workflow_id": temporal_workflow_id,
+            "status": "running"
+        }
+    )
+    
+    activity_run_id = str(uuid.uuid4())
+    temporal_activity_id = f"repo_ingest_{activity_run_id}"
+    db.execute(
+        """
+        INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
+        VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
         """,
         {
             "id": activity_run_id,
-            "workflow_run_id": None,  # Standalone activity
+            "workflow_run_id": workflow_run_id,
             "activity_type": "repo_ingest",
-            "status": "running",
-            "input": json.dumps({
-                "artifact_id": artifact_id,
-                "workspace_id": workspace_id_str,
-                "repo_url": request.repo_url,
-                "branch": request.branch,
-                "commit_hash": request.commit_hash,
-                "created_by": current_agent["agent_id"]
-            })
+            "temporal_activity_id": temporal_activity_id,
+            "status": "running"
         }
     )
     
@@ -302,23 +312,33 @@ async def request_ingest_repo(
             artifact_id=artifact_id,
             workspace_id=workspace_id_str,
             repo_url=request.repo_url,
-            created_by=current_agent["agent_id"],
+            created_by=current_agent.agent_id,
             branch=request.branch,
             commit_hash=request.commit_hash,
             activity_run_id=activity_run_id
         )
         
-        # Update activity_run status
+        # Update activity_run + workflow_run status
         db.execute(
             """
             UPDATE activity_runs
-            SET status = :status, output = :output, completed_at = NOW()
+            SET status = :status, completed_at = NOW()
             WHERE id = :id
             """,
             {
                 "id": activity_run_id,
-                "status": "completed",
-                "output": json.dumps(result)
+                "status": "completed"
+            }
+        )
+        db.execute(
+            """
+            UPDATE workflow_runs
+            SET status = :status, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": workflow_run_id,
+                "status": "completed"
             }
         )
         db.commit()
@@ -331,17 +351,27 @@ async def request_ingest_repo(
         )
     
     except Exception as e:
-        # Update activity_run with failure
+        # Update activity_run + workflow_run with failure
         db.execute(
             """
             UPDATE activity_runs
-            SET status = :status, output = :output, completed_at = NOW()
+            SET status = :status, completed_at = NOW()
             WHERE id = :id
             """,
             {
                 "id": activity_run_id,
-                "status": "failed",
-                "output": json.dumps({"error": str(e)})
+                "status": "failed"
+            }
+        )
+        db.execute(
+            """
+            UPDATE workflow_runs
+            SET status = :status, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": workflow_run_id,
+                "status": "failed"
             }
         )
         db.commit()
@@ -352,8 +382,8 @@ async def request_ingest_repo(
 async def request_run_sandbox(
     workspace_id: uuid.UUID,
     request: RunSandboxRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Execute script in sandbox Docker container.
@@ -390,8 +420,8 @@ async def request_run_sandbox(
         """
         SELECT COUNT(*)
         FROM activity_runs ar
-        JOIN artifacts a ON ar.input::jsonb->>'artifact_id' = a.id::text
-        WHERE a.workspace_id = :workspace_id
+        JOIN workflow_runs wr ON ar.workflow_run_id = wr.id
+        WHERE wr.workspace_id = :workspace_id
           AND ar.activity_type = 'sandbox_run'
           AND ar.status IN ('running', 'completed')
         """,
@@ -447,33 +477,40 @@ async def request_run_sandbox(
             "type": "log",
             "metadata": json.dumps({"source": "sandbox_execution", "script_artifact_id": request.script_artifact_id}),
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
-            "created_by": current_agent["agent_id"]
+            "created_by": current_agent.agent_id
         }
     )
     
-    # Create activity_run for tracking
-    activity_run_id = str(uuid.uuid4())
+    # Create workflow_run + activity_run for tracking
+    workflow_run_id = str(uuid.uuid4())
+    temporal_workflow_id = f"sandbox_run_{workflow_run_id}"
     db.execute(
         """
-        INSERT INTO activity_runs (id, workflow_run_id, activity_type, status, input, created_at)
-        VALUES (:id, :workflow_run_id, :activity_type, :status, :input, NOW())
+        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
+        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
+        """,
+        {
+            "id": workflow_run_id,
+            "workspace_id": workspace_id_str,
+            "workflow_type": "sandbox_run",
+            "temporal_workflow_id": temporal_workflow_id,
+            "status": "running"
+        }
+    )
+    
+    activity_run_id = str(uuid.uuid4())
+    temporal_activity_id = f"sandbox_run_{activity_run_id}"
+    db.execute(
+        """
+        INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
+        VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
         """,
         {
             "id": activity_run_id,
-            "workflow_run_id": None,  # Standalone activity
+            "workflow_run_id": workflow_run_id,
             "activity_type": "sandbox_run",
-            "status": "running",
-            "input": json.dumps({
-                "artifact_id": log_artifact_id,
-                "workspace_id": workspace_id_str,
-                "script_artifact_id": request.script_artifact_id,
-                "parameters": request.parameters,
-                "image": request.image,
-                "timeout_seconds": request.timeout_seconds,
-                "memory_limit": request.memory_limit,
-                "cpu_limit": request.cpu_limit,
-                "created_by": current_agent["agent_id"]
-            })
+            "temporal_activity_id": temporal_activity_id,
+            "status": "running"
         }
     )
     
@@ -494,7 +531,7 @@ async def request_run_sandbox(
             workspace_id=workspace_id_str,
             script_artifact_id=request.script_artifact_id,
             parameters=request.parameters,
-            created_by=current_agent["agent_id"],
+            created_by=current_agent.agent_id,
             activity_run_id=activity_run_id,
             image=request.image or "python:3.11-slim",
             timeout_seconds=request.timeout_seconds or 300,
@@ -502,17 +539,27 @@ async def request_run_sandbox(
             cpu_limit=request.cpu_limit or "1.0"
         )
         
-        # Update activity_run status
+        # Update activity_run + workflow_run status
         db.execute(
             """
             UPDATE activity_runs
-            SET status = :status, output = :output, completed_at = NOW()
+            SET status = :status, completed_at = NOW()
             WHERE id = :id
             """,
             {
                 "id": activity_run_id,
-                "status": "completed",
-                "output": json.dumps(result)
+                "status": "completed"
+            }
+        )
+        db.execute(
+            """
+            UPDATE workflow_runs
+            SET status = :status, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": workflow_run_id,
+                "status": "completed"
             }
         )
         db.commit()
@@ -526,17 +573,27 @@ async def request_run_sandbox(
         )
     
     except Exception as e:
-        # Update activity_run with failure
+        # Update activity_run + workflow_run with failure
         db.execute(
             """
             UPDATE activity_runs
-            SET status = :status, output = :output, completed_at = NOW()
+            SET status = :status, completed_at = NOW()
             WHERE id = :id
             """,
             {
                 "id": activity_run_id,
-                "status": "failed",
-                "output": json.dumps({"error": str(e)})
+                "status": "failed"
+            }
+        )
+        db.execute(
+            """
+            UPDATE workflow_runs
+            SET status = :status, completed_at = NOW()
+            WHERE id = :id
+            """,
+            {
+                "id": workflow_run_id,
+                "status": "failed"
             }
         )
         db.commit()
@@ -547,8 +604,8 @@ async def request_run_sandbox(
 async def request_finalize_draft(
     workspace_id: uuid.UUID,
     request: FinalizeDraftRequest,
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    system_context: SystemContext = Depends(require_system_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Start draft finalization workflow.
@@ -568,12 +625,7 @@ async def request_finalize_draft(
         400: If IDs don't match or workspace not in FINALIZED phase
         404: If workspace/draft/version not found
     """
-    # SYSTEM-ONLY: Agents cannot call finalize (orchestrator authority)
-    if current_agent.get("token_type") != "system":
-        raise HTTPException(
-            status_code=403,
-            detail="Draft finalization is system-only. Only the orchestrator can finalize drafts."
-        )
+    # SYSTEM-ONLY: Auth enforced by require_system_token dependency.
     
     workspace_id_str = str(workspace_id)
     
@@ -652,28 +704,26 @@ async def request_finalize_draft(
             task_queue="agora-workers",
         )
         
-        # Record workflow run in activity_runs
-        activity_run_id = str(uuid.uuid4())
+        # Record workflow run
+        workflow_run_id = str(uuid.uuid4())
         db.execute(
             """
-            INSERT INTO activity_runs (id, workspace_id, activity_type, status, input_params, created_at)
-            VALUES (:id, :workspace_id, 'draft_finalization', 'running', :params, NOW())
+            INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
+            VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
             """,
             {
-                "id": activity_run_id,
+                "id": workflow_run_id,
                 "workspace_id": workspace_id_str,
-                "params": {
-                    "draft_artifact_id": request.draft_artifact_id,
-                    "draft_artifact_version_id": request.draft_artifact_version_id,
-                    "workflow_id": workflow_id
-                }
+                "workflow_type": "draft_finalization",
+                "temporal_workflow_id": workflow_id,
+                "status": "running"
             }
         )
         
         db.commit()
         
         return FinalizeDraftResponse(
-            request_id=activity_run_id,
+            request_id=workflow_run_id,
             draft_artifact_id=request.draft_artifact_id,
             draft_artifact_version_id=request.draft_artifact_version_id,
             message=f"Draft finalization workflow started: {workflow_id}"

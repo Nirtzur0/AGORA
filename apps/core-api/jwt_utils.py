@@ -78,6 +78,25 @@ def create_agent_token_v2(
     return jwt.encode(payload, AGENT_JWT_SECRET, algorithm="HS256")
 
 
+def create_agent_token(
+    agent_id: str,
+    moltbook_id: str,
+    reputation: int = 0,
+    workspace_id: Optional[str] = None,
+) -> str:
+    """
+    Backwards-compatible wrapper for agent token creation.
+    
+    Tests and callers may omit reputation; default to 0.
+    """
+    return create_agent_token_v2(
+        agent_id=agent_id,
+        moltbook_id=moltbook_id,
+        reputation=reputation,
+        workspace_id=workspace_id,
+    )
+
+
 def create_system_token(service_name: str) -> str:
     """
     Create a JWT for an internal system service.

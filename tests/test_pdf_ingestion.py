@@ -17,6 +17,7 @@ from reportlab.pdfgen import canvas
 import sys
 sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
 from pdf_ingest import PDFIngestActivity, NoPDFTextError
+from sqlalchemy import text
 
 
 @pytest.fixture
@@ -53,16 +54,17 @@ def sample_pdf_bytes():
 def workspace_with_artifact(db_session):
     """Create test workspace and artifact."""
     from database import Workspace, Artifact
+    import uuid
     
     ws = Workspace(
-        id="ws_test_pdf",
+        id=str(uuid.uuid4()),
         name="PDF Test Workspace",
         phase="ingestion"
     )
     db_session.add(ws)
     
     art = Artifact(
-        id="art_pdf_001",
+        id=str(uuid.uuid4()),
         workspace_id=ws.id,
         short_id="A1",
         content_type="application/pdf",
@@ -113,24 +115,23 @@ def test_exit_1_ingest_real_pdf(pdf_activity, sample_pdf_bytes, workspace_with_a
     
     assert version is not None
     assert version.content_hash is not None
-    assert version.size_bytes == len(sample_pdf_bytes)
-    assert version.location.startswith("s3://agora/")
+    assert version.storage_uri.startswith("s3://agora/")
     
     # Verify binary stored
-    binary_key = f"{ws.id}/artifacts/{art.id}/v1/document.pdf"
-    binary_data = pdf_activity.storage.get_object("agora", binary_key)
+    binary_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/document.pdf"
+    binary_data = pdf_activity.storage.get_object(binary_uri).read()
     assert binary_data == sample_pdf_bytes
     
     # Verify per-page text stored
     for page_num in range(1, 4):
-        page_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_{page_num}.txt"
-        page_text = pdf_activity.storage.get_object("agora", page_key).decode("utf-8")
+        page_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_{page_num}.txt"
+        page_text = pdf_activity.storage.get_object(page_uri).read().decode("utf-8")
         assert len(page_text) > 0
         assert f"Page {page_num}" in page_text
     
     # Verify metadata stored
-    metadata_key = f"{ws.id}/artifacts/{art.id}/v1/metadata.json"
-    metadata_bytes = pdf_activity.storage.get_object("agora", metadata_key)
+    metadata_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/metadata.json"
+    metadata_bytes = pdf_activity.storage.get_object(metadata_uri).read()
     import json
     metadata = json.loads(metadata_bytes.decode("utf-8"))
     assert metadata["page_count"] == 3
@@ -168,22 +169,22 @@ def test_exit_2_retrieve_parsed_page_text(pdf_activity, sample_pdf_bytes, worksp
     )
     
     # Retrieve page 1 text
-    page1_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
-    page1_text = pdf_activity.storage.get_object("agora", page1_key).decode("utf-8")
+    page1_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
+    page1_text = pdf_activity.storage.get_object(page1_uri).read().decode("utf-8")
     
     assert "Page 1: This is the first page" in page1_text
     assert "test document" in page1_text
     
     # Retrieve page 2 text
-    page2_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
-    page2_text = pdf_activity.storage.get_object("agora", page2_key).decode("utf-8")
+    page2_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
+    page2_text = pdf_activity.storage.get_object(page2_uri).read().decode("utf-8")
     
     assert "Page 2: Here is some more text" in page2_text
     assert "Additional line on page 2" in page2_text
     
     # Retrieve page 3 text
-    page3_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_3.txt"
-    page3_text = pdf_activity.storage.get_object("agora", page3_key).decode("utf-8")
+    page3_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_3.txt"
+    page3_text = pdf_activity.storage.get_object(page3_uri).read().decode("utf-8")
     
     assert "Page 3: Final page" in page3_text
     assert "conclusion text" in page3_text
@@ -213,8 +214,8 @@ def test_exit_3_evidence_resolution(pdf_activity, sample_pdf_bytes, workspace_wi
     
     # Test 1: Extract "first page" from page 1
     # First, get the page 1 text to find the exact char positions
-    page1_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
-    page1_text = pdf_activity.storage.get_object("agora", page1_key).decode("utf-8")
+    page1_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
+    page1_text = pdf_activity.storage.get_object(page1_uri).read().decode("utf-8")
     
     # Find "first page" in the text
     search_str = "first page"
@@ -232,8 +233,8 @@ def test_exit_3_evidence_resolution(pdf_activity, sample_pdf_bytes, workspace_wi
     assert resolved1 == search_str
     
     # Test 2: Extract from page 2
-    page2_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
-    page2_text = pdf_activity.storage.get_object("agora", page2_key).decode("utf-8")
+    page2_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
+    page2_text = pdf_activity.storage.get_object(page2_uri).read().decode("utf-8")
     
     search_str2 = "specific content"
     start_idx2 = page2_text.find(search_str2)
@@ -250,8 +251,8 @@ def test_exit_3_evidence_resolution(pdf_activity, sample_pdf_bytes, workspace_wi
     assert resolved2 == search_str2
     
     # Test 3: Extract from start of page 3 (char=0)
-    page3_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_3.txt"
-    page3_text = pdf_activity.storage.get_object("agora", page3_key).decode("utf-8")
+    page3_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_3.txt"
+    page3_text = pdf_activity.storage.get_object(page3_uri).read().decode("utf-8")
     
     # Extract first 7 characters
     location3 = "pdf:p=3#char=0-7"

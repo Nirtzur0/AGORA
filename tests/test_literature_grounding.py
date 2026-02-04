@@ -16,6 +16,7 @@ This is the first "prove it works" workflow per spec.
 import pytest
 import uuid
 import json
+from sqlalchemy import text
 
 from storage import create_storage_from_env
 from database import Workspace, Agent, Artifact, ArtifactVersion
@@ -70,19 +71,7 @@ def test_exit_literature_grounding_end_to_end(db_session, integration_setup):
     storage = create_storage_from_env()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     mock_agent = {"agent_id": agent.id}
     
     # Step 1: Sanity check (simulated - /auth.md would exist in real deployment)
@@ -118,8 +107,8 @@ This is the introduction with important findings.
 Page 2 continues the discussion.
 More content here with detailed analysis."""
     
-    storage_key = f"{ws.id}/artifacts/{pdf_artifact_id}/v1/parsed.txt"
-    storage.put_object("agora", storage_key, pdf_text.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{pdf_artifact_id}/v1/parsed.txt"
+    storage.put_object(storage_uri, pdf_text.encode("utf-8"))
     
     # Create artifact version (simulating pdf_ingest_activity result)
     pdf_version_id = str(uuid.uuid4())
@@ -127,8 +116,7 @@ More content here with detailed analysis."""
         id=pdf_version_id,
         artifact_id=pdf_artifact_id,
         version=1,
-        location=storage_key,
-        size_bytes=len(pdf_text.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="test_hash_123"
     )
     db_session.add(pdf_version)
@@ -137,7 +125,7 @@ More content here with detailed analysis."""
     # Request PDF ingestion (idempotent - already ingested, should return existing)
     import asyncio
     ingest_response = asyncio.run(request_ingest_pdf(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=IngestPdfRequest(artifact_id=pdf_artifact_id),
         current_agent=mock_agent,
         db=db_wrapper
@@ -168,13 +156,13 @@ More content here with detailed analysis."""
     )
     
     claim_response = create_claim(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=claim_request,
         current_agent=mock_agent,
         db=db_wrapper
     )
     
-    assert claim_response.workspace_id == ws.id
+    assert claim_response.workspace_id == str(ws.id)
     assert claim_response.statement == claim_request.statement
     
     # Add evidence referencing PDF span (idempotent)
@@ -186,7 +174,7 @@ More content here with detailed analysis."""
     )
     
     evidence_response = add_evidence_to_claim(
-        claim_id=uuid.UUID(claim_response.id),
+        claim_id=uuid.UUID(str(claim_response.id)),
         request=evidence_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -211,13 +199,13 @@ More content here with detailed analysis."""
     # Step 6: Create draft version with claim/cite markers (idempotent)
     draft_request = CreateDraftRequest(title="Literature Review Draft")
     draft_response = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=draft_request,
         current_agent=mock_agent,
         db=db_wrapper
     )
     
-    assert draft_response.workspace_id == ws.id
+    assert draft_response.workspace_id == str(ws.id)
     assert draft_response.short_id == "D1"
     
     # Create draft version with citation markers
@@ -235,7 +223,7 @@ The study provides strong support for the hypothesis.
     
     version_request = CreateDraftVersionRequest(content=markdown_content)
     version_response = create_draft_version(
-        draft_id=uuid.UUID(draft_response.id),
+        draft_id=uuid.UUID(str(draft_response.id)),
         request=version_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -250,7 +238,7 @@ The study provides strong support for the hypothesis.
     )
     
     rulecheck_response = request_run_rulecheck(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=rulecheck_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -311,19 +299,7 @@ def test_idempotent_pdf_ingestion(db_session, integration_setup):
     ws, agent = integration_setup
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     mock_agent = {"agent_id": agent.id}
     
     # Create PDF artifact with existing version
@@ -341,8 +317,7 @@ def test_idempotent_pdf_ingestion(db_session, integration_setup):
         id=str(uuid.uuid4()),
         artifact_id=pdf_artifact_id,
         version=1,
-        location=f"{ws.id}/artifacts/{pdf_artifact_id}/v1/parsed.txt",
-        size_bytes=100,
+        storage_uri=f"s3://agora/{ws.id}/artifacts/{pdf_artifact_id}/v1/parsed.txt",
         content_hash="existing_hash"
     )
     db_session.add(pdf_version)
@@ -351,14 +326,14 @@ def test_idempotent_pdf_ingestion(db_session, integration_setup):
     # Request ingestion twice
     import asyncio
     response1 = asyncio.run(request_ingest_pdf(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=IngestPdfRequest(artifact_id=pdf_artifact_id),
         current_agent=mock_agent,
         db=db_wrapper
     ))
     
     response2 = asyncio.run(request_ingest_pdf(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=IngestPdfRequest(artifact_id=pdf_artifact_id),
         current_agent=mock_agent,
         db=db_wrapper
@@ -379,24 +354,12 @@ def test_draft_finalization_with_passing_checks(db_session, integration_setup):
     storage = create_storage_from_env()
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     mock_agent = {"agent_id": agent.id}
     
     # Create claim
     claim = create_claim(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateClaimRequest(statement="Test claim", kind="fact", confidence=0.9),
         current_agent=mock_agent,
         db=db_wrapper
@@ -413,15 +376,14 @@ def test_draft_finalization_with_passing_checks(db_session, integration_setup):
     db_session.add(pdf_artifact)
     
     pdf_text = "Test content for citation resolution."
-    storage_key = f"{ws.id}/artifacts/{pdf_artifact.id}/v1/parsed.txt"
-    storage.put_object("agora", storage_key, pdf_text.encode("utf-8"))
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{pdf_artifact.id}/v1/parsed.txt"
+    storage.put_object(storage_uri, pdf_text.encode("utf-8"))
     
     pdf_version = ArtifactVersion(
         id=str(uuid.uuid4()),
         artifact_id=pdf_artifact.id,
         version=1,
-        location=storage_key,
-        size_bytes=len(pdf_text.encode("utf-8")),
+        storage_uri=storage_uri,
         content_hash="test_hash"
     )
     db_session.add(pdf_version)
@@ -429,7 +391,7 @@ def test_draft_finalization_with_passing_checks(db_session, integration_setup):
     
     # Create draft with passing citations
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Test Draft"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -441,7 +403,7 @@ Claim [[claim:{claim.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0-
 """
     
     version = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content=markdown),
         current_agent=mock_agent,
         db=db_wrapper
@@ -456,7 +418,7 @@ Claim [[claim:{claim.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0-
     
     # Request finalization
     finalize_response = request_finalize_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=RequestFinalizeDraft(
             draft_artifact_id=draft.id,
             draft_artifact_version_id=version.id

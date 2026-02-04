@@ -9,6 +9,9 @@ Only the orchestrator may advance phases, emitting workspace.phase_changed event
 from enum import Enum
 from typing import Dict, List, Optional, Set
 
+from agent_tasks import TaskPayload, TaskStatus, TaskPriority
+from queries.agent_tasks import insert_agent_task
+
 
 class WorkspacePhase(str, Enum):
     """Workspace lifecycle phases per spec §5.3."""
@@ -240,7 +243,6 @@ class PhaseAdvancementActivity:
         )
         
         # Emit workspace.phase_changed event
-        import json
         import uuid
         
         event_payload = {
@@ -299,7 +301,6 @@ class PhaseAdvancementActivity:
         Returns:
             List of created task IDs
         """
-        import json
         import uuid
         
         created_task_ids = []
@@ -310,32 +311,34 @@ class PhaseAdvancementActivity:
                 continue
             
             role = action.get("role")
-            payload = action.get("payload", {})
+            action_payload = action.get("payload", {}) or {}
+            task_type = action_payload.get("task") or "gate_required_action"
+
+            task_payload = TaskPayload(
+                objective=action_payload.get("objective")
+                or action_payload.get("description")
+                or f"Required action: {task_type}",
+                inputs=action_payload.get("inputs") or [],
+                required_outputs=action_payload.get("required_outputs")
+                or ([task_type] if task_type else []),
+                context_links=action_payload.get("context_links"),
+                acceptance_criteria=action_payload.get("acceptance_criteria"),
+                priority=action_payload.get("priority", TaskPriority.HIGH.value),
+                assignee_role=role,
+                workflow_run_id=workflow_run_id,
+                gate_action=action
+            ).model_dump()
             
             # Create agent_task
             task_id = str(uuid.uuid4())
-            self.db.execute(
-                """
-                INSERT INTO agent_tasks (
-                    id, workspace_id, role, status, task_type,
-                    description, metadata, created_at
-                ) VALUES (
-                    :id, :workspace_id, :role, :status, :task_type,
-                    :description, :metadata, NOW()
-                )
-                """,
-                {
-                    "id": task_id,
-                    "workspace_id": workspace_id,
-                    "role": role,
-                    "status": "pending",
-                    "task_type": "gate_required_action",
-                    "description": f"Required action: {action_type}",
-                    "metadata": json.dumps({
-                        "action": action,
-                        "workflow_run_id": workflow_run_id
-                    })
-                }
+            insert_agent_task(
+                self.db,
+                task_id=task_id,
+                workspace_id=workspace_id,
+                assignee_agent_id=None,
+                task_type=task_type,
+                status=TaskStatus.OPEN.value,
+                payload=task_payload,
             )
             
             created_task_ids.append(task_id)

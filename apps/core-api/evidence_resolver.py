@@ -192,7 +192,6 @@ class EvidenceResolver:
         # Resolve using PDF activity
         try:
             snippet = pdf_activity.resolve_pdf_evidence(
-                workspace_id=artifact.workspace_id,
                 artifact_version_id=artifact_version_id,
                 location=location
             )
@@ -312,10 +311,10 @@ class EvidenceResolver:
         jsonpath_str = location[len("log:jsonpath="):]
         
         # Get log content from storage
-        log_key = f"{artifact.workspace_id}/artifacts/{version.artifact_id}/v{version.version}/log.json"
+        log_uri = f"s3://agora/{artifact.workspace_id}/artifacts/{version.artifact_id}/v{version.version}/log.json"
         
         try:
-            log_content = self.storage.get_object("agora", log_key).decode("utf-8")
+            log_content = self.storage.get_object(log_uri).read().decode("utf-8")
         except Exception:
             return ResolverResult(
                 ok=False,
@@ -419,3 +418,34 @@ class EvidenceResolver:
 def create_resolver(storage, db) -> EvidenceResolver:
     """Factory function to create evidence resolver."""
     return EvidenceResolver(storage, db)
+
+
+def resolve_evidence(
+    artifact_version_id: str,
+    location: str,
+    storage,
+    db
+) -> Dict[str, Any]:
+    """
+    Convenience helper for non-HTTP callers.
+    
+    Returns a dict with:
+    - success: bool
+    - error / error_code on failure
+    - snippet / normalized_location on success
+    """
+    resolver = create_resolver(storage, db)
+    result = resolver.resolve(artifact_version_id, location)
+    if result.ok:
+        return {
+            "success": True,
+            "snippet": result.snippet,
+            "normalized_location": result.normalized_location,
+            "mime": result.mime,
+            "source": result.source
+        }
+    return {
+        "success": False,
+        "error": result.message,
+        "error_code": result.code
+    }

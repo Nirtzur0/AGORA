@@ -11,6 +11,8 @@ from typing import Dict, List, Optional
 from enum import Enum
 import json
 
+from agent_tasks import RoleName, TaskStatus
+
 
 class GateStatus(str, Enum):
     """Gate evaluation status."""
@@ -105,7 +107,7 @@ class GateEvaluationActivity:
         Gather snapshot for EXPERIMENTATION exit gate.
         
         Gate criteria per spec §5.4:
-        - planned experiment tasks done|deferred
+        - planned experiment tasks completed|blocked
         - each run has log artifact + environment/config captured
         - critical results have method-review critique
         
@@ -121,7 +123,7 @@ class GateEvaluationActivity:
             SELECT COUNT(*)
             FROM agent_tasks
             WHERE workspace_id = :workspace_id
-              AND task_type IN ('experiment', 'sandbox_run')
+              AND type IN ('experiment', 'sandbox_run')
             """,
             {"workspace_id": workspace_id}
         ).fetchone()[0]
@@ -131,10 +133,14 @@ class GateEvaluationActivity:
             SELECT COUNT(*)
             FROM agent_tasks
             WHERE workspace_id = :workspace_id
-              AND task_type IN ('experiment', 'sandbox_run')
-              AND status IN ('completed', 'deferred')
+              AND type IN ('experiment', 'sandbox_run')
+              AND status IN (:status_completed, :status_blocked)
             """,
-            {"workspace_id": workspace_id}
+            {
+                "workspace_id": workspace_id,
+                "status_completed": TaskStatus.COMPLETED.value,
+                "status_blocked": TaskStatus.BLOCKED.value,
+            }
         ).fetchone()[0]
         
         # Count workflow_runs with log artifacts
@@ -251,9 +257,10 @@ class GateEvaluationActivity:
         sandbox_runs_exist = self.db.execute(
             """
             SELECT COUNT(*)
-            FROM activity_runs
-            WHERE workspace_id = :workspace_id
-              AND activity_type = 'sandbox_run'
+            FROM activity_runs ar
+            JOIN workflow_runs wr ON ar.workflow_run_id = wr.id
+            WHERE wr.workspace_id = :workspace_id
+              AND ar.activity_type = 'sandbox_run'
             """,
             {"workspace_id": workspace_id}
         ).fetchone()[0] > 0
@@ -317,7 +324,7 @@ class GateEvaluator:
             reasons.append("No artifacts ingested yet")
             required_actions.append({
                 "type": "assign_task",
-                "role": "LITERATURE_ANALYST",
+                "role": RoleName.LITERATURE_ANALYST.value,
                 "payload": {"task": "ingest_literature"}
             })
         
@@ -326,7 +333,7 @@ class GateEvaluator:
             reasons.append("No claims with evidence yet")
             required_actions.append({
                 "type": "assign_task",
-                "role": "LITERATURE_ANALYST",
+                "role": RoleName.LITERATURE_ANALYST.value,
                 "payload": {"task": "extract_claims"}
             })
         
@@ -335,7 +342,7 @@ class GateEvaluator:
             reasons.append("Key claims need critique from another agent")
             required_actions.append({
                 "type": "assign_task",
-                "role": "SKEPTIC",
+                "role": RoleName.SKEPTIC.value,
                 "payload": {"task": "review_claims"}
             })
         
@@ -360,7 +367,7 @@ class GateEvaluator:
         Evaluate EXPERIMENTATION exit gate.
         
         Criteria (v1 minimum):
-        - All experiment tasks completed or deferred
+        - All experiment tasks completed or blocked
         - At least one workflow run with log artifact
         - At least one run with critique (if critical results exist)
         
@@ -381,7 +388,7 @@ class GateEvaluator:
             reasons.append(f"Experiment tasks incomplete: {completed}/{total}")
             required_actions.append({
                 "type": "assign_task",
-                "role": "EXPERIMENTALIST",
+                "role": RoleName.EXPERIMENTALIST.value,
                 "payload": {"task": "complete_experiments"}
             })
         
@@ -390,7 +397,7 @@ class GateEvaluator:
             reasons.append("No experiment runs with log artifacts yet")
             required_actions.append({
                 "type": "assign_task",
-                "role": "EXPERIMENTALIST",
+                "role": RoleName.EXPERIMENTALIST.value,
                 "payload": {"task": "capture_experiment_logs"}
             })
         
@@ -399,7 +406,7 @@ class GateEvaluator:
             reasons.append("Critical results need method review critique")
             required_actions.append({
                 "type": "assign_task",
-                "role": "METHOD_REVIEWER",
+                "role": RoleName.METHOD_REVIEWER.value,
                 "payload": {"task": "review_experiments"}
             })
         
@@ -443,7 +450,7 @@ class GateEvaluator:
             reasons.append(f"{snapshot['open_blocking_critiques_count']} open blocking critiques")
             required_actions.append({
                 "type": "assign_task",
-                "role": "SKEPTIC",
+                "role": RoleName.SKEPTIC.value,
                 "payload": {"task": "resolve_blocking_critiques"}
             })
         
@@ -452,7 +459,7 @@ class GateEvaluator:
             reasons.append("Citation coverage checks not passing")
             required_actions.append({
                 "type": "assign_task",
-                "role": "SYNTHESIZER",
+                "role": RoleName.SYNTHESIZER.value,
                 "payload": {"task": "fix_citation_coverage"}
             })
         
@@ -461,7 +468,7 @@ class GateEvaluator:
             reasons.append("Critique sufficiency checks not passing")
             required_actions.append({
                 "type": "assign_task",
-                "role": "SKEPTIC",
+                "role": RoleName.SKEPTIC.value,
                 "payload": {"task": "ensure_critique_sufficiency"}
             })
         
@@ -714,9 +721,10 @@ class GateEvaluator:
         sandbox_runs_exist = self.db.execute(
             """
             SELECT COUNT(*)
-            FROM activity_runs
-            WHERE workspace_id = :workspace_id
-              AND activity_type = 'sandbox_run'
+            FROM activity_runs ar
+            JOIN workflow_runs wr ON ar.workflow_run_id = wr.id
+            WHERE wr.workspace_id = :workspace_id
+              AND ar.activity_type = 'sandbox_run'
             """,
             {"workspace_id": workspace_id}
         ).fetchone()[0] > 0

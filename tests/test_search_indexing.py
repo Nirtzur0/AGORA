@@ -9,11 +9,12 @@ Per spec §4.13, §6.5, §9:
 
 import pytest
 import uuid
+from sqlalchemy import text
 from apps.worker.indexing_activities import (
     index_artifact_content,
     index_pdf_text,
     index_repo_file,
-    index_log
+    index_log,
 )
 
 
@@ -94,8 +95,8 @@ def workspace_with_artifacts(test_db):
     # Create version
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_at)
-        VALUES (:id, :artifact_id, 1, 'hash123', 's3://bucket/test/v1', NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_at)
+        VALUES (:id, :artifact_id, 1, 's3://bucket/test/v1', 'hash123', NOW())
         """,
         {"id": version_id, "artifact_id": artifact_id}
     )
@@ -244,8 +245,8 @@ def test_search_finds_indexed_content(workspace_with_artifacts, test_db):
     
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_at)
-        VALUES (:id, :artifact_id, 1, 'hash456', 's3://bucket/test2/v1', NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_at)
+        VALUES (:id, :artifact_id, 1, 's3://bucket/test2/v1', 'hash456', NOW())
         """,
         {"id": version_id_2, "artifact_id": artifact_id_2}
     )
@@ -310,8 +311,8 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
     
     test_db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_at)
-        VALUES (:id, :artifact_id, 1, 'hash789', 's3://bucket/test2/v1', NOW())
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_at)
+        VALUES (:id, :artifact_id, 1, 's3://bucket/test2/v1', 'hash789', NOW())
         """,
         {"id": version_id_2, "artifact_id": artifact_id_2}
     )
@@ -371,8 +372,8 @@ def test_search_workspace_filtering(test_db):
         
         test_db.execute(
             """
-            INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_at)
-            VALUES (:id, :artifact_id, 1, 'hash', 's3://bucket/test/v1', NOW())
+            INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_at)
+            VALUES (:id, :artifact_id, 1, 's3://bucket/test/v1', 'hash', NOW())
             """,
             {"id": version_id, "artifact_id": artifact_id}
         )

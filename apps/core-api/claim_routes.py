@@ -15,10 +15,10 @@ from typing import Dict, Any, List, Optional
 from uuid import UUID
 import uuid
 
-from auth_middleware import get_current_agent
+from auth_middleware import get_current_agent, AgentContext
 from evidence_resolver import create_resolver
 from storage import create_storage_from_env
-from database import get_db
+from database import get_db_session
 
 
 router = APIRouter(tags=["Claims"])
@@ -27,6 +27,11 @@ router = APIRouter(tags=["Claims"])
 def get_storage():
     """Dependency to get storage instance."""
     return create_storage_from_env()
+
+def _agent_id(current_agent: AgentContext) -> str:
+    if isinstance(current_agent, dict):
+        return str(current_agent.get("agent_id"))
+    return str(current_agent.agent_id)
 
 
 # Request/Response Models
@@ -78,8 +83,8 @@ class ClaimResponse(BaseModel):
 def create_claim(
     workspace_id: UUID = Path(..., description="Workspace ID"),
     request: CreateClaimRequest = Body(...),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db)
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session)
 ) -> ClaimResponse:
     """
     Create a new claim in a workspace.
@@ -113,7 +118,7 @@ def create_claim(
             request.confidence,
             False,  # is_key is system-owned, not settable by agents
             "active",
-            current_agent.get("agent_id"),
+            _agent_id(current_agent),
             created_at
         )
     )
@@ -126,7 +131,7 @@ def create_claim(
         confidence=request.confidence,
         is_key=False,
         status="active",
-        created_by=current_agent.get("agent_id"),
+        created_by=_agent_id(current_agent),
         created_at=created_at.isoformat(),
         evidence=[]
     )
@@ -155,8 +160,8 @@ def create_claim(
 def add_evidence_to_claim(
     claim_id: UUID = Path(..., description="Claim ID"),
     request: AddEvidenceRequest = Body(...),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db),
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session),
     storage = Depends(get_storage)
 ) -> Dict[str, Any]:
     """
@@ -211,30 +216,24 @@ def add_evidence_to_claim(
         )
     
     # Validate location resolves (per spec: recommended to prevent junk evidence pointers)
-    # Note: resolver needs SQLAlchemy session, so we create a temporary session
-    from database import SessionLocal
-    session = SessionLocal()
-    try:
-        resolver = create_resolver(storage, session)
-        resolution_result = resolver.resolve(
-            artifact_version_id=request.artifact_version_id,
-            location=request.location
+    resolver = create_resolver(storage, db)
+    resolution_result = resolver.resolve(
+        artifact_version_id=request.artifact_version_id,
+        location=request.location
+    )
+    
+    if not resolution_result.ok:
+        # Return 422 with resolver's error details
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "ok": False,
+                "code": resolution_result.code,
+                "message": resolution_result.message
+            }
         )
-        
-        if not resolution_result.ok:
-            # Return 422 with resolver's error details
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "ok": False,
-                    "code": resolution_result.code,
-                    "message": resolution_result.message
-                }
-            )
-        
-        snippet = resolution_result.snippet
-    finally:
-        session.close()
+    
+    snippet = resolution_result.snippet
     
     # Create evidence link
     evidence_id = str(uuid.uuid4())
@@ -266,8 +265,8 @@ def add_evidence_to_claim(
 )
 def list_claims(
     workspace_id: UUID = Path(..., description="Workspace ID"),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db)
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session)
 ) -> Dict[str, Any]:
     """
     List all claims in a workspace with their evidence.

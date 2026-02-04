@@ -292,7 +292,7 @@ class PDFIngestActivity:
             page_stream = self.storage.get_object(page_uri)
             page_text = page_stream.read().decode('utf-8')
         except Exception as e:
-            raise ValueError(f"Page {page_num} not found or cannot be read") from e
+            raise FileNotFoundError(f"Page {page_num} not found or cannot be read") from e
         
         # Extract character range
         if start_char < 0 or end_char > len(page_text) or start_char >= end_char:

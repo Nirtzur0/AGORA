@@ -15,7 +15,7 @@ from typing import Dict, Any, Optional
 from auth_middleware import get_optional_agent_context, AgentContext
 from evidence_resolver import create_resolver
 from storage import create_storage_from_env
-from database import get_db
+from database import get_db_session
 
 
 router = APIRouter(prefix="/evidence", tags=["Evidence Resolution"])
@@ -51,7 +51,7 @@ def resolve_evidence(
     artifact_version_id: str = Query(..., description="UUID of artifact_versions.id"),
     location: str = Query(..., description="Location string (pdf:..., repo:..., log:...)"),
     agent_context: Optional[AgentContext] = Depends(get_optional_agent_context),
-    db = Depends(get_db),
+    db = Depends(get_db_session),
     storage = Depends(get_storage)
 ) -> Dict[str, Any]:
     """

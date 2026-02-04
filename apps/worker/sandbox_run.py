@@ -182,11 +182,11 @@ class SandboxRunActivity:
         # Get latest version of script artifact
         result = self.db.execute(
             """
-            SELECT av.id, av.content_hash, a.storage_uri
+            SELECT av.id, av.version, av.storage_uri
             FROM artifacts a
             JOIN artifact_versions av ON a.id = av.artifact_id
             WHERE a.id = :artifact_id
-            ORDER BY av.version_number DESC
+            ORDER BY av.version DESC
             LIMIT 1
             """,
             {"artifact_id": script_artifact_id}
@@ -195,25 +195,14 @@ class SandboxRunActivity:
         if not result:
             raise SandboxExecutionError(f"Script artifact {script_artifact_id} not found")
         
-        version_id, content_hash, storage_uri = result
+        version_id, version_number, storage_uri = result
         
         # Download from MinIO
         try:
-            # Construct object path
-            object_path = f"{storage_uri.rstrip('/')}/v{version_id}/script"
-            
-            # Try common script extensions
-            for ext in ["", ".py", ".sh", ".js"]:
-                try:
-                    response = self.storage.get_object("agora", object_path + ext)
-                    content = response.read().decode('utf-8')
-                    response.close()
-                    response.release_conn()
-                    return content
-                except Exception:
-                    continue
-            
-            raise SandboxExecutionError(f"Could not retrieve script from {object_path}")
+            # storage_uri should point directly to the script object
+            response = self.storage.get_object(storage_uri)
+            content = response.read().decode("utf-8")
+            return content
             
         except Exception as e:
             raise SandboxExecutionError(f"Failed to download script: {str(e)}")
@@ -330,20 +319,21 @@ class SandboxRunActivity:
             Version ID
         """
         # Store log in MinIO
-        storage_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/"
         version_id = str(uuid.uuid4())
-        object_path = f"{workspace_id}/artifacts/{artifact_id}/v{version_id}/log.txt"
+        result = self.db.execute(
+            """
+            SELECT COALESCE(MAX(version) + 1, 1)
+            FROM artifact_versions
+            WHERE artifact_id = :artifact_id
+            """,
+            {"artifact_id": artifact_id}
+        ).fetchone()
+        version_number = result[0] if result else 1
+        storage_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version_number}/log.txt"
         
         try:
-            from io import BytesIO
             log_bytes = log_content.encode('utf-8')
-            self.storage.put_object(
-                "agora",
-                object_path,
-                BytesIO(log_bytes),
-                len(log_bytes),
-                content_type="text/plain"
-            )
+            self.storage.put_object(storage_uri, log_bytes)
         except Exception as e:
             raise SandboxExecutionError(f"Failed to store log artifact: {str(e)}")
         
@@ -354,21 +344,18 @@ class SandboxRunActivity:
         self.db.execute(
             """
             INSERT INTO artifact_versions (
-                id, artifact_id, version_number, content_hash, 
-                location, metadata, created_by, created_at
+                id, artifact_id, version, storage_uri, content_hash, created_by, created_at
             )
             VALUES (
-                :id, :artifact_id, 
-                COALESCE((SELECT MAX(version_number) + 1 FROM artifact_versions WHERE artifact_id = :artifact_id), 1),
-                :content_hash, :location, :metadata, :created_by, NOW()
+                :id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW()
             )
             """,
             {
                 "id": version_id,
                 "artifact_id": artifact_id,
+                "version": version_number,
                 "content_hash": content_hash,
-                "location": f"log:char=0-{len(log_content)}",
-                "metadata": json.dumps(execution_metadata),
+                "storage_uri": storage_uri,
                 "created_by": created_by
             }
         )
@@ -438,18 +425,12 @@ class SandboxRunActivity:
         
         # Store config in MinIO
         version_id = str(uuid.uuid4())
-        object_path = f"{workspace_id}/artifacts/{artifact_id}/v{version_id}/config.json"
+        version_number = 1
+        config_storage_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version_number}/config.json"
         
         try:
-            from io import BytesIO
             config_bytes = config_json.encode('utf-8')
-            self.storage.put_object(
-                "agora",
-                object_path,
-                BytesIO(config_bytes),
-                len(config_bytes),
-                content_type="application/json"
-            )
+            self.storage.put_object(config_storage_uri, config_bytes)
         except Exception as e:
             raise SandboxExecutionError(f"Failed to store config artifact: {str(e)}")
         
@@ -460,17 +441,16 @@ class SandboxRunActivity:
         self.db.execute(
             """
             INSERT INTO artifact_versions (
-                id, artifact_id, version_number, content_hash,
-                location, metadata, created_by, created_at
+                id, artifact_id, version, storage_uri, content_hash, created_by, created_at
             )
-            VALUES (:id, :artifact_id, 1, :content_hash, :location, :metadata, :created_by, NOW())
+            VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
             """,
             {
                 "id": version_id,
                 "artifact_id": artifact_id,
+                "version": version_number,
                 "content_hash": content_hash,
-                "location": f"config:json",
-                "metadata": json.dumps(config),
+                "storage_uri": config_storage_uri,
                 "created_by": created_by
             }
         )
@@ -512,16 +492,15 @@ class SandboxRunActivity:
         
         self.db.execute(
             """
-            INSERT INTO logs (id, workspace_id, agent_id, level, message, metadata, created_at)
-            VALUES (:id, :workspace_id, :agent_id, :level, :message, :metadata, NOW())
+            INSERT INTO logs (id, workspace_id, agent_id, action, payload, created_at)
+            VALUES (:id, :workspace_id, :agent_id, :action, :payload, NOW())
             """,
             {
                 "id": str(uuid.uuid4()),
                 "workspace_id": workspace_id,
                 "agent_id": created_by if created_by != "SYSTEM" else None,
-                "level": "INFO",
-                "message": f"Sandbox execution completed with exit code {exit_code}",
-                "metadata": json.dumps(log_entry)
+                "action": "sandbox.execution",
+                "payload": log_entry
             }
         )
         
@@ -566,9 +545,8 @@ class SandboxRunActivity:
         # Get artifact version
         result = db.execute(
             """
-            SELECT a.storage_uri, av.id
+            SELECT av.storage_uri, av.id
             FROM artifact_versions av
-            JOIN artifacts a ON av.artifact_id = a.id
             WHERE av.id = :version_id
             """,
             {"version_id": artifact_version_id}
@@ -579,23 +557,13 @@ class SandboxRunActivity:
         
         storage_uri, version_id = result
         
-        # Download log from MinIO
-        from storage import get_storage
-        storage = get_storage()
-        
-        # Extract workspace and artifact IDs from storage URI
-        # Format: s3://agora/{workspace_id}/artifacts/{artifact_id}/
-        parts = storage_uri.rstrip('/').split('/')
-        workspace_id = parts[3]
-        artifact_id = parts[5]
-        
-        object_path = f"{workspace_id}/artifacts/{artifact_id}/v{version_id}/log.txt"
+        # Download log from storage
+        from storage import create_storage_from_env
+        storage = create_storage_from_env()
         
         try:
-            response = storage.get_object("agora", object_path)
+            response = storage.get_object(storage_uri)
             log_content = response.read().decode('utf-8')
-            response.close()
-            response.release_conn()
         except Exception as e:
             raise ValueError(f"Failed to retrieve log content: {str(e)}")
         

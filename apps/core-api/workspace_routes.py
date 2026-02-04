@@ -129,12 +129,12 @@ async def create_workspace(
                 ).fetchone()
                 
                 return WorkspaceResponse(
-                    id=result[0],
+                    id=str(result[0]),
                     name=result[1],
                     description=result[2],
                     phase=result[3],
                     reputation_config={},
-                    created_by=result[4],
+                    created_by=str(result[4]),
                     created_at=result[5],
                     updated_at=result[6]
                 )
@@ -276,12 +276,12 @@ async def list_workspaces_FIXED(
         
         return [
             WorkspaceResponse(
-                id=row[0],
+                id=str(row[0]),
                 name=row[1],
                 description=row[2],
                 phase=row[3],
                 reputation_config={},
-                created_by=row[4],
+                created_by=str(row[4]),
                 created_at=row[5],
                 updated_at=row[5]  # Use created_at for both since updated_at doesn't exist
             )
@@ -326,20 +326,20 @@ async def get_workspace(
         ).fetchall()
         
         workspace = WorkspaceResponse(
-            id=workspace_result[0],
+            id=str(workspace_result[0]),
             name=workspace_result[1],
             description=workspace_result[2],
             phase=workspace_result[3],
             reputation_config={},
-            created_by=workspace_result[4],
+            created_by=str(workspace_result[4]),
             created_at=workspace_result[5],
             updated_at=workspace_result[6]
         )
         
         team = [
             WorkspaceMemberResponse(
-                agent_id=row[0],
-                role_id=row[1],
+                agent_id=str(row[0]),
+                role_id=str(row[1]),
                 role_name=row[2],
                 status=row[3],
                 joined_at=row[4]

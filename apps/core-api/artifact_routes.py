@@ -18,7 +18,7 @@ Authority model:
 """
 import hashlib
 import io
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID, uuid4
 from datetime import datetime
 
@@ -26,8 +26,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Respons
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from auth_middleware import get_current_agent
-from database import get_db
+from auth_middleware import get_current_agent, AgentContext
+from database import get_db_session
 from storage import create_storage_from_env, StorageError, ObjectExistsError
 from rbac import require_permission
 
@@ -112,6 +112,12 @@ def _allocate_short_id(workspace_id: UUID, db) -> str:
         return "A1"
 
 
+def _ensure_uuid(value: Any) -> UUID:
+    if isinstance(value, UUID):
+        return value
+    return UUID(str(value))
+
+
 def _emit_event(workspace_id: UUID, event_type: str, actor_id: UUID, payload: dict, db):
     """
     Emit an event to the events table.
@@ -145,8 +151,8 @@ def _emit_event(workspace_id: UUID, event_type: str, actor_id: UUID, payload: di
 async def create_artifact(
     workspace_id: UUID,
     req: CreateArtifactRequest,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Create artifact metadata record (no content yet).
@@ -155,10 +161,10 @@ async def create_artifact(
     Emits artifact.created event.
     Supports idempotency via Idempotency-Key header.
     
-    Authority: Requires artifacts.create permission.
+    Authority: Requires artifact.create permission.
     """
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.create", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.create")
     
     # Verify workspace exists
     result = db.execute(
@@ -188,7 +194,7 @@ async def create_artifact(
             "type": req.type,
             "metadata": req.metadata,
             "storage_uri": storage_uri,
-            "created_by": agent["id"],
+            "created_by": agent.agent_id,
             "created_at": datetime.utcnow()
         }
     )
@@ -197,7 +203,7 @@ async def create_artifact(
     _emit_event(
         workspace_id=workspace_id,
         event_type="artifact.created",
-        actor_id=UUID(agent["id"]),
+        actor_id=UUID(agent.agent_id),
         payload={
             "artifact_id": str(artifact_id),
             "short_id": short_id,
@@ -215,7 +221,7 @@ async def create_artifact(
         "type": req.type,
         "metadata": req.metadata,
         "storage_uri": storage_uri,
-        "created_by": agent["id"],
+        "created_by": agent.agent_id,
         "created_at": datetime.utcnow().isoformat()
     }
 
@@ -224,8 +230,8 @@ async def create_artifact(
 async def create_artifact_version(
     artifact_id: UUID,
     file: UploadFile = File(...),
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Upload new version for artifact (writes to MinIO + artifact_versions).
@@ -238,7 +244,7 @@ async def create_artifact_version(
     Emits artifact.version_created event.
     Supports idempotency via Idempotency-Key header.
     
-    Authority: Requires artifacts.version.create permission.
+    Authority: Requires artifact.version.create permission.
     """
     # Get artifact and verify access
     result = db.execute(
@@ -249,12 +255,12 @@ async def create_artifact_version(
     if artifact is None:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    workspace_id = UUID(artifact[0])
+    workspace_id = _ensure_uuid(artifact[0])
     short_id = artifact[1]
     artifact_type = artifact[2]
     
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.version.create", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.version.create")
     
     # Get next version number
     result = db.execute(
@@ -299,7 +305,7 @@ async def create_artifact_version(
             "version": next_version,
             "storage_uri": version_storage_uri,
             "content_hash": content_hash,
-            "created_by": agent["id"],
+            "created_by": agent.agent_id,
             "created_at": datetime.utcnow()
         }
     )
@@ -308,7 +314,7 @@ async def create_artifact_version(
     _emit_event(
         workspace_id=workspace_id,
         event_type="artifact.version_created",
-        actor_id=UUID(agent["id"]),
+        actor_id=UUID(agent.agent_id),
         payload={
             "artifact_id": str(artifact_id),
             "artifact_version_id": str(version_id),
@@ -327,7 +333,7 @@ async def create_artifact_version(
         "version": next_version,
         "storage_uri": version_storage_uri,
         "content_hash": content_hash,
-        "created_by": agent["id"],
+        "created_by": agent.agent_id,
         "created_at": datetime.utcnow().isoformat()
     }
 
@@ -336,8 +342,8 @@ async def create_artifact_version(
 async def list_artifacts(
     workspace_id: UUID,
     type: Optional[str] = None,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     List artifacts in workspace.
@@ -345,10 +351,10 @@ async def list_artifacts(
     Optional filters:
     - type: Filter by artifact type
     
-    Authority: Requires artifacts.list permission.
+    Authority: Requires artifact.read permission.
     """
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.list", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
     # Build query
     query = """
@@ -386,13 +392,13 @@ async def list_artifacts(
 @router.get("/artifacts/{artifact_id}")
 async def get_artifact(
     artifact_id: UUID,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Get artifact metadata.
     
-    Authority: Requires artifacts.read permission.
+    Authority: Requires artifact.read permission.
     """
     # Get artifact
     result = db.execute(
@@ -407,10 +413,10 @@ async def get_artifact(
     if row is None:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    workspace_id = UUID(row[1])
+    workspace_id = _ensure_uuid(row[1])
     
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
     return {
         "id": row[0],
@@ -427,13 +433,13 @@ async def get_artifact(
 @router.get("/artifacts/{artifact_id}/versions")
 async def list_artifact_versions(
     artifact_id: UUID,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     List all versions of an artifact.
     
-    Authority: Requires artifacts.read permission.
+    Authority: Requires artifact.read permission.
     """
     # Get artifact to check permission
     result = db.execute(
@@ -444,10 +450,10 @@ async def list_artifact_versions(
     if row is None:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    workspace_id = UUID(row[0])
+    workspace_id = _ensure_uuid(row[0])
     
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
     # Get versions
     result = db.execute(
@@ -479,8 +485,8 @@ async def list_artifact_versions(
 @router.get("/artifact-versions/{version_id}/content")
 async def get_artifact_version_content(
     version_id: UUID,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Get exact version content (required for citations).
@@ -488,7 +494,7 @@ async def get_artifact_version_content(
     This endpoint returns the exact bytes for a specific version,
     which is required for evidence/citation resolution per spec §5.8.
     
-    Authority: Requires artifacts.read permission.
+    Authority: Requires artifact.read permission.
     """
     # Get version and check permission
     result = db.execute(
@@ -506,11 +512,11 @@ async def get_artifact_version_content(
     
     storage_uri = row[0]
     content_hash = row[1]
-    workspace_id = UUID(row[2])
+    workspace_id = _ensure_uuid(row[2])
     artifact_type = row[3]
     
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
     # Retrieve from storage
     try:
@@ -542,8 +548,8 @@ async def get_artifact_version_content(
 @router.get("/artifacts/{artifact_id}/content")
 async def get_artifact_latest_content(
     artifact_id: UUID,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Get latest version content (convenience only).
@@ -552,7 +558,7 @@ async def get_artifact_latest_content(
     Evidence/citations must reference exact version_id via
     /artifact-versions/{version_id}/content endpoint.
     
-    Authority: Requires artifacts.read permission.
+    Authority: Requires artifact.read permission.
     """
     # Get artifact
     result = db.execute(
@@ -563,11 +569,11 @@ async def get_artifact_latest_content(
     if row is None:
         raise HTTPException(status_code=404, detail="Artifact not found")
     
-    workspace_id = UUID(row[0])
+    workspace_id = _ensure_uuid(row[0])
     artifact_type = row[1]
     
     # Check permission
-    require_permission(agent["id"], workspace_id, "artifacts.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
     # Get latest version
     result = db.execute(

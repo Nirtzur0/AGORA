@@ -13,6 +13,8 @@ import json
 
 from workflow_client import WorkflowClient, create_activity_run, update_activity_run
 from database import DBWrapper
+from agent_tasks import TaskPayload, TaskInput, RoleName, TaskStatus, TaskPriority
+from queries.agent_tasks import insert_agent_task
 
 
 async def code_replication_workflow(
@@ -69,7 +71,7 @@ async def code_replication_workflow(
     try:
         # Step 1: Execute repo_ingest activity
         from repo_ingest import RepoIngestActivity
-        from storage import get_storage
+        from storage import create_storage_from_env
         
         # Create repo artifact
         repo_artifact_id = str(uuid.uuid4())
@@ -85,7 +87,7 @@ async def code_replication_workflow(
                 "type": "code",
                 "metadata": json.dumps({"repo_url": repo_url}),
                 "storage_uri": f"s3://agora/{workspace_id}/artifacts/{repo_artifact_id}/",
-                "created_by": "SYSTEM"
+                "created_by": None
             }
         )
         db.commit()
@@ -106,14 +108,14 @@ async def code_replication_workflow(
         )
         
         # Run repo_ingest
-        storage = get_storage()
+        storage = create_storage_from_env()
         repo_activity = RepoIngestActivity(storage, db)
         
         ingest_result = repo_activity.ingest_repo(
             artifact_id=repo_artifact_id,
             workspace_id=workspace_id,
             repo_url=repo_url,
-            created_by="SYSTEM",
+            created_by=None,
             branch=branch,
             commit_hash=commit_hash,
             activity_run_id=activity_run_id
@@ -155,23 +157,20 @@ async def code_replication_workflow(
                     "script_path": script_path
                 }),
                 "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-                "created_by": "SYSTEM"
+                "created_by": None
             }
         )
         
         # Store script in MinIO
         script_version_id = str(uuid.uuid4())
-        script_object_path = f"{workspace_id}/artifacts/{script_artifact_id}/v{script_version_id}/script.py"
-        
-        from io import BytesIO
-        script_bytes = script_content.encode('utf-8')
-        storage.put_object(
-            "agora",
-            script_object_path,
-            BytesIO(script_bytes),
-            len(script_bytes),
-            content_type="text/plain"
+        script_version_number = 1
+        script_storage_uri = (
+            f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/"
+            f"v{script_version_number}/script.py"
         )
+        
+        script_bytes = script_content.encode("utf-8")
+        storage.put_object(script_storage_uri, script_bytes)
         
         # Create script artifact version
         import hashlib
@@ -179,16 +178,16 @@ async def code_replication_workflow(
         
         db.execute(
             """
-            INSERT INTO artifact_versions (id, artifact_id, version_number, content_hash, location, created_by, created_at)
-            VALUES (:id, :artifact_id, :version_number, :content_hash, :location, :created_by, NOW())
+            INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+            VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
             """,
             {
                 "id": script_version_id,
                 "artifact_id": script_artifact_id,
-                "version_number": 1,
+                "version": script_version_number,
                 "content_hash": script_hash,
-                "location": f"repo:path={script_path}",
-                "created_by": "SYSTEM"
+                "storage_uri": script_storage_uri,
+                "created_by": None
             }
         )
         db.commit()
@@ -211,7 +210,7 @@ async def code_replication_workflow(
                     "script_artifact_id": script_artifact_id
                 }),
                 "storage_uri": f"s3://agora/{workspace_id}/artifacts/{log_artifact_id}/",
-                "created_by": "SYSTEM"
+                "created_by": None
             }
         )
         db.commit()
@@ -238,7 +237,7 @@ async def code_replication_workflow(
             workspace_id=workspace_id,
             script_artifact_id=script_artifact_id,
             parameters=sandbox_parameters or {},
-            created_by="SYSTEM",
+            created_by=None,
             activity_run_id=sandbox_run_id
         )
         
@@ -251,51 +250,47 @@ async def code_replication_workflow(
         
         # Step 3: Create agent_task for result summarization
         task_id = str(uuid.uuid4())
-        
-        db.execute(
-            """
-            INSERT INTO agent_tasks (
-                id,
-                workspace_id,
-                title,
-                description,
-                task_type,
-                target_artifact_id,
-                workflow_run_id,
-                status,
-                payload,
-                created_at
-            ) VALUES (
-                :id,
-                :workspace_id,
-                :title,
-                :description,
-                :task_type,
-                :target_artifact_id,
-                :workflow_run_id,
-                :status,
-                :payload,
-                NOW()
-            )
-            """,
-            {
-                "id": task_id,
-                "workspace_id": workspace_id,
-                "title": "Summarize experiment results",
-                "description": f"Review the execution log (artifact {log_artifact_id}) and write a draft summarizing results with citations",
-                "task_type": "summarize_results",
-                "target_artifact_id": log_artifact_id,
-                "workflow_run_id": workflow_run_id,
-                "status": "pending",
-                "payload": json.dumps({
-                    "repo_artifact_id": repo_artifact_id,
-                    "script_artifact_id": script_artifact_id,
-                    "log_artifact_id": log_artifact_id,
-                    "log_version_id": sandbox_result["version_id"],
-                    "exit_code": sandbox_result["exit_code"],
-                    "execution_time_seconds": sandbox_result["execution_time_seconds"]
-                })
+
+        task_payload = TaskPayload(
+            objective="Summarize the execution results with evidence-backed claims.",
+            inputs=[
+                TaskInput(
+                    artifact_version_id=sandbox_result["version_id"],
+                    label="Execution log",
+                    location="log:full"
+                )
+            ],
+            required_outputs=[
+                "draft.version.create",
+                "claim.create",
+                "claim.evidence.add"
+            ],
+            context_links=[
+                {"type": "artifact", "id": repo_artifact_id},
+                {"type": "artifact", "id": script_artifact_id},
+                {"type": "artifact", "id": log_artifact_id}
+            ],
+            acceptance_criteria=[
+                "Draft summary created with citations to the log",
+                "At least 1 claim created with evidence"
+            ],
+            priority=TaskPriority.HIGH.value,
+            workflow_run_id=workflow_run_id,
+            assignee_role=RoleName.EXPERIMENTALIST.value,
+            execution={
+                "exit_code": sandbox_result["exit_code"],
+                "execution_time_seconds": sandbox_result["execution_time_seconds"]
             }
+        ).model_dump()
+
+        insert_agent_task(
+            db,
+            task_id=task_id,
+            workspace_id=workspace_id,
+            assignee_agent_id=None,
+            task_type="summarize_results",
+            status=TaskStatus.OPEN.value,
+            payload=task_payload,
         )
         
         db.commit()

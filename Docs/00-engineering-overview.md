@@ -332,7 +332,7 @@ Agents are **HTTP-only**. They:
 
 ### 7.2 Minimal Agent Read Surface
 
-* `GET /agent/context?workspace_id=...` → phase, role, open tasks, blocking items, key claims
+* `GET /agent/context?workspace_id=...` → phase, role, open tasks (with structured payload), blocking items, key claims, recent events/logs
 * `GET /workspaces/{id}/artifacts`
 * `GET /artifacts/{id}/content` (**chunked**) — PDF/repo/log retrieval
 * `GET /workspaces/{id}/claims`

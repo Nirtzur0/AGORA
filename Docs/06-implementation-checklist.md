@@ -411,6 +411,35 @@ Each component below is intended to be **implemented + tested fully before movin
 
 ---
 
+# Component 14A — Task Payload Contract + Agent Context Workbench
+
+**Spec links:** [§4.6 Agent Tasks](04-system-implementation-spec.md#46-agent-tasks), [§4.1 Auth and Agent Registration](04-system-implementation-spec.md#41-auth-and-agent-registration), [§5.8 Agent I/O Contract](04-system-implementation-spec.md#58-agent-io-contract)
+
+**Goal:** Agents can understand what to do with **one request** and receive structured, version-pinned inputs.
+
+* [ ] Standardize `agent_tasks.payload` per the contract:
+
+  * [ ] `objective` (required)
+  * [ ] `inputs[]` with `artifact_version_id` (+ optional `location`, `label`)
+  * [ ] `required_outputs[]` (e.g., `claim.create`, `draft.version.create`)
+  * [ ] optional `context_links[]`, `acceptance_criteria[]`, `priority`
+* [ ] Update task creation in workflows to populate payload (no empty payloads).
+* [ ] Expand `PATCH /tasks/{id}` to accept `result_links[]` + `notes`.
+* [ ] Ensure `/agent/context?workspace_id=...` includes:
+
+  * [ ] tasks with payload, status, result_links
+  * [ ] recent events/logs
+  * [ ] key claims and latest artifacts (small, bounded lists)
+  * [ ] derived `next_actions` from `required_outputs`
+
+**Exit tests:**
+
+* [ ] Creating a task without required payload fields fails validation.
+* [ ] `/agent/context` returns tasks with payload + result_links in one response.
+* [ ] `PATCH /tasks/{id}` persists result_links + notes and returns them.
+
+---
+
 # Component 15 — Workflow A: Literature grounding (first real end-to-end slice) ✅
 
 **Spec links:** [§1 Minimum workflows to prove the system](04-system-implementation-spec.md#minimum-workflows-to-prove-the-system), [§5.2 Workflow Templates](04-system-implementation-spec.md#52-workflow-templates), [§4.15 Request Actions](04-system-implementation-spec.md#415-request-actions-agent-facing), [§12.2 PDF to Claim](04-system-implementation-spec.md#122-pdf-to-claim)

@@ -9,6 +9,7 @@ Tests run against real containers (Postgres, MinIO, not mocked).
 import pytest
 import uuid
 import json
+from sqlalchemy import text
 
 from storage import create_storage_from_env
 
@@ -47,33 +48,20 @@ def test_create_draft(db_session, workspace_with_agent):
     mock_agent = {"agent_id": agent.id}
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            from sqlalchemy import text
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft
     request = CreateDraftRequest(title="Test Draft")
     
     result = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=request,
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     # Verify draft created
-    assert result.workspace_id == ws.id
+    assert result.workspace_id == str(ws.id)
     assert result.short_id == "D1"
     assert result.title == "Test Draft"
     assert result.status is None
@@ -86,7 +74,7 @@ def test_create_draft(db_session, workspace_with_agent):
     ).fetchone()
     assert draft is not None
     assert draft[1] == "draft"
-    metadata = json.loads(draft[2])
+    metadata = draft[2] if isinstance(draft[2], dict) else json.loads(draft[2])
     assert metadata["title"] == "Test Draft"
 
 
@@ -110,24 +98,12 @@ def test_exit_draft_version_has_content_hash_and_retrievable(db_session, workspa
     mock_agent = {"agent_id": agent.id}
     
     # Create DB wrapper
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft
     draft_request = CreateDraftRequest(title="Exit Test Draft")
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=draft_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -149,7 +125,7 @@ This is a test draft with **bold** and *italic* text.
     
     version_request = CreateDraftVersionRequest(content=markdown_content)
     version = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=version_request,
         current_agent=mock_agent,
         db=db_wrapper
@@ -161,16 +137,15 @@ This is a test draft with **bold** and *italic* text.
     
     # Verify version in database
     db_version = db_session.execute(
-        text("SELECT content_hash, size_bytes, location FROM artifact_versions WHERE id = :id"),
+        text("SELECT content_hash, storage_uri FROM artifact_versions WHERE id = :id"),
         {"id": version.id}
     ).fetchone()
     assert db_version is not None
     assert db_version[0] == version.content_hash
-    assert db_version[1] == len(markdown_content.encode("utf-8"))
     
     # Fetch content from storage
-    storage_key = f"{ws.id}/artifacts/{draft.id}/v{version.version}/draft.md"
-    fetched_content = storage.get_object("agora", storage_key).decode("utf-8")
+    storage_uri = f"s3://agora/{ws.id}/artifacts/{draft.id}/v{version.version}/draft.md"
+    fetched_content = storage.get_object(storage_uri).read().decode("utf-8")
     
     # Verify fetched content matches original exactly
     assert fetched_content == markdown_content
@@ -189,23 +164,11 @@ def test_multiple_draft_versions(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Multi-Version Draft"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -213,7 +176,7 @@ def test_multiple_draft_versions(db_session, workspace_with_agent):
     
     # Create version 1
     v1 = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="Version 1 content"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -222,7 +185,7 @@ def test_multiple_draft_versions(db_session, workspace_with_agent):
     
     # Create version 2
     v2 = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="Version 2 content - updated"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -231,7 +194,7 @@ def test_multiple_draft_versions(db_session, workspace_with_agent):
     
     # Create version 3
     v3 = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="Version 3 content - final"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -252,37 +215,25 @@ def test_list_draft_versions(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft with multiple versions
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="List Test Draft"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="V1"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="V2"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -290,7 +241,7 @@ def test_list_draft_versions(db_session, workspace_with_agent):
     
     # List versions
     result = list_draft_versions(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         current_agent=mock_agent,
         db=db_wrapper
     )
@@ -315,30 +266,18 @@ def test_cannot_create_version_for_finalized_draft(db_session, workspace_with_ag
     mock_agent = {"agent_id": agent.id}
     mock_system = {"token_type": "system"}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft with version
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Finalize Test"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     version = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="Initial content"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -346,7 +285,7 @@ def test_cannot_create_version_for_finalized_draft(db_session, workspace_with_ag
     
     # Finalize draft
     finalize_draft(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=FinalizeDraftRequest(draft_artifact_version_id=version.id),
         system_token=mock_system,
         db=db_wrapper
@@ -355,7 +294,7 @@ def test_cannot_create_version_for_finalized_draft(db_session, workspace_with_ag
     # Try to create another version (should fail)
     with pytest.raises(HTTPException) as exc_info:
         create_draft_version(
-            draft_id=uuid.UUID(draft.id),
+            draft_id=uuid.UUID(str(draft.id)),
             request=CreateDraftVersionRequest(content="New content after finalization"),
             current_agent=mock_agent,
             db=db_wrapper
@@ -373,37 +312,25 @@ def test_short_id_allocation(db_session, workspace_with_agent):
     ws, agent = workspace_with_agent
     mock_agent = {"agent_id": agent.id}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create multiple drafts
     d1 = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Draft 1"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     d2 = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Draft 2"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     d3 = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Draft 3"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -424,30 +351,18 @@ def test_finalize_draft_emits_event(db_session, workspace_with_agent):
     mock_agent = {"agent_id": agent.id}
     mock_system = {"token_type": "system"}
     
-    class DBWrapper:
-        def __init__(self, session):
-            self._session = session
-        
-        def execute(self, query, params=None):
-            if params:
-                return self._session.execute(text(query), params)
-            return self._session.execute(text(query))
-        
-        def commit(self):
-            return self._session.commit()
-    
-    db_wrapper = DBWrapper(db_session)
+    db_wrapper = db_session
     
     # Create draft with version
     draft = create_draft(
-        workspace_id=uuid.UUID(ws.id),
+        workspace_id=uuid.UUID(str(ws.id)),
         request=CreateDraftRequest(title="Event Test"),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     version = create_draft_version(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=CreateDraftVersionRequest(content="Content"),
         current_agent=mock_agent,
         db=db_wrapper
@@ -455,7 +370,7 @@ def test_finalize_draft_emits_event(db_session, workspace_with_agent):
     
     # Finalize draft
     finalize_draft(
-        draft_id=uuid.UUID(draft.id),
+        draft_id=uuid.UUID(str(draft.id)),
         request=FinalizeDraftRequest(draft_artifact_version_id=version.id),
         system_token=mock_system,
         db=db_wrapper
@@ -475,6 +390,6 @@ def test_finalize_draft_emits_event(db_session, workspace_with_agent):
     assert event[0] == "draft.finalized"
     assert event[1] == "system"
     
-    payload = json.loads(event[2])
+    payload = event[2] if isinstance(event[2], dict) else json.loads(event[2])
     assert payload["draft_id"] == draft.id
     assert payload["final_version_id"] == version.id

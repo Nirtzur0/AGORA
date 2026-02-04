@@ -11,8 +11,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 import uuid
 
-from database import DBWrapper, get_db
-from auth_middleware import require_agent_token
+from database import DBWrapper, get_db_session
+from auth_middleware import require_agent_token, AgentContext
 
 
 router = APIRouter()
@@ -46,8 +46,8 @@ async def search(
     query: str = Query(..., description="Search query text"),
     workspace_id: Optional[str] = Query(None, description="Filter to specific workspace"),
     limit: int = Query(50, description="Maximum number of results", ge=1, le=500),
-    current_agent: dict = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db)
+    current_agent: AgentContext = Depends(require_agent_token),
+    db: DBWrapper = Depends(get_db_session)
 ):
     """
     Full-text search across indexed artifacts.
@@ -85,7 +85,7 @@ async def search(
             raise HTTPException(status_code=404, detail=f"Workspace {workspace_id} not found")
         
         # Check agent has access (is member of workspace)
-        agent_id = current_agent.get("agent_id")
+        agent_id = current_agent.agent_id
         if agent_id:
             member_row = db.execute(
                 """
@@ -129,7 +129,7 @@ async def search(
         params = {"workspace_id": workspace_id, "tsquery": tsquery, "limit": limit}
     else:
         # Search across all workspaces agent has access to
-        agent_id = current_agent.get("agent_id")
+        agent_id = current_agent.agent_id
         if not agent_id:
             raise HTTPException(
                 status_code=403,

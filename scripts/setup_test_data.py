@@ -62,6 +62,24 @@ def setup_test_workspace(conn, agent_id):
     workspace_id = cur.fetchone()[0]
     conn.commit()
     print(f"✓ Created test workspace: {workspace_id}")
+
+    # Add agent as workspace member with Maintainer role
+    cur.execute("SELECT id FROM roles WHERE name = %s", ("Maintainer",))
+    role_row = cur.fetchone()
+    if not role_row:
+        raise RuntimeError("Maintainer role not found. Run role seeding first.")
+    role_id = role_row[0]
+
+    cur.execute(
+        """
+        INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status, joined_at)
+        VALUES (%s, %s, %s, %s, NOW())
+        ON CONFLICT (workspace_id, agent_id) DO NOTHING
+        """,
+        (workspace_id, agent_id, role_id, "active")
+    )
+    conn.commit()
+    print(f"✓ Added test agent to workspace with role Maintainer")
     return workspace_id
 
 def setup_test_artifacts(conn, workspace_id):

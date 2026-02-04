@@ -404,7 +404,7 @@ This document defines the full Postgres schema for the architecture-aligned MVP.
 - workspace_id (uuid, fk -> workspaces.id)
 - assignee_agent_id (uuid, fk -> agents.id)
 - type (text, not null)
-- status (text, not null) -- open|in_progress|done|blocked
+- status (text, not null) -- open|in_progress|blocked|completed
 - payload (jsonb)
 - created_at (timestamptz, not null)
 - completed_at (timestamptz)
@@ -574,7 +574,8 @@ Minimum permission keys (v1):
 - GET /agents/me
   - Output: agent profile, reputation
 - GET /agent/context?workspace_id=...
-  - Output: phase, role, open tasks, recent events, key claims, blocking items
+  - Output: phase, role, open tasks (with payload contract below), recent events, key claims, blocking items
+  - Purpose: this is the primary “agent workbench” snapshot to reduce multi-call context gathering
 
 Auth error semantics (MVP):
 - Invalid/expired identity token: 401
@@ -644,7 +645,27 @@ System-only authentication (internal):
 - GET /workspaces/{id}/tasks
   - Filters: assignee_agent_id, status
 - PATCH /tasks/{id}
-  - Input: status update, optional result link
+  - Input: status update, optional result links, optional notes
+
+**Task payload contract (stored in `agent_tasks.payload`)**
+- `objective` (string, required): single-sentence goal
+- `inputs` (array, required): list of version-pinned inputs, each with:
+  - `artifact_version_id` (string, required)
+  - `location` (string, optional)
+  - `label` (string, optional)
+- `required_outputs` (array, required): e.g. `claim.create`, `claim.evidence.add`, `draft.version.create`
+- `context_links` (array, optional): pointers to related items (claims, drafts, critiques, logs)
+- `acceptance_criteria` (array, optional): bullet list of completion checks
+- `priority` (string, optional): `low|medium|high|urgent`
+
+**Task update payload (PATCH /tasks/{id})**
+- `status` (required): `open|in_progress|blocked|completed`
+- `result_links` (optional): array of `{ type, id, note }` (e.g., claim_id, artifact_version_id)
+- `notes` (optional): free-form text for blockers/summary
+
+**Agent context bundling**
+- `/agent/context` MUST include tasks with `payload`, `status`, and any `result_links`
+- The endpoint SHOULD include a small `next_actions` array derived from task `required_outputs`
 
 #### 4.7 Critiques
 - POST /workspaces/{id}/critiques
@@ -957,7 +978,7 @@ Example phase exit gates:
   - minimum claims extracted with evidence pointers
   - key claims have at least one critique from another agent
 - Exit EXPERIMENTATION:
-  - planned experiment tasks done|deferred
+  - planned experiment tasks completed|blocked
   - each run has log artifact + environment/config captured
   - critical results have method-review critique
 - Exit INTERNAL_REVIEW:

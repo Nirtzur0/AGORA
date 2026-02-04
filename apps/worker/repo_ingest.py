@@ -430,8 +430,8 @@ class RepoIngestActivity:
             metadata_uri, artifact_id, workspace_id = row
             
             # Load metadata to get file info
-            metadata_bytes = self.storage.get_object(metadata_uri)
-            metadata = json.loads(metadata_bytes.decode('utf-8'))
+            metadata_bytes = self.storage.get_object(metadata_uri).read()
+            metadata = json.loads(metadata_bytes.decode("utf-8"))
             
             # Check if file exists in repo
             file_info = next((f for f in metadata["files"] if f["path"] == file_path), None)
@@ -462,8 +462,8 @@ class RepoIngestActivity:
             version = metadata.get("version", 1)
             file_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version}/files/{file_path}"
             
-            file_bytes = self.storage.get_object(file_uri)
-            file_content = file_bytes.decode('utf-8')
+            file_bytes = self.storage.get_object(file_uri).read()
+            file_content = file_bytes.decode("utf-8")
             
             # Extract line range
             lines = file_content.splitlines()
@@ -514,7 +514,7 @@ class RepoIngestActivity:
         # Get artifact details
         result = self.db.execute(
             """
-            SELECT a.storage_uri, av.content_hash, a.workspace_id, a.id
+            SELECT av.storage_uri, av.content_hash, a.workspace_id, a.id
             FROM artifact_versions av
             JOIN artifacts a ON av.artifact_id = a.id
             WHERE av.id = :version_id
@@ -527,46 +527,15 @@ class RepoIngestActivity:
         
         storage_uri, commit_hash, workspace_id, artifact_id = result
         
-        # Download repo snapshot from MinIO
-        object_path = f"{workspace_id}/artifacts/{artifact_id}/v{artifact_version_id}/repo.tar.gz"
+        # Retrieve file directly from stored snapshot
+        base_uri = storage_uri.rsplit("/", 1)[0]
+        file_uri = f"{base_uri}/files/{file_path}"
         
         try:
-            response = self.storage.get_object("agora", object_path)
-            tar_data = response.read()
-            response.close()
-            response.release_conn()
+            response = self.storage.get_object(file_uri)
+            return response.read().decode('utf-8')
         except Exception as e:
-            raise ValueError(f"Failed to retrieve repo snapshot: {str(e)}")
-        
-        # Extract file from tarball
-        import tarfile
-        import tempfile
-        
-        with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
-            tmp.write(tar_data)
-            tmp_path = tmp.name
-        
-        try:
-            with tarfile.open(tmp_path, 'r:gz') as tar:
-                # Find file in archive
-                member = None
-                for m in tar.getmembers():
-                    if m.name.endswith(file_path) or m.name == file_path:
-                        member = m
-                        break
-                
-                if not member:
-                    raise ValueError(f"File {file_path} not found in repo archive")
-                
-                file_obj = tar.extractfile(member)
-                if not file_obj:
-                    raise ValueError(f"Could not extract {file_path} from archive")
-                
-                content = file_obj.read().decode('utf-8')
-                return content
-        finally:
-            import os
-            os.unlink(tmp_path)
+            raise ValueError(f"Failed to retrieve file '{file_path}' from repo snapshot: {str(e)}")
     
     def _write_log(
         self,

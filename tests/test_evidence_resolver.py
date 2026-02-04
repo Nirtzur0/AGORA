@@ -28,17 +28,18 @@ def sample_pdf_with_version(storage, db_session):
     """Create a test PDF and store it with artifact_version."""
     from database import Workspace, Artifact, ArtifactVersion
     import hashlib
+    import uuid
     
     # Create workspace and artifact
     ws = Workspace(
-        id="ws_evidence_test",
+        id=str(uuid.uuid4()),
         name="Evidence Test Workspace",
         phase="ingestion"
     )
     db_session.add(ws)
     
     art = Artifact(
-        id="art_evidence_pdf",
+        id=str(uuid.uuid4()),
         workspace_id=ws.id,
         short_id="A1",
         content_type="application/pdf",
@@ -58,26 +59,26 @@ def sample_pdf_with_version(storage, db_session):
     pdf_bytes = buffer.read()
     
     # Store PDF binary
-    binary_key = f"{ws.id}/artifacts/{art.id}/v1/document.pdf"
-    storage.put_object("agora", binary_key, pdf_bytes)
+    binary_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/document.pdf"
+    storage.put_object(binary_uri, pdf_bytes)
     
     # Store per-page extracted text (simulating PDF ingestion)
     page1_text = "This is page 1 with some test content for evidence resolution."
     page2_text = "Page 2 contains different text for testing multiple pages."
     
-    page1_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
-    page2_key = f"{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
+    page1_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_1.txt"
+    page2_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/pages/page_2.txt"
     
-    storage.put_object("agora", page1_key, page1_text.encode("utf-8"))
-    storage.put_object("agora", page2_key, page2_text.encode("utf-8"))
+    storage.put_object(page1_uri, page1_text.encode("utf-8"))
+    storage.put_object(page2_uri, page2_text.encode("utf-8"))
     
     # Store metadata
     metadata = {
         "page_count": 2,
         "total_chars": len(page1_text) + len(page2_text)
     }
-    metadata_key = f"{ws.id}/artifacts/{art.id}/v1/metadata.json"
-    storage.put_object("agora", metadata_key, json.dumps(metadata).encode("utf-8"))
+    metadata_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/metadata.json"
+    storage.put_object(metadata_uri, json.dumps(metadata).encode("utf-8"))
     
     # Create artifact_version
     content_hash = hashlib.sha256(pdf_bytes).hexdigest()
@@ -86,8 +87,7 @@ def sample_pdf_with_version(storage, db_session):
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
-        size_bytes=len(pdf_bytes),
-        location=f"s3://agora/{ws.id}/artifacts/{art.id}/v1/",
+        storage_uri=binary_uri,
         created_by="agent_test"
     )
     db_session.add(version)
@@ -107,17 +107,18 @@ def sample_log_with_version(storage, db_session):
     """Create a test log artifact."""
     from database import Workspace, Artifact, ArtifactVersion
     import hashlib
+    import uuid
     
     # Create workspace and artifact
     ws = Workspace(
-        id="ws_log_test",
+        id=str(uuid.uuid4()),
         name="Log Test Workspace",
         phase="ingestion"
     )
     db_session.add(ws)
     
     art = Artifact(
-        id="art_evidence_log",
+        id=str(uuid.uuid4()),
         workspace_id=ws.id,
         short_id="L1",
         content_type="application/json",
@@ -137,13 +138,13 @@ def sample_log_with_version(storage, db_session):
     log_json = json.dumps(log_data, indent=2)
     
     # Store log
-    log_key = f"{ws.id}/artifacts/{art.id}/v1/log.json"
-    storage.put_object("agora", log_key, log_json.encode("utf-8"))
+    log_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/log.json"
+    storage.put_object(log_uri, log_json.encode("utf-8"))
     
     # Also create a plain-text log for char-range testing
     log_text = "This is a plain text log file with some content for char-range testing."
-    log_txt_key = f"{ws.id}/artifacts/{art.id}/v1/log.txt"
-    storage.put_object("agora", log_txt_key, log_text.encode("utf-8"))
+    log_txt_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/log.txt"
+    storage.put_object(log_txt_uri, log_text.encode("utf-8"))
     
     # Create artifact_version
     content_hash = hashlib.sha256(log_json.encode("utf-8")).hexdigest()
@@ -152,8 +153,7 @@ def sample_log_with_version(storage, db_session):
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
-        size_bytes=len(log_json),
-        location=f"s3://agora/{ws.id}/artifacts/{art.id}/v1/",
+        storage_uri=log_uri,
         created_by="agent_test"
     )
     db_session.add(version)

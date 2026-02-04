@@ -95,7 +95,7 @@ def test_agents_me_without_auth(api_base):
     """GET /agents/me without auth returns 401."""
     response = requests.get(f"{api_base}/agents/me")
     
-    assert response.status_code == 403  # FastAPI HTTPBearer returns 403 when missing
+    assert response.status_code == 401
 
 
 def test_agents_me_with_invalid_token(api_base):
@@ -117,7 +117,7 @@ def test_agent_context_without_auth(api_base):
         params={"workspace_id": "00000000-0000-0000-0000-000000000000"}
     )
     
-    assert response.status_code == 403  # FastAPI HTTPBearer returns 403 when missing
+    assert response.status_code == 401
 
 
 def test_agent_context_with_invalid_token(api_base):

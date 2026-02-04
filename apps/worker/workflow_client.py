@@ -63,32 +63,28 @@ class WorkflowClient:
         # Create workflow_runs record
         workflow_run_id = str(uuid.uuid4())
         
-        import json
         db.execute(
             """
             INSERT INTO workflow_runs (
                 id,
                 workspace_id,
                 workflow_type,
-                workflow_id,
-                status,
-                input
+                temporal_workflow_id,
+                status
             ) VALUES (
                 :id,
                 :workspace_id,
                 :workflow_type,
-                :workflow_id,
-                :status,
-                :input
+                :temporal_workflow_id,
+                :status
             )
             """,
             {
                 "id": workflow_run_id,
                 "workspace_id": workspace_id,
                 "workflow_type": workflow_type,
-                "workflow_id": workflow_id,
-                "status": "running",
-                "input": json.dumps(args)
+                "temporal_workflow_id": workflow_id,
+                "status": "running"
             }
         )
         
@@ -116,21 +112,16 @@ class WorkflowClient:
             output: Optional workflow output
             db: Database wrapper
         """
-        import json
-        output_json = json.dumps(output) if output else None
-        
         db.execute(
             """
             UPDATE workflow_runs
             SET status = :status,
-                output = :output,
                 completed_at = CURRENT_TIMESTAMP
             WHERE id = :id
             """,
             {
                 "id": workflow_run_id,
-                "status": status,
-                "output": output_json
+                "status": status
             }
         )
         
@@ -161,32 +152,28 @@ def create_activity_run(
     """
     activity_run_id = str(uuid.uuid4())
     
-    import json
     db.execute(
         """
         INSERT INTO activity_runs (
             id,
             workflow_run_id,
             activity_type,
-            activity_id,
-            status,
-            input
+            temporal_activity_id,
+            status
         ) VALUES (
             :id,
             :workflow_run_id,
             :activity_type,
-            :activity_id,
-            :status,
-            :input
+            :temporal_activity_id,
+            :status
         )
         """,
         {
             "id": activity_run_id,
             "workflow_run_id": workflow_run_id,
             "activity_type": activity_type,
-            "activity_id": activity_id,
-            "status": "running",
-            "input": json.dumps(input_data)
+            "temporal_activity_id": activity_id,
+            "status": "running"
         }
     )
     
@@ -211,23 +198,16 @@ def update_activity_run(
         output: Optional activity output
         error: Optional error message if failed
     """
-    import json
-    output_json = json.dumps(output) if output else None
-    
     db.execute(
         """
         UPDATE activity_runs
         SET status = :status,
-            output = :output,
-            error = :error,
             completed_at = CURRENT_TIMESTAMP
         WHERE id = :id
         """,
         {
             "id": activity_run_id,
-            "status": status,
-            "output": output_json,
-            "error": error
+            "status": status
         }
     )
     

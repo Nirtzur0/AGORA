@@ -8,18 +8,35 @@ import os
 import sys
 import pytest
 from pathlib import Path
+from sqlalchemy import text as sql_text
+from psycopg2.extras import Json as PgJson
 
-# Add packages to path
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "packages" / "db"))
-sys.path.insert(0, str(repo_root / "packages" / "shared-types"))
-sys.path.insert(0, str(repo_root / "apps" / "core-api"))
-
-# Test database URL
+# Test database URL (must be set before importing database module)
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
 )
+os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
+
+# Add packages to path (ordered to avoid name shadowing)
+repo_root = Path(__file__).parent.parent
+path_order = [
+    repo_root / "packages" / "db",
+    repo_root / "packages" / "shared-types",
+    repo_root / "apps" / "core-api",
+    repo_root / "apps" / "worker",
+    repo_root,
+]
+for path in reversed(path_order):
+    sys.path.insert(0, str(path))
+
+# Lock "database" module to packages/db/database.py to avoid sys.path shadowing.
+import importlib
+sys.modules["database"] = importlib.import_module("database")
+
+# Shared test agent identity
+TEST_AGENT_ID = os.getenv("TEST_AGENT_ID", "00000000-0000-0000-0000-000000000001")
+TEST_MOLTBOOK_ID = os.getenv("TEST_MOLTBOOK_ID", "test_moltbook_id")
 
 # MinIO configuration for storage tests
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
@@ -63,147 +80,160 @@ def core_api_url():
     return CORE_API_URL
 
 
-@pytest.fixture
-def test_db(db_url):
+class SessionWrapper:
     """
-    Test database connection wrapper.
-    
-    Provides a raw psycopg2 connection wrapped in a helper object
-    that automatically wraps SQL in text() for SQLAlchemy-style execution.
-    
-    Each test gets its own connection with rollback at end.
+    SQLAlchemy session wrapper with text() auto-wrap for raw SQL.
+
+    Provides a consistent API for tests using either ORM or raw SQL.
     """
-    import psycopg2
-    import re
-    
-    # Parse db_url
-    match = re.match(r'postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', db_url)
-    if not match:
-        raise ValueError(f"Invalid DATABASE_URL format: {db_url}")
-    
-    user, password, host, port, database = match.groups()
-    
-    # Create connection
-    conn = psycopg2.connect(
-        host=host,
-        port=port,
-        database=database,
-        user=user,
-        password=password
-    )
-    conn.autocommit = False
-    
-    # Wrapper class for execute/commit/rollback with text() auto-wrap
-    class DBWrapper:
-        def __init__(self, connection):
-            self._conn = connection
-            self._cursor = connection.cursor()
-        
-        def execute(self, query, params=None):
-            """Execute query with optional params (dict or tuple)."""
-            if params is None:
-                self._cursor.execute(query)
-            elif isinstance(params, dict):
-                # Convert :param to %(param)s for psycopg2
-                query_pg = query.replace(":", "%")
-                for key in params.keys():
-                    query_pg = query_pg.replace(f"%{key}", f"%({key})s")
-                self._cursor.execute(query_pg, params)
-            else:
-                self._cursor.execute(query, params)
-            return self._cursor
-        
-        def commit(self):
-            self._conn.commit()
-        
-        def rollback(self):
-            self._conn.rollback()
-        
-        def fetchone(self):
-            return self._cursor.fetchone()
-        
-        def fetchall(self):
-            return self._cursor.fetchall()
-        
-        def __enter__(self):
-            return self
-        
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            if exc_type is None:
-                self.commit()
-            else:
-                self.rollback()
-    
-    db_wrapper = DBWrapper(conn)
-    
-    yield db_wrapper
-    
-    # Rollback any uncommitted changes
-    conn.rollback()
-    conn.close()
+    def __init__(self, session):
+        self._session = session
+
+    def _coerce_params(self, params):
+        if isinstance(params, dict):
+            return {k: self._coerce_value(v) for k, v in params.items()}
+        if isinstance(params, (list, tuple)):
+            return [self._coerce_value(v) for v in params]
+        return params
+
+    def _coerce_value(self, value):
+        if isinstance(value, (dict, list)):
+            return PgJson(value)
+        return value
+
+    def execute(self, query, params=None):
+        if isinstance(query, str):
+            if "%s" in query:
+                conn = self._session.connection().connection
+                cursor = conn.cursor()
+                # Escape literal % to avoid psycopg2 param parsing issues (e.g., LIKE 'D%').
+                import re
+                safe_query = re.sub(r'%(?!s)', '%%', query)
+                cursor.execute(safe_query, self._coerce_params(params))
+                return cursor
+            query = sql_text(query)
+        if params:
+            return self._session.execute(query, self._coerce_params(params))
+        return self._session.execute(query)
+
+    def commit(self):
+        return self._session.commit()
+
+    def rollback(self):
+        return self._session.rollback()
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
 
 
 @pytest.fixture
-def test_storage(minio_config):
+def db_session(db_url):
     """
-    Test storage client for MinIO.
-    
-    Provides a MinIO client configured for testing.
-    Cleans up created buckets/objects after each test.
+    SQLAlchemy session bound to the test database.
+
+    Uses a nested transaction so tests can commit while the outer
+    transaction is rolled back at teardown.
     """
-    from minio import Minio
+    from sqlalchemy import create_engine, event, inspect
+    from sqlalchemy.orm import sessionmaker
+
+    def ensure_migrated(url: str) -> None:
+        engine = create_engine(url, pool_pre_ping=True)
+        try:
+            inspector = inspect(engine)
+            tables = inspector.get_table_names()
+            if "workspaces" not in tables:
+                original_url = os.environ.get("DATABASE_URL")
+                os.environ["DATABASE_URL"] = url
+                try:
+                    from db.migrate import migrate_up
+                    migrate_up()
+                finally:
+                    if original_url is not None:
+                        os.environ["DATABASE_URL"] = original_url
+                    else:
+                        os.environ.pop("DATABASE_URL", None)
+        finally:
+            engine.dispose()
+
+    ensure_migrated(db_url)
+
+    engine = create_engine(db_url, pool_pre_ping=True)
+    connection = engine.connect()
+    transaction = connection.begin()
+    Session = sessionmaker(bind=connection, autocommit=False, autoflush=False)
+    session = Session()
     
-    # Create MinIO client
-    client = Minio(
-        minio_config["endpoint"],
-        access_key=minio_config["access_key"],
-        secret_key=minio_config["secret_key"],
-        secure=False
-    )
+    session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def _restart_savepoint(sess, trans):
+        if trans.nested and not trans._parent.nested:
+            sess.begin_nested()
+
+    wrapped = SessionWrapper(session)
+    try:
+        yield wrapped
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
+        engine.dispose()
+
+
+@pytest.fixture
+def test_db(db_session):
+    """Alias for db_session to standardize test DB access."""
+    return db_session
+
+
+@pytest.fixture
+def test_storage():
+    """
+    Test storage wrapper using the shared Storage class.
     
-    # Ensure bucket exists
-    bucket = minio_config["bucket"]
-    if not client.bucket_exists(bucket):
-        client.make_bucket(bucket)
+    Tracks created objects and deletes them after each test.
+    """
+    from storage import create_storage_from_env, InvalidStorageURIError
     
-    # Track created objects for cleanup
-    created_objects = []
+    storage = create_storage_from_env()
+    created_uris = []
     
     class StorageWrapper:
-        def __init__(self, minio_client, bucket_name):
-            self.client = minio_client
-            self.bucket = bucket_name
-            self.created_objects = created_objects
+        def __init__(self, storage_client):
+            self._storage = storage_client
         
-        def put_object(self, object_name, data, length, content_type="application/octet-stream"):
-            """Upload object to MinIO."""
-            self.client.put_object(
-                self.bucket,
-                object_name,
-                data,
-                length,
-                content_type=content_type
-            )
-            self.created_objects.append(object_name)
+        def put_object(self, storage_uri, data):
+            self._storage.put_object(storage_uri, data)
+            created_uris.append(storage_uri)
         
-        def get_object(self, object_name):
-            """Get object from MinIO."""
-            return self.client.get_object(self.bucket, object_name)
+        def get_object(self, storage_uri):
+            return self._storage.get_object(storage_uri)
         
-        def remove_object(self, object_name):
-            """Remove object from MinIO."""
-            self.client.remove_object(self.bucket, object_name)
+        def exists(self, storage_uri):
+            return self._storage.exists(storage_uri)
+        
+        def _delete_object(self, storage_uri):
+            key = self._storage._validate_storage_uri(storage_uri)
+            self._storage.s3.delete_object(Bucket=self._storage.bucket, Key=key)
     
-    storage = StorageWrapper(client, bucket)
-    
-    yield storage
+    wrapper = StorageWrapper(storage)
+    yield wrapper
     
     # Cleanup created objects
-    for obj in created_objects:
+    for uri in created_uris:
         try:
-            client.remove_object(bucket, obj)
+            wrapper._delete_object(uri)
+        except InvalidStorageURIError:
+            pass
         except Exception:
-            pass  # Ignore cleanup errors
+            pass
+
+
+@pytest.fixture
+def storage(test_storage):
+    """Alias for test_storage to standardize storage usage."""
+    return test_storage
 
 
 @pytest.fixture
@@ -240,21 +270,27 @@ def test_client(core_api_url):
 
 
 @pytest.fixture
-def mock_agent_token():
+def mock_agent_token(test_db):
     """
     Mock JWT token for testing authenticated endpoints.
     
     Creates a JWT token with test agent credentials.
     """
-    import jwt
-    
-    # Create test token
-    payload = {
-        "agent_id": "test_agent_id",
-        "moltbook_id": "test_moltbook_id"
-    }
-    
-    # Use test secret (should match Core API test secret)
-    token = jwt.encode(payload, "test_secret", algorithm="HS256")
-    
-    return token
+    from jwt_utils import create_agent_token
+
+    # Ensure test agent exists for FK constraints
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name)
+        VALUES (:id, :moltbook_id, :name)
+        ON CONFLICT (id) DO NOTHING
+        """,
+        {"id": TEST_AGENT_ID, "moltbook_id": TEST_MOLTBOOK_ID, "name": "Test Agent"}
+    )
+    test_db.commit()
+
+    return create_agent_token(
+        agent_id=TEST_AGENT_ID,
+        moltbook_id=TEST_MOLTBOOK_ID,
+        reputation=0
+    )

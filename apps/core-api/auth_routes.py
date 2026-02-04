@@ -15,7 +15,7 @@ import os
 import uuid
 from datetime import datetime
 
-from database import get_db, get_db_session
+from database import get_db_session
 import sys
 try:
     print(f"DEBUG: jwt_utils loaded from: {sys.modules['jwt_utils'].__file__}")

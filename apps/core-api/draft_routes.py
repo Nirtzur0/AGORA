@@ -18,8 +18,8 @@ import uuid
 import hashlib
 import json
 
-from auth_middleware import get_current_agent, require_system_token
-from database import get_db, SessionLocal
+from auth_middleware import get_current_agent, require_system_token, AgentContext
+from database import get_db_session, SessionLocal
 from storage import create_storage_from_env
 
 
@@ -27,6 +27,12 @@ router = APIRouter(tags=["Drafts"])
 
 # Storage instance
 storage = create_storage_from_env()
+
+
+def _agent_id(current_agent: AgentContext) -> str:
+    """Support both AgentContext objects and dicts used in tests."""
+    value = getattr(current_agent, "agent_id", None) or current_agent["agent_id"]
+    return str(value)
 
 
 # Request/Response Models
@@ -64,8 +70,7 @@ class DraftVersionResponse(BaseModel):
     artifact_id: str
     version: int
     content_hash: str
-    size_bytes: int
-    location: str
+    storage_uri: str
     created_by: Optional[str]
     created_at: str
 
@@ -86,8 +91,8 @@ class DraftVersionResponse(BaseModel):
 def create_draft(
     workspace_id: UUID = Path(..., description="Workspace ID"),
     request: CreateDraftRequest = Body(...),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db)
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session)
 ) -> DraftResponse:
     """
     Create a new draft artifact in a workspace.
@@ -126,10 +131,11 @@ def create_draft(
     
     metadata = json.dumps({"title": request.title})
     
+    storage_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/"
     db.execute(
         """
-        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, created_by, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             artifact_id,
@@ -137,7 +143,8 @@ def create_draft(
             short_id,
             "draft",
             metadata,
-            current_agent.get("agent_id"),
+            storage_uri,
+            _agent_id(current_agent),
             created_at
         )
     )
@@ -149,7 +156,7 @@ def create_draft(
         title=request.title,
         status=None,
         final_version_id=None,
-        created_by=current_agent.get("agent_id"),
+        created_by=_agent_id(current_agent),
         created_at=created_at.isoformat()
     )
 
@@ -171,8 +178,8 @@ def create_draft(
 def create_draft_version(
     draft_id: UUID = Path(..., description="Draft artifact ID"),
     request: CreateDraftVersionRequest = Body(...),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db)
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session)
 ) -> DraftVersionResponse:
     """
     Create a new version of a draft artifact.
@@ -198,7 +205,10 @@ def create_draft_version(
         raise HTTPException(status_code=400, detail=f"Artifact {draft_id} is not a draft")
     
     # Check if draft is already finalized
-    metadata = json.loads(metadata_json) if metadata_json else {}
+    if metadata_json:
+        metadata = metadata_json if isinstance(metadata_json, dict) else json.loads(metadata_json)
+    else:
+        metadata = {}
     if metadata.get("status") == "final":
         raise HTTPException(
             status_code=409,
@@ -233,27 +243,25 @@ def create_draft_version(
     content_hash = hashlib.sha256(content_bytes).hexdigest()
     
     # Store content in MinIO
-    storage_key = f"{workspace_id}/artifacts/{draft_id}/v{next_version}/draft.md"
-    storage.put_object("agora", storage_key, content_bytes)
+    storage_uri = f"s3://agora/{workspace_id}/artifacts/{draft_id}/v{next_version}/draft.md"
+    storage.put_object(storage_uri, content_bytes)
     
     # Create artifact_version
-    version_id = f"{draft_id}_v{next_version}"
+    version_id = str(uuid.uuid4())
     created_at = db.execute("SELECT NOW()").fetchone()[0]
-    location = f"s3://agora/{workspace_id}/artifacts/{draft_id}/v{next_version}/"
     
     db.execute(
         """
-        INSERT INTO artifact_versions (id, artifact_id, version, content_hash, size_bytes, location, created_by, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO artifact_versions (id, artifact_id, version, content_hash, storage_uri, created_by, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
         (
             version_id,
             str(draft_id),
             next_version,
             content_hash,
-            len(content_bytes),
-            location,
-            current_agent.get("agent_id"),
+            storage_uri,
+            _agent_id(current_agent),
             created_at
         )
     )
@@ -266,9 +274,8 @@ def create_draft_version(
         artifact_id=str(draft_id),
         version=next_version,
         content_hash=content_hash,
-        size_bytes=len(content_bytes),
-        location=location,
-        created_by=current_agent.get("agent_id"),
+        storage_uri=storage_uri,
+        created_by=_agent_id(current_agent),
         created_at=created_at.isoformat()
     )
 
@@ -284,8 +291,8 @@ def create_draft_version(
 )
 def list_draft_versions(
     draft_id: UUID = Path(..., description="Draft artifact ID"),
-    current_agent: Dict[str, Any] = Depends(get_current_agent),
-    db = Depends(get_db)
+    current_agent: AgentContext = Depends(get_current_agent),
+    db = Depends(get_db_session)
 ) -> Dict[str, Any]:
     """
     List all versions of a draft artifact.
@@ -305,7 +312,7 @@ def list_draft_versions(
     # Get all versions
     result = db.execute(
         """
-        SELECT id, artifact_id, version, content_hash, size_bytes, location, created_by, created_at
+        SELECT id, artifact_id, version, content_hash, storage_uri, created_by, created_at
         FROM artifact_versions
         WHERE artifact_id = %s
         ORDER BY version DESC
@@ -316,14 +323,13 @@ def list_draft_versions(
     
     versions_data = [
         DraftVersionResponse(
-            id=v[0],
-            artifact_id=v[1],
+            id=str(v[0]),
+            artifact_id=str(v[1]),
             version=v[2],
             content_hash=v[3],
-            size_bytes=v[4],
-            location=v[5],
-            created_by=str(v[6]) if v[6] else None,
-            created_at=v[7].isoformat()
+            storage_uri=v[4],
+            created_by=str(v[5]) if v[5] else None,
+            created_at=v[6].isoformat()
         )
         for v in versions
     ]
@@ -353,7 +359,7 @@ def finalize_draft(
     draft_id: UUID = Path(..., description="Draft artifact ID"),
     request: FinalizeDraftRequest = Body(...),
     system_token: Dict[str, Any] = Depends(require_system_token),
-    db = Depends(get_db)
+    db = Depends(get_db_session)
 ) -> Dict[str, Any]:
     """
     Finalize a draft (SYSTEM-ONLY).
@@ -379,7 +385,10 @@ def finalize_draft(
         raise HTTPException(status_code=400, detail=f"Artifact {draft_id} is not a draft")
     
     # Check if already finalized
-    metadata = json.loads(metadata_json) if metadata_json else {}
+    if metadata_json:
+        metadata = metadata_json if isinstance(metadata_json, dict) else json.loads(metadata_json)
+    else:
+        metadata = {}
     if metadata.get("status") == "final":
         raise HTTPException(
             status_code=409,
@@ -427,7 +436,7 @@ def finalize_draft(
             str(workspace_id),
             "draft.finalized",
             "system",
-            None,
+            str(workspace_id),
             json.dumps({
                 "draft_id": str(draft_id),
                 "final_version_id": request.draft_artifact_version_id

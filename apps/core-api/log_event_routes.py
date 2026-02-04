@@ -20,8 +20,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from auth_middleware import get_current_agent, require_system_token
-from database import get_db
+from auth_middleware import get_current_agent, require_system_token, AgentContext
+from database import get_db_session
 from rbac import require_permission
 
 router = APIRouter()
@@ -66,8 +66,8 @@ class EventResponse(BaseModel):
 async def create_log(
     workspace_id: UUID,
     req: CreateLogRequest,
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     Create log entry (agent action audit trail).
@@ -75,10 +75,10 @@ async def create_log(
     Logs are append-only records of agent actions.
     No updates or deletes are permitted.
     
-    Authority: Requires logs.create permission.
+    Authority: Requires log.write permission.
     """
     # Check permission
-    require_permission(agent["id"], workspace_id, "logs.create", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "log.write")
     
     # Verify workspace exists
     result = db.execute(
@@ -100,7 +100,7 @@ async def create_log(
         {
             "id": str(log_id),
             "workspace_id": str(workspace_id),
-            "agent_id": agent["id"],
+            "agent_id": agent.agent_id,
             "action": req.action,
             "payload": req.payload,
             "created_at": created_at
@@ -112,7 +112,7 @@ async def create_log(
     return {
         "id": str(log_id),
         "workspace_id": str(workspace_id),
-        "agent_id": agent["id"],
+        "agent_id": agent.agent_id,
         "action": req.action,
         "payload": req.payload,
         "created_at": created_at.isoformat()
@@ -126,8 +126,8 @@ async def list_logs(
     action: Optional[str] = Query(None, description="Filter by action"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of logs to return"),
     offset: int = Query(0, ge=0, description="Number of logs to skip"),
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     List logs in workspace with optional filters.
@@ -140,10 +140,10 @@ async def list_logs(
     
     Results ordered by created_at DESC (newest first).
     
-    Authority: Requires logs.read permission.
+    Authority: Requires log.read permission.
     """
     # Check permission
-    require_permission(agent["id"], workspace_id, "logs.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "log.read")
     
     # Build query
     query = """
@@ -187,7 +187,7 @@ async def create_event(
     workspace_id: UUID,
     req: CreateEventRequest,
     system_token=Depends(require_system_token),
-    db=Depends(get_db)
+    db=Depends(get_db_session)
 ):
     """
     Create event entry (system state mutation record).
@@ -253,8 +253,8 @@ async def list_events(
     actor_type: Optional[str] = Query(None, description="Filter by actor type (agent|system)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of events to return"),
     offset: int = Query(0, ge=0, description="Number of events to skip"),
-    agent=Depends(get_current_agent),
-    db=Depends(get_db)
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
 ):
     """
     List events in workspace with optional filters.
@@ -267,10 +267,10 @@ async def list_events(
     
     Results ordered by created_at DESC (newest first).
     
-    Authority: Requires events.read permission.
+    Authority: Requires log.read permission.
     """
     # Check permission
-    require_permission(agent["id"], workspace_id, "events.read", db)
+    require_permission(db, agent.agent_id, str(workspace_id), "log.read")
     
     # Build query
     query = """

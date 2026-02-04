@@ -190,7 +190,7 @@ def check_citation_resolves(
             # Get artifact version details
             version_row = db.execute(
                 """
-                SELECT av.location, av.content_hash, a.type, a.workspace_id
+                SELECT av.storage_uri, av.content_hash, a.type, a.workspace_id
                 FROM artifact_versions av
                 JOIN artifacts a ON av.artifact_id = a.id
                 WHERE av.id = :version_id
@@ -207,7 +207,7 @@ def check_citation_resolves(
                 })
                 continue
             
-            storage_location, content_hash, artifact_type, art_ws_id = version_row
+            storage_uri, content_hash, artifact_type, art_ws_id = version_row
             
             # Verify workspace
             if art_ws_id != workspace_id:
@@ -248,6 +248,7 @@ def check_citation_resolves(
 
 def materialize_citations(
     db: DBWrapper,
+    workspace_id: str,
     draft_artifact_version_id: str,
     claim_markers: List[ClaimMarker],
     cite_markers: List[CiteMarker]
@@ -290,12 +291,14 @@ def materialize_citations(
                     """
                     INSERT INTO citations (
                         id,
+                        workspace_id,
                         draft_artifact_version_id,
                         claim_id,
                         source_artifact_version_id,
                         source_location
                     ) VALUES (
                         :id,
+                        :workspace_id,
                         :draft_version_id,
                         :claim_id,
                         :source_version_id,
@@ -304,6 +307,7 @@ def materialize_citations(
                     """,
                     {
                         "id": citation_id,
+                        "workspace_id": workspace_id,
                         "draft_version_id": draft_artifact_version_id,
                         "claim_id": claim.claim_id,
                         "source_version_id": cite.artifact_version_id,
@@ -388,7 +392,7 @@ def citation_check_activity(draft_artifact_version_id: str, db: DBWrapper) -> Ci
     # 1. Get draft version details
     version_row = db.execute(
         """
-        SELECT av.location, av.artifact_id, a.workspace_id, a.type
+        SELECT av.storage_uri, av.artifact_id, a.workspace_id, a.type
         FROM artifact_versions av
         JOIN artifacts a ON av.artifact_id = a.id
         WHERE av.id = :version_id
@@ -399,14 +403,14 @@ def citation_check_activity(draft_artifact_version_id: str, db: DBWrapper) -> Ci
     if not version_row:
         raise ValueError(f"Draft version {draft_artifact_version_id} not found")
     
-    storage_location, artifact_id, workspace_id, artifact_type = version_row
+    storage_uri, artifact_id, workspace_id, artifact_type = version_row
     
     if artifact_type != "draft":
         raise ValueError(f"Artifact {artifact_id} is not a draft (type={artifact_type})")
     
     # 2. Fetch Markdown content from storage
-    # Storage location is like: {workspace_id}/artifacts/{artifact_id}/v{version}/draft.md
-    markdown_bytes = storage.get_object("agora", storage_location)
+    # storage_uri should point directly to the draft markdown object
+    markdown_bytes = storage.get_object(storage_uri).read()
     markdown = markdown_bytes.decode("utf-8")
     
     # 3. Parse Markdown for markers
@@ -477,7 +481,7 @@ def citation_check_activity(draft_artifact_version_id: str, db: DBWrapper) -> Ci
     citations_materialized = 0
     if coverage_pass and resolves_pass:
         citations_materialized = materialize_citations(
-            db, draft_artifact_version_id, claim_markers, cite_markers
+            db, workspace_id, draft_artifact_version_id, claim_markers, cite_markers
         )
     
     return CitationCheckResult(
