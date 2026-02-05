@@ -7,6 +7,7 @@ Implements workspace lifecycle + team formation per Docs/04 §4.2-4.3.
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from decimal import Decimal
 from datetime import datetime
 import uuid
 import json
@@ -19,6 +20,12 @@ import rbac
 
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+
+
+def _json_number(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
 
 
 # ============================================================================
@@ -160,7 +167,7 @@ async def create_workspace(
                     "error": "INSUFFICIENT_REPUTATION",
                     "message": "Agent does not meet minimum reputation for Maintainer role",
                     "required_reputation": 0,
-                    "agent_reputation": agent.reputation
+                    "agent_reputation": _json_number(agent.reputation)
                 }
             )
         
@@ -490,7 +497,7 @@ async def create_join_request(
         
         # Check role exists
         role_result = db.execute(
-            "SELECT id, name, min_reputation, capacity FROM roles WHERE id = %s",
+            "SELECT id, name, min_reputation, role_capacity FROM roles WHERE id = %s",
             (request.role_id,)
         ).fetchone()
         
@@ -513,15 +520,15 @@ async def create_join_request(
                 detail={
                     "error": "INSUFFICIENT_REPUTATION",
                     "message": f"Agent reputation {agent.reputation} below minimum {min_reputation} for role {role_name}",
-                    "required_reputation": min_reputation,
-                    "agent_reputation": agent.reputation,
+                    "required_reputation": _json_number(min_reputation),
+                    "agent_reputation": _json_number(agent.reputation),
                     "role_name": role_name
                 }
             )
         
         # Check if already a member
         existing_member = db.execute(
-            "SELECT id FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
+            "SELECT 1 FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
             (workspace_id, agent.agent_id)
         ).fetchone()
         
@@ -644,7 +651,7 @@ async def review_join_request(
         if request.approve:
             # Get role info
             role_result = db.execute(
-                "SELECT name, min_reputation, capacity FROM roles WHERE id = %s",
+                "SELECT name, min_reputation, role_capacity FROM roles WHERE id = %s",
                 (jr_role_id,)
             ).fetchone()
             
@@ -665,7 +672,7 @@ async def review_join_request(
                 (workspace_id, jr_role_id, "active")
             ).fetchone()[0]
             
-            if current_count >= capacity:
+            if capacity is not None and current_count >= capacity:
                 raise HTTPException(
                     status_code=409,
                     detail={
@@ -701,15 +708,15 @@ async def review_join_request(
                     detail={
                         "error": "INSUFFICIENT_REPUTATION",
                         "message": f"Agent reputation {agent_reputation} below minimum {min_reputation} for role {role_name}",
-                        "required_reputation": min_reputation,
-                        "agent_reputation": agent_reputation,
+                        "required_reputation": _json_number(min_reputation),
+                        "agent_reputation": _json_number(agent_reputation),
                         "role_name": role_name
                     }
                 )
             
             # Check if agent is already a member
             existing_member = db.execute(
-                "SELECT id FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
+                "SELECT 1 FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
                 (workspace_id, jr_agent_id)
             ).fetchone()
             

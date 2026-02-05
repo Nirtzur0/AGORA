@@ -60,7 +60,8 @@ async def get_phase_status(
     current_phase = row[0]
     
     # Get allowed next phases
-    from apps.worker.phase_machine import PhaseMachine
+    _ensure_worker_path()
+    from phase_machine import PhaseMachine
     allowed_next = PhaseMachine.get_allowed_next_phases(current_phase)
     
     return PhaseStatus(
@@ -97,7 +98,8 @@ async def advance_phase(
     current_phase = row[0]
     
     # Validate transition is allowed
-    from apps.worker.phase_machine import PhaseMachine
+    _ensure_worker_path()
+    from phase_machine import PhaseMachine
     
     if not PhaseMachine.is_valid_transition(current_phase, request.target_phase):
         raise HTTPException(
@@ -170,7 +172,8 @@ async def get_gate_status(
     current_phase = row[0]
     
     # Determine which gate snapshot to gather
-    from apps.worker.gates import GateEvaluationActivity, GateEvaluator
+    _ensure_worker_path()
+    from gates import GateEvaluationActivity, GateEvaluator
     
     gate_activity = GateEvaluationActivity(db)
     

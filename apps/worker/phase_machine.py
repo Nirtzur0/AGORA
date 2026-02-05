@@ -237,7 +237,7 @@ class PhaseAdvancementActivity:
         self.db.execute(
             """
             UPDATE workspaces
-            SET phase = :next_phase, updated_at = NOW()
+            SET phase = :next_phase
             WHERE id = :workspace_id
             """,
             {"workspace_id": workspace_id, "next_phase": next_phase}

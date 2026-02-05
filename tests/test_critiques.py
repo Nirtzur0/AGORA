@@ -46,7 +46,7 @@ def _make_agent_token(agent_id, moltbook_id, reputation=0):
     )
 
 
-def test_create_critique(test_client, test_db, mock_agent_token):
+def test_create_critique(test_client, test_db):
     """Test critique creation on a claim."""
     workspace_id = str(uuid.uuid4())
     agent_id = TEST_AGENT_ID
@@ -75,10 +75,13 @@ def test_create_critique(test_client, test_db, mock_agent_token):
         )
         conn.commit()
     
+    # Generate token manually to avoid deadlock with fixture
+    token = _make_agent_token(agent_id, "test_moltbook_id")
+
     # Create critique
     response = test_client.post(
         f"/workspaces/{workspace_id}/critiques",
-        headers={"Authorization": f"Bearer {mock_agent_token}"},
+        headers={"Authorization": f"Bearer {token}"},
         json={
             "target_type": "claim",
             "target_id": claim_id,
@@ -369,7 +372,7 @@ def test_maintainer_can_override_critique(test_client, test_db):
     assert payload["critique_id"] == critique_id
 
 
-def test_list_critiques_with_filters(test_client, test_db, mock_agent_token):
+def test_list_critiques_with_filters(test_client, test_db):
     """Test listing critiques with filters."""
     workspace_id = str(uuid.uuid4())
     agent_id = TEST_AGENT_ID
@@ -421,10 +424,12 @@ def test_list_critiques_with_filters(test_client, test_db, mock_agent_token):
             )
         conn.commit()
     
+    token = _make_agent_token(agent_id, "test_moltbook_id")
+
     # List all critiques
     response = test_client.get(
         f"/workspaces/{workspace_id}/critiques",
-        headers={"Authorization": f"Bearer {mock_agent_token}"}
+        headers={"Authorization": f"Bearer {token}"}
     )
     
     assert response.status_code == 200
@@ -434,7 +439,7 @@ def test_list_critiques_with_filters(test_client, test_db, mock_agent_token):
     # Filter by target_id
     response = test_client.get(
         f"/workspaces/{workspace_id}/critiques?target_id={claim_id1}",
-        headers={"Authorization": f"Bearer {mock_agent_token}"}
+        headers={"Authorization": f"Bearer {token}"}
     )
     
     assert response.status_code == 200
@@ -444,7 +449,7 @@ def test_list_critiques_with_filters(test_client, test_db, mock_agent_token):
     # Filter by status
     response = test_client.get(
         f"/workspaces/{workspace_id}/critiques?status=open",
-        headers={"Authorization": f"Bearer {mock_agent_token}"}
+        headers={"Authorization": f"Bearer {token}"}
     )
     
     assert response.status_code == 200
@@ -454,7 +459,7 @@ def test_list_critiques_with_filters(test_client, test_db, mock_agent_token):
     # Filter by severity
     response = test_client.get(
         f"/workspaces/{workspace_id}/critiques?severity=blocking",
-        headers={"Authorization": f"Bearer {mock_agent_token}"}
+        headers={"Authorization": f"Bearer {token}"}
     )
     
     assert response.status_code == 200

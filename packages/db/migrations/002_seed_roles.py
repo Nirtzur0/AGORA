@@ -154,7 +154,7 @@ def upgrade(conn):
     ]
     
     import json
-    from psycopg.types.json import Jsonb
+    # from psycopg.types.json import Jsonb (removed to support psycopg2)
     cursor = conn.cursor()
     
     for role in roles:
@@ -172,14 +172,14 @@ def upgrade(conn):
             (
                 role["id"],
                 role["name"],
-                Jsonb(role["permissions"]),
+                json.dumps(role["permissions"]),
                 role["min_reputation"],
                 role["role_capacity"],
                 role["is_unique"],
             ),
         )
     
-    conn.commit()
+    # conn.commit() handled by caller
     print(f"✓ Seeded {len(roles)} roles with canonical permissions")
 
 

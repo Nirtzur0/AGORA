@@ -25,11 +25,7 @@ PY
 
 json_get() {
   local key="$1"
-  "$PYTHON" - <<PY
-import json,sys
-data=json.loads(sys.stdin.read())
-print(data.get("$key",""))
-PY
+  "$PYTHON" -c 'import json,sys; data=json.load(sys.stdin); print(data.get(sys.argv[1], ""))' "$key"
 }
 
 echo "== Health check"
@@ -56,7 +52,7 @@ db_url = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localh
 agent_id = str(uuid.uuid4())
 moltbook_id = f"mb_smoke_{agent_id[:8]}"
 name = "Smoke Skeptic"
-reputation = 50
+reputation = 999
 conn = psycopg2.connect(db_url)
 cur = conn.cursor()
 cur.execute(
@@ -78,7 +74,7 @@ db_url = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localh
 agent_id = str(uuid.uuid4())
 moltbook_id = f"mb_smoke_{agent_id[:8]}"
 name = "Smoke Method Reviewer"
-reputation = 50
+reputation = 999
 conn = psycopg2.connect(db_url)
 cur = conn.cursor()
 cur.execute(
@@ -95,7 +91,7 @@ THIRD_MOLTBOOK_ID=$(printf '%s' "$THIRD_AGENT_JSON" | cut -d'|' -f2)
 THIRD_REP=$(printf '%s' "$THIRD_AGENT_JSON" | cut -d'|' -f3)
 
 echo "== Mint JWTs for additional agents"
-SECOND_AGENT_JWT=$("$PYTHON" - <<PY
+SECOND_AGENT_JWT=$("$PYTHON" - <<PY | tail -n 1
 import sys
 sys.path.insert(0, "$REPO_ROOT/apps/core-api")
 from jwt_utils import create_agent_token_v2
@@ -103,7 +99,7 @@ print(create_agent_token_v2("$SECOND_AGENT_ID", "$SECOND_MOLTBOOK_ID", int("$SEC
 PY
 )
 
-THIRD_AGENT_JWT=$("$PYTHON" - <<PY
+THIRD_AGENT_JWT=$("$PYTHON" - <<PY | tail -n 1
 import sys
 sys.path.insert(0, "$REPO_ROOT/apps/core-api")
 from jwt_utils import create_agent_token_v2
@@ -174,16 +170,8 @@ cur.close(); conn.close()
 print(json.dumps({name: str(id_) for name, id_ in rows}))
 PY
 )
-SKEPTIC_ROLE_ID=$(printf '%s' "$ROLE_IDS" | "$PYTHON" - <<'PY'
-import json,sys
-print(json.loads(sys.stdin.read()).get("Skeptic",""))
-PY
-)
-METHOD_ROLE_ID=$(printf '%s' "$ROLE_IDS" | "$PYTHON" - <<'PY'
-import json,sys
-print(json.loads(sys.stdin.read()).get("Method Reviewer",""))
-PY
-)
+SKEPTIC_ROLE_ID=$(printf '%s' "$ROLE_IDS" | json_get Skeptic)
+METHOD_ROLE_ID=$(printf '%s' "$ROLE_IDS" | json_get "Method Reviewer")
 if [[ -z "$SKEPTIC_ROLE_ID" || -z "$METHOD_ROLE_ID" ]]; then
   echo "Missing required roles. Seed roles before running smoke tests." >&2
   exit 1
@@ -413,11 +401,7 @@ curl -sS -X POST "$BASE_URL/rule-checks" \
 wait_for_phase() {
   local target="$1"
   for _ in $(seq 1 20); do
-    current=$(curl -sS "$BASE_URL/workspaces/$WORKSPACE_ID/phase" | "$PYTHON" - <<'PY'
-import json,sys
-print(json.loads(sys.stdin.read())["current_phase"])
-PY
-)
+    current=$(curl -sS "$BASE_URL/workspaces/$WORKSPACE_ID/phase" | json_get current_phase)
     if [[ "$current" == "$target" ]]; then
       return 0
     fi

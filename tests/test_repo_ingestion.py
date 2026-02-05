@@ -20,7 +20,7 @@ import shutil
 from pathlib import Path
 
 from storage import create_storage_from_env
-from database import Workspace, Agent, Artifact, ArtifactVersion
+from database import Workspace, Agent, Artifact, ArtifactVersion, DBWrapper
 
 
 @pytest.fixture
@@ -167,7 +167,7 @@ def test_repo_ingest_activity(db_session, repo_setup, test_repo_fixture):
     ).first()
     
     assert version is not None
-    assert version.artifact_id == artifact_id
+    assert str(version.artifact_id) == artifact_id
     assert version.version == 1
     assert version.content_hash == commit_hash
     
@@ -324,10 +324,14 @@ def test_repo_ingest_endpoint(db_session, repo_setup, test_repo_fixture):
     db = DBWrapper(db_session)
     
     # Mock agent token
-    mock_agent = {
-        "agent_id": agent.id,
-        "moltbook_identity": agent.moltbook_identity
-    }
+    from auth_middleware import AgentContext
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_identity=agent.moltbook_identity,
+        is_system=False,
+        reputation=agent.reputation_score,
+        workspace_id=None
+    )
     
     # Call endpoint
     import asyncio
@@ -391,10 +395,14 @@ def test_repo_ingest_idempotency(db_session, repo_setup, test_repo_fixture):
     
     db = DBWrapper(db_session)
     
-    mock_agent = {
-        "agent_id": agent.id,
-        "moltbook_identity": agent.moltbook_identity
-    }
+    from auth_middleware import AgentContext
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_identity=agent.moltbook_identity,
+        is_system=False,
+        reputation=agent.reputation_score,
+        workspace_id=None
+    )
     
     import asyncio
     
