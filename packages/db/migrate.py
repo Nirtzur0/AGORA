@@ -50,23 +50,24 @@ def migrate_up():
         """))
         tables_exist = result.scalar()
         
+        # Setup Alembic context
+        from alembic.runtime.migration import MigrationContext
+        from alembic.operations import Operations
+        import alembic.op
+        
+        context = MigrationContext.configure(conn)
+        op = Operations(context)
+        
+        # Bind the op object to alembic.op module
+        import sys
+        alembic.op._proxy = op
+        
+        import importlib.util
+
         if not tables_exist:
-            logger.info("Applying initial schema migration...")
-            
-            # Execute the upgrade function with proper Alembic op context
-            from alembic.runtime.migration import MigrationContext
-            from alembic.operations import Operations
-            import alembic.op
-            
-            context = MigrationContext.configure(conn)
-            op = Operations(context)
-            
-            # Bind the op object to alembic.op module
-            import sys
-            alembic.op._proxy = op
+            logger.info("Applying initial schema migration (001)...")
             
             # Now load and execute the migration
-            import importlib.util
             migration_file = migrations_dir / "migrations" / "001_initial_schema.py"
             spec = importlib.util.spec_from_file_location("migration_001", migration_file)
             migration_001 = importlib.util.module_from_spec(spec)
@@ -77,7 +78,40 @@ def migrate_up():
             
             logger.info("✓ Initial schema migration applied successfully")
         else:
-            logger.info("Schema already exists, skipping migration")
+            logger.info("Schema (001) already exists, skipping")
+
+        # 2. Seed roles (002) - Uses raw connection
+        logger.info("Applying roles seed (002)...")
+        migration_file_002 = migrations_dir / "migrations" / "002_seed_roles.py"
+        spec_002 = importlib.util.spec_from_file_location("migration_002", migration_file_002)
+        migration_002 = importlib.util.module_from_spec(spec_002)
+        spec_002.loader.exec_module(migration_002)
+        
+        # Pass raw DBAPI connection
+        migration_002.upgrade(conn.connection)
+        logger.info("✓ Roles seeded successfully")
+
+        # 3. Search index (003) - Uses Alembic
+        result_003 = conn.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'search_index'
+            );
+        """))
+        search_index_exists = result_003.scalar()
+        
+        if not search_index_exists:
+            logger.info("Applying search index migration (003)...")
+            migration_file_003 = migrations_dir / "migrations" / "003_search_index.py"
+            spec_003 = importlib.util.spec_from_file_location("migration_003", migration_file_003)
+            migration_003 = importlib.util.module_from_spec(spec_003)
+            spec_003.loader.exec_module(migration_003)
+            
+            migration_003.upgrade()
+            logger.info("✓ Search index migration applied successfully")
+        else:
+            logger.info("Search index (003) already exists, skipping")
     
     logger.info("✓ Migrations complete")
 

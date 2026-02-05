@@ -88,6 +88,7 @@ def _allocate_short_id(workspace_id: UUID, db) -> str:
         """
         SELECT short_id FROM artifacts 
         WHERE workspace_id = :workspace_id 
+          AND short_id LIKE 'A%%'
         ORDER BY created_at DESC 
         LIMIT 1
         """,

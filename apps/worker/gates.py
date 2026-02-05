@@ -143,18 +143,21 @@ class GateEvaluationActivity:
             }
         ).fetchone()[0]
         
-        # Count workflow_runs with log artifacts
+        # Count workflow_runs with log artifacts (code_replication or sandbox_run)
         runs_with_logs = self.db.execute(
             """
             SELECT COUNT(DISTINCT wr.id)
             FROM workflow_runs wr
             WHERE wr.workspace_id = :workspace_id
-              AND wr.workflow_type = 'code_replication'
+              AND wr.workflow_type IN ('code_replication', 'sandbox_run')
               AND EXISTS (
                 SELECT 1 FROM artifacts a
                 WHERE a.workspace_id = wr.workspace_id
                   AND a.type = 'log'
-                  AND a.metadata::text LIKE '%' || wr.id || '%'
+                  AND (
+                    a.metadata->>'workflow_run_id' = wr.id::text
+                    OR a.metadata::text LIKE '%' || wr.id || '%'
+                  )
               )
             """,
             {"workspace_id": workspace_id}
@@ -212,7 +215,7 @@ class GateEvaluationActivity:
             SELECT status, details
             FROM rule_checks
             WHERE workspace_id = :workspace_id
-              AND rule_type = 'citation_check'
+              AND rule_name = 'citation_check'
             ORDER BY created_at DESC
             LIMIT 10
             """,
@@ -229,7 +232,7 @@ class GateEvaluationActivity:
             SELECT status, details
             FROM rule_checks
             WHERE workspace_id = :workspace_id
-              AND rule_type = 'critique_sufficiency'
+              AND rule_name = 'critique_sufficiency'
             ORDER BY created_at DESC
             LIMIT 10
             """,
@@ -651,7 +654,7 @@ class GateEvaluator:
             SELECT status, details
             FROM rule_checks
             WHERE workspace_id = :workspace_id
-              AND rule_type = 'citation_check'
+              AND rule_name = 'citation_check'
               AND target_id = :version_id
             ORDER BY created_at DESC
             LIMIT 5
@@ -678,7 +681,7 @@ class GateEvaluator:
             SELECT status, details
             FROM rule_checks
             WHERE workspace_id = :workspace_id
-              AND rule_type = 'critique_sufficiency'
+              AND rule_name = 'critique_sufficiency'
               AND target_id = :version_id
             ORDER BY created_at DESC
             LIMIT 5

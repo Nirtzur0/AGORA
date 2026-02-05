@@ -14,12 +14,15 @@ from workflow_client import WorkflowClient, create_activity_run, update_activity
 from database import DBWrapper
 from agent_tasks import TaskPayload, TaskInput, RoleName, TaskStatus, TaskPriority
 from queries.agent_tasks import insert_agent_task
+from storage import create_storage_from_env
+from pdf_ingest import PDFIngestActivity
 
 
 async def literature_grounding_workflow(
     workspace_id: str,
     artifact_id: str,
-    db: DBWrapper
+    db: DBWrapper,
+    created_by: str
 ) -> Dict[str, Any]:
     """
     Execute literature grounding workflow.
@@ -52,9 +55,7 @@ async def literature_grounding_workflow(
     )
     
     try:
-        # Step 1: Execute pdf_ingest activity
-        from pdf_ingest_worker import pdf_ingest_activity
-        
+        # Step 1: Execute pdf_ingest activity (synchronously for MVP)
         activity_id = f"pdf_ingest_{artifact_id}"
         activity_run_id = create_activity_run(
             db=db,
@@ -64,8 +65,33 @@ async def literature_grounding_workflow(
             input_data={"artifact_id": artifact_id}
         )
         
-        # Run pdf_ingest
-        ingest_result = await pdf_ingest_activity(artifact_id, db)
+        # Load latest PDF bytes from storage
+        version_row = db.execute(
+            """
+            SELECT storage_uri
+            FROM artifact_versions
+            WHERE artifact_id = :artifact_id
+            ORDER BY version DESC
+            LIMIT 1
+            """,
+            {"artifact_id": artifact_id}
+        ).fetchone()
+        
+        if not version_row:
+            raise ValueError(f"No artifact_versions found for PDF artifact {artifact_id}")
+        
+        storage_uri = version_row[0]
+        storage = create_storage_from_env()
+        pdf_bytes = storage.get_object(storage_uri).read()
+        
+        pdf_activity = PDFIngestActivity(storage, db)
+        ingest_result = pdf_activity.ingest_pdf(
+            artifact_id=artifact_id,
+            workspace_id=workspace_id,
+            pdf_bytes=pdf_bytes,
+            created_by=created_by,
+            activity_run_id=activity_run_id
+        )
         
         update_activity_run(
             db=db,
@@ -73,7 +99,7 @@ async def literature_grounding_workflow(
             status="completed",
             output={
                 "artifact_version_id": ingest_result["artifact_version_id"],
-                "pages_parsed": ingest_result["pages_parsed"]
+                "pages_parsed": ingest_result.get("page_count")
             }
         )
         

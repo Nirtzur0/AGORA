@@ -11,9 +11,18 @@ from pydantic import BaseModel
 from typing import Optional
 from database import get_db_session
 import logging
+from pathlib import Path
+import sys
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _ensure_worker_path() -> None:
+    worker_path = Path(__file__).resolve().parents[2] / "apps" / "worker"
+    worker_path_str = str(worker_path)
+    if worker_path_str not in sys.path:
+        sys.path.insert(0, worker_path_str)
 
 
 class PhaseAdvancementRequest(BaseModel):
@@ -99,7 +108,8 @@ async def advance_phase(
     # Start phase advancement workflow
     try:
         from temporalio.client import Client
-        from apps.worker.phase_advancement_workflow import PhaseAdvancementWorkflow
+        _ensure_worker_path()
+        from phase_advancement_workflow import PhaseAdvancementWorkflow
         
         client = await Client.connect("localhost:7233")
         

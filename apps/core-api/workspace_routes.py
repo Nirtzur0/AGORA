@@ -14,7 +14,7 @@ import json
 from auth_middleware import get_agent_context, AgentContext, require_permissions, require_role
 from database import get_db, get_raw_db
 from sqlalchemy import text
-from idempotency import IdempotencyChecker
+from idempotency import check_idempotency, store_idempotency_result
 import rbac
 
 
@@ -85,13 +85,21 @@ def emit_event(db, workspace_id: str, actor_type: str, actor_id: str, event_type
     Events are system-written only. Agents never directly write events.
     """
     event_id = str(uuid.uuid4())
+    # Ensure payload is JSON-serializable (e.g., UUIDs -> strings)
+    safe_payload = json.loads(json.dumps(payload, default=str))
+    # Ensure actor_id is a UUID string (system events may not have a natural UUID)
+    if actor_type == "system":
+        try:
+            actor_id = str(uuid.UUID(str(actor_id)))
+        except Exception:
+            actor_id = str(uuid.UUID(int=0))
     
     db.execute(
         """
         INSERT INTO events (id, workspace_id, actor_type, actor_id, event_type, payload, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, NOW())
         """,
-        (event_id, workspace_id, actor_type, actor_id, event_type, payload)
+        (event_id, workspace_id, actor_type, actor_id, event_type, safe_payload)
     )
     
     return event_id
@@ -117,10 +125,15 @@ async def create_workspace(
     Requires: Agent must have reputation >= 0 (Maintainer min_reputation)
     """
     with get_db() as db:
-        # Check idempotency
+        # Check idempotency (workspace_id not known yet)
         if idempotency_key:
-            checker = IdempotencyChecker(db, None, agent.agent_id)  # No workspace yet
-            existing = checker.check_idempotency("workspace.create", idempotency_key)
+            existing = await check_idempotency(
+                idempotency_key=idempotency_key,
+                agent_id=agent.agent_id,
+                request_name="workspace.create",
+                db=db,
+                workspace_id=None
+            )
             if existing:
                 # Return existing workspace
                 result = db.execute(
@@ -134,7 +147,7 @@ async def create_workspace(
                     description=result[2],
                     phase=result[3],
                     reputation_config={},
-                    created_by=str(result[4]),
+                    created_by=str(result[4]) if result[4] else None,
                     created_at=result[5],
                     updated_at=result[5]
                 )
@@ -221,30 +234,33 @@ async def create_workspace(
         
         # Store idempotency result
         if idempotency_key:
-            checker.store_idempotency_result(
-                "workspace.create",
-                idempotency_key,
-                "workspace",
-                workspace_id
+            await store_idempotency_result(
+                idempotency_key=idempotency_key,
+                workspace_id=workspace_id,
+                agent_id=agent.agent_id,
+                request_name="workspace.create",
+                result_type="workspace",
+                result_id=workspace_id,
+                db=db
             )
         
         db.commit()
         
         # Return created workspace
         result = db.execute(
-            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
         return WorkspaceResponse(
-            id=result[0],
+            id=str(result[0]),
             name=result[1],
             description=result[2],
             phase=result[3],
             reputation_config={},
-            created_by=result[4],
+            created_by=str(result[4]) if result[4] else None,
             created_at=result[5],
-            updated_at=result[6]
+            updated_at=result[5]
         )
 
 
@@ -432,8 +448,13 @@ async def create_join_request(
     with get_db() as db:
         # Check idempotency
         if idempotency_key:
-            checker = IdempotencyChecker(db, workspace_id, agent.agent_id)
-            existing = checker.check_idempotency("join_request.create", idempotency_key)
+            existing = await check_idempotency(
+                idempotency_key=idempotency_key,
+                agent_id=agent.agent_id,
+                request_name="join_request.create",
+                db=db,
+                workspace_id=workspace_id
+            )
             if existing:
                 # Return existing join request
                 result = db.execute(
@@ -541,11 +562,14 @@ async def create_join_request(
         
         # Store idempotency result
         if idempotency_key:
-            checker.store_idempotency_result(
-                "join_request.create",
-                idempotency_key,
-                "join_request",
-                join_request_id
+            await store_idempotency_result(
+                idempotency_key=idempotency_key,
+                workspace_id=workspace_id,
+                agent_id=agent.agent_id,
+                request_name="join_request.create",
+                result_type="join_request",
+                result_id=join_request_id,
+                db=db
             )
         
         db.commit()

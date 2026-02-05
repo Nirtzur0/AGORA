@@ -112,7 +112,7 @@ def create_draft(
     result = db.execute(
         """
         SELECT short_id FROM artifacts 
-        WHERE workspace_id = %s AND short_id LIKE 'D%'
+        WHERE workspace_id = %s AND short_id LIKE 'D%%'
         ORDER BY short_id DESC LIMIT 1
         """,
         (str(workspace_id),)

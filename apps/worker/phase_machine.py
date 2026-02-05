@@ -8,6 +8,7 @@ Only the orchestrator may advance phases, emitting workspace.phase_changed event
 """
 from enum import Enum
 from typing import Dict, List, Optional, Set
+import json
 
 from agent_tasks import TaskPayload, TaskStatus, TaskPriority
 from queries.agent_tasks import insert_agent_task
@@ -254,6 +255,10 @@ class PhaseAdvancementActivity:
         }
         
         event_id = str(uuid.uuid4())
+        try:
+            actor_id = str(uuid.UUID(str(workflow_run_id))) if workflow_run_id else str(uuid.UUID(int=0))
+        except (ValueError, TypeError):
+            actor_id = str(uuid.UUID(int=0))
         self.db.execute(
             """
             INSERT INTO events (
@@ -268,7 +273,7 @@ class PhaseAdvancementActivity:
                 "id": event_id,
                 "workspace_id": workspace_id,
                 "actor_type": "system",
-                "actor_id": workflow_run_id or "orchestrator",
+                "actor_id": actor_id,
                 "event_type": "workspace.phase_changed",
                 "payload": json.dumps(event_payload)
             }

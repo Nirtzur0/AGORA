@@ -19,6 +19,8 @@ import re
 import json
 from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+from pathlib import Path
+import sys
 import jsonpath_ng
 
 
@@ -76,6 +78,12 @@ class EvidenceResolver:
         """
         self.storage = storage
         self.db = db
+
+    def _ensure_worker_path(self) -> None:
+        worker_path = Path(__file__).resolve().parents[2] / "apps" / "worker"
+        worker_path_str = str(worker_path)
+        if worker_path_str not in sys.path:
+            sys.path.insert(0, worker_path_str)
     
     def resolve(
         self,
@@ -139,8 +147,7 @@ class EvidenceResolver:
         Uses the PDF ingestion worker's resolve_pdf_evidence logic.
         """
         # Import PDF activity for resolution
-        import sys
-        sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+        self._ensure_worker_path()
         from pdf_ingest import PDFIngestActivity
         
         # Create activity instance
@@ -236,8 +243,7 @@ class EvidenceResolver:
         Uses RepoIngestActivity for resolution logic.
         """
         # Import repo activity for resolution
-        import sys
-        sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+        self._ensure_worker_path()
         from repo_ingest import RepoIngestActivity
         
         # Create activity instance
@@ -383,8 +389,7 @@ class EvidenceResolver:
         Uses SandboxRunActivity for resolution logic.
         """
         # Import sandbox activity for resolution
-        import sys
-        sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+        self._ensure_worker_path()
         from sandbox_run import SandboxRunActivity
         
         try:

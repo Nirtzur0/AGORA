@@ -18,7 +18,7 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from apps.worker.gates import GateEvaluationActivity, GateEvaluator, GateStatus
+    from gates import GateEvaluationActivity, GateEvaluator, GateStatus
 
 logger = logging.getLogger(__name__)
 

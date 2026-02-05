@@ -44,7 +44,11 @@ class APIClient {
       const error = await response.json().catch(() => ({
         detail: `HTTP ${response.status}: ${response.statusText}`
       }));
-      throw new Error(error.detail || 'Request failed');
+      let message = error.detail || 'Request failed';
+      if (typeof message === 'object') {
+        message = message.message || JSON.stringify(message);
+      }
+      throw new Error(message);
     }
 
     return response.json();

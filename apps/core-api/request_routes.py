@@ -12,13 +12,23 @@ All endpoints start workflows/activities and return tracking IDs.
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
+from pathlib import Path
+import sys
 import uuid
+import json
 
 from database import DBWrapper, get_db_session
 from auth_middleware import require_agent_token, require_system_token, AgentContext, SystemContext
 
 
 router = APIRouter()
+
+
+def _ensure_worker_path() -> None:
+    worker_path = Path(__file__).resolve().parents[2] / "apps" / "worker"
+    worker_path_str = str(worker_path)
+    if worker_path_str not in sys.path:
+        sys.path.insert(0, worker_path_str)
 
 
 # Request/Response Models
@@ -125,7 +135,7 @@ async def request_ingest_pdf(
     if not artifact_row:
         raise HTTPException(status_code=404, detail=f"Artifact {request.artifact_id} not found")
     
-    if artifact_row[2] != workspace_id_str:
+    if str(artifact_row[2]) != workspace_id_str:
         raise HTTPException(
             status_code=403,
             detail=f"Artifact {request.artifact_id} does not belong to workspace {workspace_id_str}"
@@ -137,47 +147,18 @@ async def request_ingest_pdf(
             detail=f"Artifact {request.artifact_id} is not a PDF (type={artifact_row[1]})"
         )
     
-    # Check if already ingested (idempotency)
-    existing_version = db.execute(
-        """
-        SELECT id FROM artifact_versions
-        WHERE artifact_id = :artifact_id
-        ORDER BY version DESC
-        LIMIT 1
-        """,
-        {"artifact_id": request.artifact_id}
-    ).fetchone()
-    
-    if existing_version:
-        # Already ingested, return existing workflow if found
-        existing_workflow = db.execute(
-            """
-            SELECT id FROM workflow_runs
-            WHERE workspace_id = :workspace_id
-              AND workflow_type = 'literature_grounding'
-              AND input::jsonb @> jsonb_build_object('artifact_id', :artifact_id::text)
-            ORDER BY created_at DESC
-            LIMIT 1
-            """,
-            {"workspace_id": workspace_id_str, "artifact_id": request.artifact_id}
-        ).fetchone()
-        
-        if existing_workflow:
-            return IngestPdfResponse(
-                request_id=str(uuid.uuid4()),
-                workflow_run_id=existing_workflow[0],
-                artifact_id=request.artifact_id,
-                message="PDF already ingested. Returning existing workflow."
-            )
+    # Note: We rely on Idempotency-Key for deduplication; do not short-circuit on existing versions.
     
     # Start literature_grounding workflow
+    _ensure_worker_path()
     from literature_grounding_workflow import literature_grounding_workflow
     
     try:
         result = await literature_grounding_workflow(
             workspace_id=workspace_id_str,
             artifact_id=request.artifact_id,
-            db=db
+            db=db,
+            created_by=current_agent.agent_id
         )
         
         request_id = str(uuid.uuid4())
@@ -299,13 +280,12 @@ async def request_ingest_repo(
     db.commit()
     
     # Execute repo_ingest activity (synchronously for MVP)
-    import sys
-    sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+    _ensure_worker_path()
     from repo_ingest import RepoIngestActivity
-    from storage import get_storage
+    from storage import create_storage_from_env
     
     try:
-        storage = get_storage()
+        storage = create_storage_from_env()
         repo_activity = RepoIngestActivity(storage, db)
         
         result = repo_activity.ingest_repo(
@@ -450,7 +430,7 @@ async def request_run_sandbox(
     if not script_row:
         raise HTTPException(status_code=404, detail=f"Script artifact {request.script_artifact_id} not found")
     
-    if script_row[2] != workspace_id_str:
+    if str(script_row[2]) != workspace_id_str:
         raise HTTPException(
             status_code=403,
             detail=f"Script artifact {request.script_artifact_id} does not belong to workspace {workspace_id_str}"
@@ -461,25 +441,6 @@ async def request_run_sandbox(
             status_code=400,
             detail=f"Artifact {request.script_artifact_id} is not executable (type={script_row[1]})"
         )
-    
-    # Create log artifact
-    log_artifact_id = str(uuid.uuid4())
-    
-    db.execute(
-        """
-        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
-        VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
-        """,
-        {
-            "id": log_artifact_id,
-            "workspace_id": workspace_id_str,
-            "short_id": f"LOG{abs(hash(log_artifact_id)) % 10000}",
-            "type": "log",
-            "metadata": json.dumps({"source": "sandbox_execution", "script_artifact_id": request.script_artifact_id}),
-            "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
-            "created_by": current_agent.agent_id
-        }
-    )
     
     # Create workflow_run + activity_run for tracking
     workflow_run_id = str(uuid.uuid4())
@@ -495,6 +456,31 @@ async def request_run_sandbox(
             "workflow_type": "sandbox_run",
             "temporal_workflow_id": temporal_workflow_id,
             "status": "running"
+        }
+    )
+    
+    # Create log artifact (after workflow_run_id is defined)
+    log_artifact_id = str(uuid.uuid4())
+    
+    db.execute(
+        """
+        INSERT INTO artifacts (id, workspace_id, short_id, type, metadata, storage_uri, created_by, created_at)
+        VALUES (:id, :workspace_id, :short_id, :type, :metadata, :storage_uri, :created_by, NOW())
+        """,
+        {
+            "id": log_artifact_id,
+            "workspace_id": workspace_id_str,
+            "short_id": f"LOG{abs(hash(log_artifact_id)) % 10000}",
+            "type": "log",
+            "metadata": json.dumps(
+                {
+                    "source": "sandbox_execution",
+                    "script_artifact_id": request.script_artifact_id,
+                    "workflow_run_id": workflow_run_id,
+                }
+            ),
+            "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
+            "created_by": current_agent.agent_id
         }
     )
     
@@ -517,13 +503,12 @@ async def request_run_sandbox(
     db.commit()
     
     # Execute sandbox_run activity (synchronously for MVP)
-    import sys
-    sys.path.insert(0, "/Users/nirtzur/Documents/projects/AGORA/apps/worker")
+    _ensure_worker_path()
     from sandbox_run import SandboxRunActivity
-    from storage import get_storage
+    from storage import create_storage_from_env
     
     try:
-        storage = get_storage()
+        storage = create_storage_from_env()
         sandbox_activity = SandboxRunActivity(storage, db)
         
         result = sandbox_activity.run_sandbox(
@@ -657,7 +642,7 @@ async def request_finalize_draft(
     if not draft_row:
         raise HTTPException(status_code=404, detail=f"Draft artifact {request.draft_artifact_id} not found")
     
-    if draft_row[2] != workspace_id_str:
+    if str(draft_row[2]) != workspace_id_str:
         raise HTTPException(
             status_code=403,
             detail=f"Draft artifact {request.draft_artifact_id} does not belong to workspace {workspace_id_str}"
@@ -682,7 +667,7 @@ async def request_finalize_draft(
     if not version_row:
         raise HTTPException(status_code=404, detail=f"Draft version {request.draft_artifact_version_id} not found")
     
-    if version_row[1] != request.draft_artifact_id:
+    if str(version_row[1]) != request.draft_artifact_id:
         raise HTTPException(
             status_code=400,
             detail=f"Version {request.draft_artifact_version_id} does not belong to draft {request.draft_artifact_id}"
@@ -690,7 +675,8 @@ async def request_finalize_draft(
     
     # Start DraftFinalizationWorkflow
     from temporalio.client import Client as TemporalClient
-    from apps.worker.draft_finalization_workflow import DraftFinalizationWorkflow
+    _ensure_worker_path()
+    from draft_finalization_workflow import DraftFinalizationWorkflow  # noqa: F401
     
     try:
         temporal_client = await TemporalClient.connect("localhost:7233")
@@ -701,7 +687,7 @@ async def request_finalize_draft(
             DraftFinalizationWorkflow.run,
             args=[workspace_id_str, request.draft_artifact_id, request.draft_artifact_version_id],
             id=workflow_id,
-            task_queue="agora-workers",
+            task_queue="agora-orchestrator",
         )
         
         # Record workflow run

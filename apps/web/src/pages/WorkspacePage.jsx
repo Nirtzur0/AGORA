@@ -36,6 +36,7 @@ export default function WorkspacePage() {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'tasks', label: 'Tasks' },
     { id: 'timeline', label: 'Timeline' },
     { id: 'artifacts', label: 'Artifacts' },
     { id: 'claims', label: 'Claims' },
@@ -87,6 +88,7 @@ export default function WorkspacePage() {
 
       <div className="tab-content">
         {activeTab === 'overview' && <OverviewTab workspaceId={workspaceId} />}
+        {activeTab === 'tasks' && <TasksTab workspaceId={workspaceId} />}
         {activeTab === 'timeline' && <TimelineTab workspaceId={workspaceId} />}
         {activeTab === 'artifacts' && <ArtifactsTab workspaceId={workspaceId} />}
         {activeTab === 'claims' && <ClaimsTab workspaceId={workspaceId} />}
@@ -98,6 +100,53 @@ export default function WorkspacePage() {
   );
 }
 
+// Tasks Tab
+function TasksTab({ workspaceId }) {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTasks = async () => {
+      try {
+        const data = await apiClient.getWorkspaceTasks(workspaceId);
+        setTasks(data);
+      } catch (err) {
+        console.error('Error loading tasks:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTasks();
+  }, [workspaceId]);
+
+  if (loading) return <div className="loading">Loading tasks...</div>;
+
+  return (
+    <Card title="Tasks">
+      {tasks.length === 0 ? (
+        <div className="empty-state">No tasks assigned.</div>
+      ) : (
+        <div className="tasks-list">
+          {tasks.map((task) => (
+            <div key={task.id} className="task-item">
+               <div className="task-header">
+                 <span className="task-type">{task.type}</span>
+                 <StatusBadge status={task.status} />
+               </div>
+               <div className="task-meta">
+                  <span>Created: {new Date(task.created_at).toLocaleDateString()}</span>
+               </div>
+               {task.payload && (
+                 <pre className="json-preview">{JSON.stringify(task.payload, null, 2)}</pre>
+               )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // Overview Tab
 function OverviewTab({ workspaceId }) {
   const [data, setData] = useState({});
@@ -106,13 +155,18 @@ function OverviewTab({ workspaceId }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [artifacts, claims, ruleChecks, critiques] = await Promise.all([
+        const [artifactsData, claimsData, ruleChecks, critiques] = await Promise.all([
           apiClient.getWorkspaceArtifacts(workspaceId),
           apiClient.getWorkspaceClaims(workspaceId),
           apiClient.getRuleChecks(workspaceId),
           apiClient.getWorkspaceCritiques(workspaceId)
         ]);
-        setData({ artifacts, claims, ruleChecks, critiques });
+        setData({ 
+          artifacts: artifactsData.artifacts || [], 
+          claims: claimsData.claims || [], 
+          ruleChecks, 
+          critiques 
+        });
       } catch (err) {
         console.error('Error loading overview:', err);
       } finally {
@@ -192,8 +246,8 @@ function TimelineTab({ workspaceId }) {
           apiClient.getWorkspaceEvents(workspaceId),
           apiClient.getWorkspaceLogs(workspaceId)
         ]);
-        setEvents(eventsData);
-        setLogs(logsData);
+        setEvents(eventsData.events || []);
+        setLogs(logsData.logs || []);
       } catch (err) {
         console.error('Error loading timeline:', err);
       } finally {
@@ -254,7 +308,7 @@ function ArtifactsTab({ workspaceId }) {
     const loadArtifacts = async () => {
       try {
         const data = await apiClient.getWorkspaceArtifacts(workspaceId);
-        setArtifacts(data);
+        setArtifacts(data.artifacts || []);
       } catch (err) {
         console.error('Error loading artifacts:', err);
       } finally {
@@ -299,7 +353,7 @@ function ClaimsTab({ workspaceId }) {
     const loadClaims = async () => {
       try {
         const data = await apiClient.getWorkspaceClaims(workspaceId);
-        setClaims(data);
+        setClaims(data.claims || []);
       } catch (err) {
         console.error('Error loading claims:', err);
       } finally {
@@ -368,7 +422,7 @@ function DraftsTab({ workspaceId }) {
     const loadDrafts = async () => {
       try {
         const allArtifacts = await apiClient.getWorkspaceArtifacts(workspaceId);
-        const drafts = allArtifacts.filter(a => a.type === 'draft');
+        const drafts = (allArtifacts.artifacts || []).filter(a => a.type === 'draft');
         setArtifacts(drafts);
         if (drafts.length > 0) {
           selectDraft(drafts[0]);

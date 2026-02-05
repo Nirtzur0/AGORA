@@ -123,7 +123,7 @@ class PhaseAdvancementWorkflow:
                 # Advance phase via activity
                 advancement_result = await workflow.execute_activity(
                     "advance_workspace_phase",
-                    args=[workspace_id, target_phase, gate_result, workflow.info().workflow_id],
+                    args=[workspace_id, target_phase, gate_result, workflow.info().run_id],
                     start_to_close_timeout=timedelta(seconds=30),
                     retry_policy=RetryPolicy(
                         maximum_attempts=3,
@@ -161,7 +161,7 @@ class PhaseAdvancementWorkflow:
                         args=[
                             workspace_id,
                             gate_result["required_actions"],
-                            workflow.info().workflow_id
+                            workflow.info().run_id
                         ],
                         start_to_close_timeout=timedelta(seconds=60),
                         retry_policy=RetryPolicy(
@@ -201,7 +201,7 @@ class PhaseAdvancementWorkflow:
             # Advance phase via activity
             advancement_result = await workflow.execute_activity(
                 "advance_workspace_phase",
-                args=[workspace_id, target_phase, gate_result, workflow.info().workflow_id],
+                args=[workspace_id, target_phase, gate_result, workflow.info().run_id],
                 start_to_close_timeout=timedelta(seconds=30),
                 retry_policy=RetryPolicy(
                     maximum_attempts=3,
@@ -249,7 +249,7 @@ class PhaseAdvancementWorkflow:
             Gate evaluation result
         """
         # Import evaluator (import in workflow is deterministic)
-        from apps.worker.gates import GateEvaluator
+        from gates import GateEvaluator
         
         if gate_name == "lit_review_exit":
             return GateEvaluator.evaluate_lit_review_exit(snapshot)

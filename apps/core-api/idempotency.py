@@ -2,91 +2,105 @@
 Idempotency key support for AGORA Core API.
 
 Prevents duplicate processing of agent write requests.
+Aligned to the idempotency_keys schema (result_type/result_id, expires_at).
 """
 
-from fastapi import Header, HTTPException, Depends
+from fastapi import Header, Depends
 from typing import Optional, Any, Dict
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+import os
 
 from database import get_db_session
+
+IDEMPOTENCY_TTL_HOURS = int(os.getenv("IDEMPOTENCY_TTL_HOURS", "24"))
 
 
 def compute_payload_hash(payload: Any) -> str:
     """
     Compute deterministic hash of request payload.
     
-    Args:
-        payload: Request body (dict, list, or primitive)
-    
-    Returns:
-        SHA256 hex digest
+    Note: schema does not store payload hashes. This is retained for
+    potential future use and tests.
     """
-    # Convert to canonical JSON string (sorted keys)
     json_str = json.dumps(payload, sort_keys=True, separators=(',', ':'))
     return hashlib.sha256(json_str.encode()).hexdigest()
 
 
 async def check_idempotency(
     idempotency_key: Optional[str],
-    workspace_id: str,
     agent_id: str,
     request_name: str,
-    payload_hash: str,
-    db
+    db,
+    workspace_id: Optional[str] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Check if request with idempotency key was already processed.
     
-    Args:
-        idempotency_key: Client-provided idempotency key
-        workspace_id: Workspace scope
-        agent_id: Agent making request
-        request_name: Endpoint/operation name
-        payload_hash: Hash of request payload
-        db: Database connection
-    
-    Returns:
-        Previous response if key exists, None otherwise
-    
-    Raises:
-        HTTPException 409: If key exists with different payload
+    If workspace_id is None, search across all workspaces for this agent/key.
+    This enables workspace creation idempotency before a workspace ID exists.
     """
     if not idempotency_key:
         return None
     
-    # Check for existing key
-    result = db.execute(
-        """
-        SELECT response_data, payload_hash, created_at
-        FROM idempotency_keys
-        WHERE workspace_id = %s 
-          AND agent_id = %s 
-          AND request_name = %s 
-          AND idempotency_key = %s
-        """,
-        (workspace_id, agent_id, request_name, idempotency_key)
-    ).fetchone()
+    if workspace_id:
+        result = db.execute(
+            """
+            SELECT id, workspace_id, result_type, result_id, created_at, expires_at
+            FROM idempotency_keys
+            WHERE workspace_id = :workspace_id
+              AND agent_id = :agent_id
+              AND request_name = :request_name
+              AND idempotency_key = :idempotency_key
+            """,
+            {
+                "workspace_id": workspace_id,
+                "agent_id": agent_id,
+                "request_name": request_name,
+                "idempotency_key": idempotency_key,
+            }
+        ).fetchone()
+    else:
+        result = db.execute(
+            """
+            SELECT id, workspace_id, result_type, result_id, created_at, expires_at
+            FROM idempotency_keys
+            WHERE agent_id = :agent_id
+              AND request_name = :request_name
+              AND idempotency_key = :idempotency_key
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            {
+                "agent_id": agent_id,
+                "request_name": request_name,
+                "idempotency_key": idempotency_key,
+            }
+        ).fetchone()
     
-    if result:
-        stored_response, stored_hash, created_at = result
-        
-        # Check if payload matches
-        if stored_hash != payload_hash:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "IDEMPOTENCY_KEY_CONFLICT",
-                    "message": f"Idempotency key '{idempotency_key}' was already used with different payload",
-                    "first_used_at": created_at.isoformat()
-                }
-            )
-        
-        # Return stored response
-        return stored_response
+    if not result:
+        return None
     
-    return None
+    record_id, ws_id, result_type, result_id, created_at, expires_at = result
+    
+    # Drop expired idempotency keys
+    now = datetime.now(timezone.utc)
+    if expires_at and expires_at < now:
+        db.execute(
+            "DELETE FROM idempotency_keys WHERE id = :id",
+            {"id": str(record_id)}
+        )
+        return None
+    
+    return {
+        "id": str(record_id),
+        "workspace_id": str(ws_id),
+        "result_type": result_type,
+        "result_id": str(result_id),
+        "created_at": created_at,
+        "expires_at": expires_at,
+    }
 
 
 async def store_idempotency_result(
@@ -94,67 +108,47 @@ async def store_idempotency_result(
     workspace_id: str,
     agent_id: str,
     request_name: str,
-    payload_hash: str,
-    response_data: Dict[str, Any],
+    result_type: str,
+    result_id: str,
     db
 ):
     """
-    Store idempotency key and response for future deduplication.
-    
-    Args:
-        idempotency_key: Client-provided idempotency key
-        workspace_id: Workspace scope
-        agent_id: Agent making request
-        request_name: Endpoint/operation name
-        payload_hash: Hash of request payload
-        response_data: Response to store
-        db: Database connection
+    Store idempotency key and result for future deduplication.
     """
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=IDEMPOTENCY_TTL_HOURS)
+    
     db.execute(
         """
         INSERT INTO idempotency_keys (
             workspace_id, agent_id, request_name, idempotency_key,
-            payload_hash, response_data
+            result_type, result_id, expires_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON CONFLICT (workspace_id, agent_id, request_name, idempotency_key) 
+        VALUES (:workspace_id, :agent_id, :request_name, :idempotency_key,
+                :result_type, :result_id, :expires_at)
+        ON CONFLICT (workspace_id, agent_id, request_name, idempotency_key)
         DO NOTHING
         """,
-        (workspace_id, agent_id, request_name, idempotency_key, 
-         payload_hash, json.dumps(response_data))
+        {
+            "workspace_id": workspace_id,
+            "agent_id": agent_id,
+            "request_name": request_name,
+            "idempotency_key": idempotency_key,
+            "result_type": result_type,
+            "result_id": result_id,
+            "expires_at": expires_at,
+        }
     )
     db.commit()
 
 
 class IdempotencyChecker:
     """
-    Dependency for idempotent write endpoints.
-    
-    Usage:
-        @router.post("/claims")
-        async def create_claim(
-            request: ClaimRequest,
-            idempotency: IdempotencyChecker = Depends(IdempotencyChecker("create_claim")),
-            agent: AgentContext = Depends(get_agent_context),
-            db = Depends(get_db_session)
-        ):
-            # Check for duplicate
-            cached = await idempotency.check(request, agent, db)
-            if cached:
-                return cached
-            
-            # Process request
-            result = ...
-            
-            # Store result
-            await idempotency.store(result, agent, db)
-            return result
+    Dependency for idempotent write endpoints (schema-aligned).
     """
     
     def __init__(self, request_name: str):
         self.request_name = request_name
         self.idempotency_key: Optional[str] = None
-        self.payload_hash: Optional[str] = None
     
     async def __call__(
         self,
@@ -165,63 +159,38 @@ class IdempotencyChecker:
     
     async def check(
         self,
-        payload: Any,
         agent,
         db,
         workspace_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Check if request was already processed.
-        
-        Returns cached response if key exists, None otherwise.
-        """
         if not self.idempotency_key:
-            return None
-        
-        # Compute payload hash
-        self.payload_hash = compute_payload_hash(
-            payload.dict() if hasattr(payload, 'dict') else payload
-        )
-        
-        # Use workspace_id from agent context if not provided
-        ws_id = workspace_id or getattr(agent, 'workspace_id', None)
-        if not ws_id:
-            # If no workspace context, skip idempotency check
             return None
         
         return await check_idempotency(
             self.idempotency_key,
-            ws_id,
             agent.agent_id,
             self.request_name,
-            self.payload_hash,
-            db
+            db,
+            workspace_id=workspace_id
         )
     
     async def store(
         self,
-        response_data: Dict[str, Any],
+        result_type: str,
+        result_id: str,
         agent,
         db,
         workspace_id: Optional[str] = None
     ):
-        """
-        Store response for future deduplication.
-        """
-        if not self.idempotency_key:
-            return
-        
-        # Use workspace_id from agent context if not provided
-        ws_id = workspace_id or getattr(agent, 'workspace_id', None)
-        if not ws_id:
+        if not self.idempotency_key or not workspace_id:
             return
         
         await store_idempotency_result(
             self.idempotency_key,
-            ws_id,
+            workspace_id,
             agent.agent_id,
             self.request_name,
-            self.payload_hash,
-            response_data,
+            result_type,
+            result_id,
             db
         )
