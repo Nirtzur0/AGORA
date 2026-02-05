@@ -331,11 +331,11 @@ async def get_agent_context_endpoint(
             )
         
         return WorkspaceContext(
-            workspace_id=workspace_result[0],
+            workspace_id=str(workspace_result[0]),
             workspace_name=workspace_result[1],
             phase=workspace_result[2],
             agent_role=agent_role,
-            agent_role_id=agent_role_id,
+            agent_role_id=str(agent_role_id) if agent_role_id else None,
             open_tasks=open_tasks,
             blocking_items=blocking_items,
             recent_events=recent_events,

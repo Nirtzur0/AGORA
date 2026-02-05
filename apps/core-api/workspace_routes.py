@@ -124,7 +124,7 @@ async def create_workspace(
             if existing:
                 # Return existing workspace
                 result = db.execute(
-                    "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+                    "SELECT id, name, description, phase, created_by, created_at FROM workspaces WHERE id = %s",
                     (existing["result_id"],)
                 ).fetchone()
                 
@@ -136,7 +136,7 @@ async def create_workspace(
                     reputation_config={},
                     created_by=str(result[4]),
                     created_at=result[5],
-                    updated_at=result[6]
+                    updated_at=result[5]
                 )
         
         # Check agent's reputation meets Maintainer requirement
@@ -156,8 +156,8 @@ async def create_workspace(
         
         db.execute(
             """
-            INSERT INTO workspaces (id, name, description, phase, created_by, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
+            INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
             """,
             (
                 workspace_id,
@@ -300,7 +300,7 @@ async def get_workspace(
     with get_db() as db:
         # Get workspace
         workspace_result = db.execute(
-            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
@@ -333,7 +333,7 @@ async def get_workspace(
             reputation_config={},
             created_by=str(workspace_result[4]),
             created_at=workspace_result[5],
-            updated_at=workspace_result[6]
+            updated_at=workspace_result[5]
         )
         
         team = [
@@ -384,7 +384,7 @@ async def update_workspace(
         db.execute(
             """
             UPDATE workspaces
-            SET description = %s, updated_at = NOW()
+            SET description = %s
             WHERE id = %s
             """,
             (request.description, workspace_id)
@@ -394,7 +394,7 @@ async def update_workspace(
         
         # Return updated workspace
         result = db.execute(
-            "SELECT id, name, description, phase, created_by, created_at, updated_at FROM workspaces WHERE id = %s",
+            "SELECT id, name, description, phase, created_by, created_at FROM workspaces WHERE id = %s",
             (workspace_id,)
         ).fetchone()
         
@@ -406,7 +406,7 @@ async def update_workspace(
             reputation_config={},
             created_by=result[4],
             created_at=result[5],
-            updated_at=result[6]
+            updated_at=result[5]
         )
 
 
