@@ -422,12 +422,12 @@ async def update_workspace(
         ).fetchone()
         
         return WorkspaceResponse(
-            id=result[0],
+            id=str(result[0]),
             name=result[1],
             description=result[2],
             phase=result[3],
             reputation_config={},
-            created_by=result[4],
+            created_by=str(result[4]) if result[4] else None,
             created_at=result[5],
             updated_at=result[5]
         )
