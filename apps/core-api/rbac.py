@@ -204,11 +204,11 @@ def list_all_roles(db) -> List[dict]:
         db: Database connection
     
     Returns:
-        List of role dicts with id, name, description, permissions, min_reputation, capacity
+        List of role dicts with id, name, permissions, min_reputation, role_capacity, is_unique
     """
     results = db.execute(
         """
-        SELECT id, name, description, permissions, min_reputation, capacity
+        SELECT id, name, permissions, min_reputation, role_capacity, is_unique
         FROM roles
         ORDER BY name
         """
@@ -216,19 +216,27 @@ def list_all_roles(db) -> List[dict]:
     
     roles = []
     for row in results:
-        permissions_json = row[3]
+        permissions_json = row[2]
         if isinstance(permissions_json, str):
             permissions_data = json.loads(permissions_json)
         else:
             permissions_data = permissions_json
+
+        min_rep = row[3]
+        if min_rep is not None:
+            try:
+                min_rep = int(min_rep)
+            except (TypeError, ValueError):
+                # If the DB contains unexpected types, treat as unset rather than crashing.
+                min_rep = None
         
         roles.append({
             "id": row[0],
             "name": row[1],
-            "description": row[2],
             "permissions": permissions_data,
-            "min_reputation": row[4],
-            "capacity": row[5]
+            "min_reputation": min_rep,
+            "role_capacity": row[4],
+            "is_unique": row[5],
         })
     
     return roles

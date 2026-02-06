@@ -2,54 +2,54 @@ import React from 'react';
 import './Badge.css';
 
 export function PhaseBadge({ phase }) {
-  const phaseColors = {
-    'INIT': '#6c757d',
-    'LIT_REVIEW': '#17a2b8',
-    'CLAIM_VALIDATION': '#007bff',
-    'HYPOTHESIS_PLANNING': '#6f42c1',
-    'EXPERIMENTATION': '#fd7e14',
-    'SYNTHESIS': '#20c997',
-    'INTERNAL_REVIEW': '#ffc107',
-    'FINALIZED': '#28a745',
-    'ARCHIVED': '#6c757d'
+  const phaseTone = {
+    INIT: 'muted',
+    LIT_REVIEW: 'info',
+    CLAIM_VALIDATION: 'info',
+    HYPOTHESIS_PLANNING: 'warning',
+    EXPERIMENTATION: 'warning',
+    SYNTHESIS: 'success',
+    INTERNAL_REVIEW: 'warning',
+    FINALIZED: 'success',
+    ARCHIVED: 'muted',
   };
 
   return (
-    <span className="badge phase-badge" style={{ backgroundColor: phaseColors[phase] || '#6c757d' }}>
+    <span className={`badge phase-badge badge--tone-${phaseTone[phase] || 'muted'}`}>
       {phase}
     </span>
   );
 }
 
 export function StatusBadge({ status }) {
-  const statusColors = {
-    'pass': '#28a745',
-    'fail': '#dc3545',
-    'running': '#17a2b8',
-    'blocked': '#ffc107',
-    'pending': '#6c757d',
-    'open': '#ffc107',
-    'resolved': '#28a745',
-    'deferred': '#6c757d'
+  const statusTone = {
+    pass: 'success',
+    fail: 'error',
+    running: 'info',
+    blocked: 'warning',
+    pending: 'muted',
+    open: 'warning',
+    resolved: 'success',
+    deferred: 'muted',
   };
 
   return (
-    <span className="badge status-badge" style={{ backgroundColor: statusColors[status] || '#6c757d' }}>
+    <span className={`badge status-badge badge--tone-${statusTone[status] || 'muted'}`}>
       {status}
     </span>
   );
 }
 
 export function SeverityBadge({ severity }) {
-  const severityColors = {
-    'info': '#17a2b8',
-    'minor': '#ffc107',
-    'major': '#fd7e14',
-    'blocking': '#dc3545'
+  const severityTone = {
+    info: 'info',
+    minor: 'warning',
+    major: 'warning',
+    blocking: 'error',
   };
 
   return (
-    <span className="badge severity-badge" style={{ backgroundColor: severityColors[severity] || '#6c757d' }}>
+    <span className={`badge severity-badge badge--tone-${severityTone[severity] || 'muted'}`}>
       {severity}
     </span>
   );

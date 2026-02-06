@@ -7,6 +7,64 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  docs-guardrail:
+    name: Docs guardrail (status + checklist)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce status/checklist updates when changing tests/CI/runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Diff range:"
+          echo "  base=$BASE_SHA"
+          echo "  head=$HEAD_SHA"
+
+          CHANGED="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$CHANGED" | sed 's/^/  - /' || true
+
+          needs_docs=0
+          while IFS= read -r f; do
+            [[ -z "$f" ]] && continue
+            if [[ "$f" == tests/* || "$f" == .github/workflows/* || "$f" == apps/core-api/* || "$f" == apps/worker/* || "$f" == packages/* || "$f" == infra/* || "$f" == Makefile || "$f" == pytest.ini ]]; then
+              needs_docs=1
+            fi
+          done <<< "$CHANGED"
+
+          if [[ "$needs_docs" -eq 0 ]]; then
+            echo "No tests/CI/runtime changes detected; guardrail not applicable."
+            exit 0
+          fi
+
+          required_a="Docs/implementation/00_status.md"
+          required_b="Docs/implementation/checklists/04_test_stabilization.md"
+
+          missing=0
+          if ! echo "$CHANGED" | grep -qx "$required_a"; then
+            echo "ERROR: '$required_a' must be updated when changing tests/CI/runtime."
+            missing=1
+          fi
+          if ! echo "$CHANGED" | grep -qx "$required_b"; then
+            echo "ERROR: '$required_b' must be updated when changing tests/CI/runtime."
+            missing=1
+          fi
+
+          if [[ "$missing" -ne 0 ]]; then
+            echo "Guardrail failed. Update the required docs files in this PR."
+            exit 1
+          fi
+
+          echo "Guardrail OK: required docs updated."
+
   check-stubs:
     name: Check for stubs/TODOs
     runs-on: ubuntu-latest

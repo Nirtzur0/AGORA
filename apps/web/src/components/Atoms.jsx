@@ -146,3 +146,16 @@ export function Timestamp({ date, showRelative = true }) {
     </span>
   );
 }
+
+/**
+ * Spinner - lightweight loading indicator.
+ */
+export function Spinner({ size = 'md', label = 'Loading' }) {
+  return (
+    <span
+      className={`spinner spinner-${size}`}
+      role="status"
+      aria-label={label}
+    />
+  );
+}

@@ -6,10 +6,13 @@ All tests run via pytest from the repository root.
 
 import os
 import sys
-import pytest
 from pathlib import Path
-from sqlalchemy import text as sql_text
-from psycopg2.extras import Json as PgJson
+
+import pytest
+
+# When we disable third-party plugin autoloading (for determinism), we still
+# want first-party async tests to execute.
+pytest_plugins = ("pytest_asyncio.plugin",)
 
 # Test database URL (must be set before importing database module)
 TEST_DATABASE_URL = os.getenv(
@@ -34,6 +37,26 @@ for path in reversed(path_order):
 import importlib
 sys.modules["database"] = importlib.import_module("database")
 
+# Automatically tag tests by location so selection is consistent even if a file
+# forgets to add `@pytest.mark.<...>` decorators.
+def pytest_collection_modifyitems(config, items):  # noqa: ARG001
+    for item in items:
+        p = Path(str(getattr(item, "fspath", "")))
+        try:
+            rel = p.relative_to(repo_root)
+        except Exception:
+            rel = p
+
+        parts = rel.parts
+        if not parts or parts[0] != "tests":
+            continue
+        if "unit" in parts:
+            item.add_marker(pytest.mark.unit)
+        elif "integration" in parts:
+            item.add_marker(pytest.mark.integration)
+        elif "e2e" in parts:
+            item.add_marker(pytest.mark.e2e)
+
 # Shared test agent identity
 TEST_AGENT_ID = os.getenv("TEST_AGENT_ID", "00000000-0000-0000-0000-000000000001")
 TEST_MOLTBOOK_ID = os.getenv("TEST_MOLTBOOK_ID", "test_moltbook_id")
@@ -48,7 +71,53 @@ MINIO_BUCKET = os.getenv("MINIO_BUCKET", "agora")
 MOLTBOOK_ADAPTER_URL = os.getenv("MOLTBOOK_ADAPTER_URL", "http://localhost:3001")
 
 # Core API configuration
-CORE_API_URL = os.getenv("CORE_API_URL", "http://localhost:8000")
+CORE_API_URL = os.getenv("CORE_API_URL")  # optional override; defaults to in-process TestClient
+
+
+@pytest.fixture(scope="session")
+def migrated_db():
+    """
+    Ensure the TEST_DATABASE_URL exists and is migrated before any tests run.
+
+    This is intentionally NOT autouse: unit tests must be runnable without
+    requiring a running Postgres container.
+    """
+    # Create database if missing (connect to postgres maintenance DB).
+    import re
+    import psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+    m = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.*)", TEST_DATABASE_URL)
+    if not m:
+        raise RuntimeError(f"Invalid TEST_DATABASE_URL: {TEST_DATABASE_URL}")
+    user, password, host, port, dbname = m.groups()
+
+    conn = psycopg2.connect(host=host, port=int(port), database="postgres", user=user, password=password)
+    try:
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+        exists = cur.fetchone() is not None
+        if not exists:
+            cur.execute(f"CREATE DATABASE {dbname}")
+    finally:
+        conn.close()
+
+    # Run migrations against the test database.
+    original = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    try:
+        # The migration runner binds DATABASE_URL at import time; force it to the
+        # test DB even if another test/module imported it earlier.
+        import importlib
+        migrate = importlib.import_module("migrate")
+        migrate.DATABASE_URL = TEST_DATABASE_URL
+        migrate.migrate_up()
+    finally:
+        if original is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = original
 
 
 @pytest.fixture(scope="session")
@@ -76,8 +145,34 @@ def moltbook_adapter_url():
 
 @pytest.fixture(scope="session")
 def core_api_url():
-    """Core API URL for integration tests."""
-    return CORE_API_URL
+    """Core API URL for integration tests (session-scoped)."""
+    # If caller provided an explicit CORE_API_URL, respect it. Otherwise, tests
+    # should use the in-process `test_client` fixture (preferred).
+    return CORE_API_URL or "http://testserver"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _shutdown_core_api_server():
+    """
+    Back-compat fixture: older versions spawned uvicorn and needed cleanup.
+    Core API is now exercised via in-process TestClient for determinism.
+    """
+    yield
+
+
+@pytest.fixture(scope="session")
+def core_api_app():
+    """
+    In-process FastAPI app instance.
+
+    This avoids subprocess + readiness polling, while still exercising:
+    routing, auth middleware, request parsing, and persistence.
+    """
+    # If users explicitly want to target a running server (CORE_API_URL), they
+    # can bypass this fixture and use requests directly.
+    from main import app
+
+    return app
 
 
 class SessionWrapper:
@@ -98,6 +193,7 @@ class SessionWrapper:
 
     def _coerce_value(self, value):
         if isinstance(value, (dict, list)):
+            from psycopg2.extras import Json as PgJson
             return PgJson(value)
         return value
 
@@ -111,6 +207,7 @@ class SessionWrapper:
                 safe_query = re.sub(r'%(?!s)', '%%', query)
                 cursor.execute(safe_query, self._coerce_params(params))
                 return cursor
+            from sqlalchemy import text as sql_text
             query = sql_text(query)
         if params:
             return self._session.execute(query, self._coerce_params(params))
@@ -127,36 +224,15 @@ class SessionWrapper:
 
 
 @pytest.fixture
-def db_session(db_url):
+def db_session(db_url, migrated_db):
     """
     SQLAlchemy session bound to the test database.
 
     Uses a nested transaction so tests can commit while the outer
     transaction is rolled back at teardown.
     """
-    from sqlalchemy import create_engine, event, inspect
+    from sqlalchemy import create_engine, event
     from sqlalchemy.orm import sessionmaker
-
-    def ensure_migrated(url: str) -> None:
-        engine = create_engine(url, pool_pre_ping=True)
-        try:
-            inspector = inspect(engine)
-            tables = inspector.get_table_names()
-            if "workspaces" not in tables:
-                original_url = os.environ.get("DATABASE_URL")
-                os.environ["DATABASE_URL"] = url
-                try:
-                    from db.migrate import migrate_up
-                    migrate_up()
-                finally:
-                    if original_url is not None:
-                        os.environ["DATABASE_URL"] = original_url
-                    else:
-                        os.environ.pop("DATABASE_URL", None)
-        finally:
-            engine.dispose()
-
-    ensure_migrated(db_url)
 
     engine = create_engine(db_url, pool_pre_ping=True)
     connection = engine.connect()
@@ -237,57 +313,75 @@ def storage(test_storage):
 
 
 @pytest.fixture
-def test_client(core_api_url):
+def test_client(core_api_url, core_api_app, migrated_db):
     """
     Test HTTP client for Core API.
     
-    Provides a requests-like client configured to call the Core API.
+    Preferred: an in-process client (deterministic, no port conflicts).
+    If CORE_API_URL is set, falls back to making real HTTP calls to that server.
     """
     import requests
-    
-    class APIClient:
-        def __init__(self, base_url):
-            self.base_url = base_url.rstrip("/")
-            self.session = requests.Session()
-        
+    from fastapi.testclient import TestClient
+
+    if CORE_API_URL:
+        class RequestsAPIClient:
+            def __init__(self, base_url: str):
+                self.base_url = base_url.rstrip("/")
+                self.session = requests.Session()
+
+            def get(self, path, **kwargs):
+                return self.session.get(f"{self.base_url}{path}", **kwargs)
+
+            def post(self, path, **kwargs):
+                return self.session.post(f"{self.base_url}{path}", **kwargs)
+
+            def patch(self, path, **kwargs):
+                return self.session.patch(f"{self.base_url}{path}", **kwargs)
+
+            def delete(self, path, **kwargs):
+                return self.session.delete(f"{self.base_url}{path}", **kwargs)
+
+        return RequestsAPIClient(CORE_API_URL)
+
+    client = TestClient(core_api_app)
+
+    class InProcessAPIClient:
         def get(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.get(url, **kwargs)
-        
+            return client.get(path, **kwargs)
+
         def post(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.post(url, **kwargs)
-        
+            return client.post(path, **kwargs)
+
         def patch(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.patch(url, **kwargs)
-        
+            return client.patch(path, **kwargs)
+
         def delete(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.delete(url, **kwargs)
-    
-    return APIClient(core_api_url)
+            return client.delete(path, **kwargs)
+
+    return InProcessAPIClient()
 
 
 @pytest.fixture
-def mock_agent_token(test_db):
+def mock_agent_token(migrated_db):
     """
     Mock JWT token for testing authenticated endpoints.
     
     Creates a JWT token with test agent credentials.
     """
     from jwt_utils import create_agent_token
+    from database import get_db
 
     # Ensure test agent exists for FK constraints
-    test_db.execute(
-        """
-        INSERT INTO agents (id, moltbook_id, name)
-        VALUES (:id, :moltbook_id, :name)
-        ON CONFLICT (id) DO NOTHING
-        """,
-        {"id": TEST_AGENT_ID, "moltbook_id": TEST_MOLTBOOK_ID, "name": "Test Agent"}
-    )
-    test_db.commit()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO agents (id, moltbook_id, name)
+            VALUES (:id, :moltbook_id, :name)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            {"id": TEST_AGENT_ID, "moltbook_id": TEST_MOLTBOOK_ID, "name": "Test Agent"},
+        )
+        db.commit()
 
     return create_agent_token(
         agent_id=TEST_AGENT_ID,

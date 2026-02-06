@@ -294,6 +294,170 @@ class GateEvaluationActivity:
             "snapshot_type": "internal_review_exit"
         }
 
+    def gather_finalization_gate_snapshot(
+        self,
+        workspace_id: str,
+        draft_artifact_id: str,
+        draft_artifact_version_id: str
+    ) -> dict:
+        """
+        Gather snapshot for finalization gate.
+
+        Per spec §5.6:
+        - citation_check passes (coverage + resolves)
+        - critique_sufficiency passes for the target draft version
+        - no open blocking critiques for the target draft version
+        - Skeptic present
+        - Method Reviewer present if sandbox runs exist
+        - finalization targets an explicit draft artifact version (version-pinned)
+        """
+        # Verify draft artifact and version match
+        artifact_row = self.db.execute(
+            """
+            SELECT id, type, metadata
+            FROM artifacts
+            WHERE id = :id AND workspace_id = :workspace_id
+            """,
+            {"id": draft_artifact_id, "workspace_id": workspace_id}
+        ).fetchone()
+
+        if not artifact_row or artifact_row[1] != "draft":
+            raise ValueError(f"Draft artifact not found or wrong type: {draft_artifact_id}")
+
+        version_row = self.db.execute(
+            """
+            SELECT id, artifact_id, content_hash, created_by
+            FROM artifact_versions
+            WHERE id = :id AND artifact_id = :artifact_id
+            """,
+            {"id": draft_artifact_version_id, "artifact_id": draft_artifact_id}
+        ).fetchone()
+
+        if not version_row:
+            raise ValueError(
+                f"Draft version not found or doesn't match artifact: "
+                f"{draft_artifact_version_id} vs {draft_artifact_id}"
+            )
+
+        content_hash = version_row[2]
+        draft_author = version_row[3]
+
+        # Latest citation_check rule_checks for this draft version
+        citation_checks = self.db.execute(
+            """
+            SELECT status, details
+            FROM rule_checks
+            WHERE workspace_id = :workspace_id
+              AND rule_name = 'citation_check'
+              AND target_id = :version_id
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchall()
+
+        citation_coverage_pass = all(
+            row[0] == 'pass' for row in citation_checks
+        ) if citation_checks else False
+
+        citation_resolves_pass = True
+        if citation_checks:
+            for row in citation_checks:
+                details = row[1] or {}
+                if isinstance(details, str):
+                    details = json.loads(details)
+                if not details.get("all_citations_resolve", True):
+                    citation_resolves_pass = False
+                    break
+
+        # Latest critique_sufficiency checks for this draft version
+        critique_sufficiency_checks = self.db.execute(
+            """
+            SELECT status, details
+            FROM rule_checks
+            WHERE workspace_id = :workspace_id
+              AND rule_name = 'critique_sufficiency'
+              AND target_id = :version_id
+            ORDER BY created_at DESC
+            LIMIT 5
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchall()
+
+        critique_sufficiency_pass = all(
+            row[0] == 'pass' for row in critique_sufficiency_checks
+        ) if critique_sufficiency_checks else False
+
+        # Open blocking critiques targeting the draft version
+        open_blocking_critiques = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM critiques
+            WHERE workspace_id = :workspace_id
+              AND target_type = 'artifact_version'
+              AND target_id = :version_id
+              AND status = 'open'
+              AND severity = 'blocking'
+            """,
+            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
+        ).fetchone()[0]
+
+        # Skeptic required
+        skeptic_present = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM workspace_agents wa
+            JOIN roles r ON wa.role_id = r.id
+            WHERE wa.workspace_id = :workspace_id
+              AND wa.status = 'active'
+              AND r.name = 'Skeptic'
+            """,
+            {"workspace_id": workspace_id}
+        ).fetchone()[0] > 0
+
+        # If sandbox runs happened, Method Reviewer is required
+        sandbox_runs_exist = self.db.execute(
+            """
+            SELECT COUNT(*)
+            FROM activity_runs ar
+            JOIN workflow_runs wr ON ar.workflow_run_id = wr.id
+            WHERE wr.workspace_id = :workspace_id
+              AND ar.activity_type = 'sandbox_run'
+            """,
+            {"workspace_id": workspace_id}
+        ).fetchone()[0] > 0
+
+        method_reviewer_present = False
+        if sandbox_runs_exist:
+            method_reviewer_present = self.db.execute(
+                """
+                SELECT COUNT(*)
+                FROM workspace_agents wa
+                JOIN roles r ON wa.role_id = r.id
+                WHERE wa.workspace_id = :workspace_id
+                  AND wa.status = 'active'
+                  AND r.name = 'Method Reviewer'
+                """,
+                {"workspace_id": workspace_id}
+            ).fetchone()[0] > 0
+
+        return {
+            "draft_artifact_id": draft_artifact_id,
+            "draft_artifact_version_id": draft_artifact_version_id,
+            "content_hash": content_hash,
+            "draft_author": draft_author,
+            "citation_coverage_pass": citation_coverage_pass,
+            "citation_resolves_pass": citation_resolves_pass,
+            "critique_sufficiency_pass": critique_sufficiency_pass,
+            "open_blocking_critiques_count": open_blocking_critiques,
+            "skeptic_present": skeptic_present,
+            "sandbox_runs_exist": sandbox_runs_exist,
+            "method_reviewer_present": method_reviewer_present,
+            "citation_coverage_checks_count": len(citation_checks),
+            "critique_sufficiency_checks_count": len(critique_sufficiency_checks),
+            "snapshot_type": "finalization_gate"
+        }
+
 
 class GateEvaluator:
     """
@@ -591,174 +755,4 @@ class GateEvaluator:
             "reasons": reasons,
             "required_actions": required_actions,
             "snapshot": snapshot
-        }
-    
-    def gather_finalization_gate_snapshot(
-        self,
-        workspace_id: str,
-        draft_artifact_id: str,
-        draft_artifact_version_id: str
-    ) -> dict:
-        """
-        Gather snapshot for finalization gate.
-        
-        Gate criteria per spec §5.6:
-        - citation check passes (coverage + resolves)
-        - critique sufficiency passes for key claims and draft version
-        - role caps pass (Skeptic + Method Reviewer if needed)
-        - no open blocking critiques
-        - draft content_hash is pinned
-        
-        Args:
-            workspace_id: Workspace ID
-            draft_artifact_id: Draft artifact ID
-            draft_artifact_version_id: Specific draft version ID to finalize
-            
-        Returns:
-            Snapshot dict with all required state
-        """
-        # Verify draft artifact and version match
-        artifact_row = self.db.execute(
-            """
-            SELECT id, type, metadata
-            FROM artifacts
-            WHERE id = :id AND workspace_id = :workspace_id
-            """,
-            {"id": draft_artifact_id, "workspace_id": workspace_id}
-        ).fetchone()
-        
-        if not artifact_row or artifact_row[1] != "draft":
-            raise ValueError(f"Draft artifact not found or wrong type: {draft_artifact_id}")
-        
-        version_row = self.db.execute(
-            """
-            SELECT id, artifact_id, content_hash, created_by
-            FROM artifact_versions
-            WHERE id = :id AND artifact_id = :artifact_id
-            """,
-            {"id": draft_artifact_version_id, "artifact_id": draft_artifact_id}
-        ).fetchone()
-        
-        if not version_row:
-            raise ValueError(
-                f"Draft version not found or doesn't match artifact: "
-                f"{draft_artifact_version_id} vs {draft_artifact_id}"
-            )
-        
-        content_hash = version_row[2]
-        draft_author = version_row[3]
-        
-        # Get latest citation_check rule_checks for this draft version
-        citation_coverage_checks = self.db.execute(
-            """
-            SELECT status, details
-            FROM rule_checks
-            WHERE workspace_id = :workspace_id
-              AND rule_name = 'citation_check'
-              AND target_id = :version_id
-            ORDER BY created_at DESC
-            LIMIT 5
-            """,
-            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
-        ).fetchall()
-        
-        citation_coverage_pass = all(
-            row[0] == 'pass' for row in citation_coverage_checks
-        ) if citation_coverage_checks else False
-        
-        # Check if citations resolve
-        citation_resolves_pass = True
-        if citation_coverage_checks:
-            for row in citation_coverage_checks:
-                details = json.loads(row[1]) if row[1] else {}
-                if not details.get("all_citations_resolve", True):
-                    citation_resolves_pass = False
-                    break
-        
-        # Get latest critique_sufficiency rule_checks
-        critique_sufficiency_checks = self.db.execute(
-            """
-            SELECT status, details
-            FROM rule_checks
-            WHERE workspace_id = :workspace_id
-              AND rule_name = 'critique_sufficiency'
-              AND target_id = :version_id
-            ORDER BY created_at DESC
-            LIMIT 5
-            """,
-            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
-        ).fetchall()
-        
-        critique_sufficiency_pass = all(
-            row[0] == 'pass' for row in critique_sufficiency_checks
-        ) if critique_sufficiency_checks else False
-        
-        # Count open blocking critiques targeting the draft version
-        open_blocking_critiques = self.db.execute(
-            """
-            SELECT COUNT(*)
-            FROM critiques
-            WHERE workspace_id = :workspace_id
-              AND target_type = 'artifact_version'
-              AND target_id = :version_id
-              AND status = 'open'
-              AND severity = 'blocking'
-            """,
-            {"workspace_id": workspace_id, "version_id": draft_artifact_version_id}
-        ).fetchone()[0]
-        
-        # Check role presence (Skeptic required)
-        skeptic_present = self.db.execute(
-            """
-            SELECT COUNT(*)
-            FROM workspace_agents wa
-            JOIN roles r ON wa.role_id = r.id
-            WHERE wa.workspace_id = :workspace_id
-              AND wa.status = 'active'
-              AND r.name = 'Skeptic'
-            """,
-            {"workspace_id": workspace_id}
-        ).fetchone()[0] > 0
-        
-        # Check if sandbox runs happened (Method Reviewer required if true)
-        sandbox_runs_exist = self.db.execute(
-            """
-            SELECT COUNT(*)
-            FROM activity_runs ar
-            JOIN workflow_runs wr ON ar.workflow_run_id = wr.id
-            WHERE wr.workspace_id = :workspace_id
-              AND ar.activity_type = 'sandbox_run'
-            """,
-            {"workspace_id": workspace_id}
-        ).fetchone()[0] > 0
-        
-        method_reviewer_present = False
-        if sandbox_runs_exist:
-            method_reviewer_present = self.db.execute(
-                """
-                SELECT COUNT(*)
-                FROM workspace_agents wa
-                JOIN roles r ON wa.role_id = r.id
-                WHERE wa.workspace_id = :workspace_id
-                  AND wa.status = 'active'
-                  AND r.name = 'Method Reviewer'
-                """,
-                {"workspace_id": workspace_id}
-            ).fetchone()[0] > 0
-        
-        return {
-            "draft_artifact_id": draft_artifact_id,
-            "draft_artifact_version_id": draft_artifact_version_id,
-            "content_hash": content_hash,
-            "draft_author": draft_author,
-            "citation_coverage_pass": citation_coverage_pass,
-            "citation_resolves_pass": citation_resolves_pass,
-            "critique_sufficiency_pass": critique_sufficiency_pass,
-            "open_blocking_critiques_count": open_blocking_critiques,
-            "skeptic_present": skeptic_present,
-            "sandbox_runs_exist": sandbox_runs_exist,
-            "method_reviewer_present": method_reviewer_present,
-            "citation_coverage_checks_count": len(citation_coverage_checks),
-            "critique_sufficiency_checks_count": len(critique_sufficiency_checks),
-            "snapshot_type": "finalization_gate"
         }

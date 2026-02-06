@@ -3,93 +3,108 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
+  padding: var(--space-10) var(--space-6);
 }
 
 .login-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 3rem;
-  max-width: 480px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-10);
+  max-width: 560px;
   width: 100%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
 }
 
 .login-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #0366d6;
+  font-family: var(--font-serif);
+  font-size: 2.75rem;
+  font-weight: var(--weight-bold);
+  color: var(--color-primary-ink);
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
+  letter-spacing: -0.03em;
 }
 
 .login-subtitle {
   text-align: center;
-  color: #586069;
-  margin-bottom: 2rem;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-8);
+  font-size: var(--text-base);
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .form-group label {
-  font-weight: 600;
-  color: #24292e;
-  font-size: 0.875rem;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-main);
+  font-size: var(--text-sm);
 }
 
 .form-group textarea {
-  padding: 0.75rem;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-family: 'Courier New', monospace;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
   resize: vertical;
-  transition: border-color 0.2s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  background: var(--color-bg-surface);
+  color: var(--color-text-main);
+  line-height: 1.35;
+}
+
+.form-group textarea::placeholder {
+  color: var(--color-text-muted);
 }
 
 .form-group textarea:focus {
   outline: none;
-  border-color: #0366d6;
+  border-color: rgba(15, 118, 110, 0.55);
+  box-shadow: 0 0 0 4px var(--color-focus);
 }
 
 .form-group textarea:disabled {
-  background: #f6f8fa;
+  background: rgba(243, 239, 230, 0.7);
   cursor: not-allowed;
 }
 
 .error-message {
-  padding: 0.75rem;
-  background: #ffeef0;
-  border: 1px solid #f97583;
-  border-radius: 6px;
-  color: #d73a49;
-  font-size: 0.875rem;
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--color-error), white 92%);
+  border: 1px solid color-mix(in srgb, var(--color-error), white 55%);
+  border-radius: var(--radius-lg);
+  color: color-mix(in srgb, var(--color-error), black 25%);
+  font-size: var(--text-sm);
 }
 
 .login-button {
-  padding: 0.75rem 1.5rem;
-  background: #0366d6;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-primary);
   color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: background 0.2s;
+  border: 1px solid color-mix(in srgb, var(--color-primary), black 10%);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 14px 30px rgba(15, 118, 110, 0.18);
 }
 
 .login-button:hover:not(:disabled) {
-  background: #0256c4;
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
 }
 
 .login-button:disabled {
@@ -98,11 +113,19 @@
 }
 
 .login-help {
-  margin-top: 1.5rem;
+  margin-top: var(--space-6);
   text-align: center;
 }
 
 .help-link {
-  font-size: 0.875rem;
-  color: #0366d6;
+  font-size: var(--text-sm);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
 }
+
+@media (max-width: 520px) {
+  .login-card {
+    padding: var(--space-8);
+  }
+}
+

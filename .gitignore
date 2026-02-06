@@ -8,3 +8,26 @@ build/
 .idea/
 Docs/chart-viewer/node_modules/
 Docs/chart-viewer/dist/
+
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+
+# Virtualenvs (local)
+.venv/
+venv/
+
+# Type check / lint caches
+.mypy_cache/
+.ruff_cache/
+
+# Local scratch
+tmp/

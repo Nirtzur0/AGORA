@@ -170,7 +170,7 @@ python3 -m py_compile apps/core-api/*.py apps/worker/*.py
 grep -rn "TODO" apps/core-api/*.py apps/worker/*.py | grep -v test_
 
 # Validate imports
-python3 -c "import sys; sys.path.insert(0, '.'); from tests.fixtures import evaluation_fixture; print('✓ Imports work')"
+python3 -c "import sys; sys.path.insert(0, '.'); import tests.evaluation_harness; print('✓ Imports work')"
 ```
 
 ### ✅ Code Review
@@ -186,7 +186,7 @@ ls -R tests/
 # Read implementation files
 cat apps/core-api/main.py
 cat tests/evaluation_harness.py
-cat tests/fixtures/evaluation_fixture.py
+cat scripts/seed_research_problems.py
 ```
 
 ### ✅ Documentation Review

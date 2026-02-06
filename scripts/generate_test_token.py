@@ -1,34 +1,29 @@
 #!/usr/bin/env python3
 """
 Generate a test JWT token for testing the UI.
+Uses /auth/moltbook to avoid direct DB dependencies.
 """
-import sys
 import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'apps', 'core-api'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'packages', 'db'))
-
-from jwt_utils import create_agent_token_v2
-from database import get_raw_db
+import requests
 
 def main():
-    # Get the test agent from DB
-    with get_raw_db() as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id, moltbook_id, reputation FROM agents WHERE moltbook_id = %s", ("test_agent_001",))
-        result = cur.fetchone()
-        
-        if not result:
-            print("Error: Test agent not found. Run setup_test_data.py first.")
-            sys.exit(1)
-        
-        agent_id, moltbook_id, reputation = result
-        
-    # Generate token
-    token = create_agent_token_v2(
-        agent_id=str(agent_id),
-        moltbook_id=moltbook_id,
-        reputation=int(reputation) if reputation else 100
+    base_url = os.getenv("BASE_URL", "http://localhost:8000")
+    identity = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
+
+    response = requests.post(
+        f"{base_url}/auth/moltbook",
+        headers={"X-Moltbook-Identity": identity},
+        timeout=5,
     )
+    if response.status_code != 200:
+        raise SystemExit(
+            f"Error: auth failed ({response.status_code}) {response.text}"
+        )
+
+    data = response.json()
+    token = data["agent_session_jwt"]
+    agent_id = data["agent_id"]
+    moltbook_id = data["moltbook_id"]
     
     print("=" * 60)
     print("Test JWT Token Generated")

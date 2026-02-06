@@ -94,12 +94,15 @@ def emit_event(db, workspace_id: str, actor_type: str, actor_id: str, event_type
     event_id = str(uuid.uuid4())
     # Ensure payload is JSON-serializable (e.g., UUIDs -> strings)
     safe_payload = json.loads(json.dumps(payload, default=str))
-    # Ensure actor_id is a UUID string (system events may not have a natural UUID)
-    if actor_type == "system":
+    # events.actor_id is UUID in Postgres. Agents have natural UUIDs; system
+    # components may use stable string identifiers, so map deterministically.
+    if actor_type == "agent":
+        actor_id = str(uuid.UUID(str(actor_id)))
+    else:
         try:
             actor_id = str(uuid.UUID(str(actor_id)))
         except Exception:
-            actor_id = str(uuid.UUID(int=0))
+            actor_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-system:{actor_id}"))
     
     db.execute(
         """
@@ -422,12 +425,12 @@ async def update_workspace(
         ).fetchone()
         
         return WorkspaceResponse(
-            id=result[0],
+            id=str(result[0]),
             name=result[1],
             description=result[2],
             phase=result[3],
             reputation_config={},
-            created_by=result[4],
+            created_by=str(result[4]) if result[4] else None,
             created_at=result[5],
             updated_at=result[5]
         )

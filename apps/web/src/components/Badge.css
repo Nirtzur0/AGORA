@@ -1,18 +1,45 @@
 .badge {
   display: inline-block;
-  padding: 0.25em 0.6em;
-  font-size: 0.875em;
-  font-weight: 600;
+  padding: 0.22em 0.6em;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   line-height: 1;
   color: #fff;
   text-align: center;
   white-space: nowrap;
   vertical-align: baseline;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-full);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.06em;
+  border: 1px solid transparent;
 }
 
 .badge + .badge {
   margin-left: 0.5em;
+}
+
+.badge--tone-success {
+  background: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success), black 10%);
+}
+
+.badge--tone-error {
+  background: var(--color-error);
+  border-color: color-mix(in srgb, var(--color-error), black 10%);
+}
+
+.badge--tone-warning {
+  background: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning), black 10%);
+  color: #0f172a; /* Better contrast on amber. */
+}
+
+.badge--tone-info {
+  background: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info), black 10%);
+}
+
+.badge--tone-muted {
+  background: color-mix(in srgb, var(--color-text-muted), black 18%);
+  border-color: color-mix(in srgb, var(--color-text-muted), black 25%);
 }
