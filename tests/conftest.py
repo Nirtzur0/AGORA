@@ -33,6 +33,26 @@ for path in reversed(path_order):
 import importlib
 sys.modules["database"] = importlib.import_module("database")
 
+# Automatically tag tests by location so selection is consistent even if a file
+# forgets to add `@pytest.mark.<...>` decorators.
+def pytest_collection_modifyitems(config, items):  # noqa: ARG001
+    for item in items:
+        p = Path(str(getattr(item, "fspath", "")))
+        try:
+            rel = p.relative_to(repo_root)
+        except Exception:
+            rel = p
+
+        parts = rel.parts
+        if not parts or parts[0] != "tests":
+            continue
+        if "unit" in parts:
+            item.add_marker(pytest.mark.unit)
+        elif "integration" in parts:
+            item.add_marker(pytest.mark.integration)
+        elif "e2e" in parts:
+            item.add_marker(pytest.mark.e2e)
+
 # Shared test agent identity
 TEST_AGENT_ID = os.getenv("TEST_AGENT_ID", "00000000-0000-0000-0000-000000000001")
 TEST_MOLTBOOK_ID = os.getenv("TEST_MOLTBOOK_ID", "test_moltbook_id")
