@@ -1,4 +1,10 @@
-.PHONY: help up down logs test check-stubs clean
+.PHONY: help up down logs test check-stubs clean test-unit test-integration test-e2e test-all
+
+PYTHON ?= python3
+PYTEST_ENV ?= PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+# We disable global plugin autoloading because dev machines sometimes have
+# third-party pytest plugins installed that can break collection (ex: langsmith).
+PYTEST ?= $(PYTEST_ENV) $(PYTHON) -m pytest -p pytest_asyncio
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -18,20 +24,35 @@ down: ## Stop all services
 logs: ## Show logs from all services
 	cd infra && docker compose logs -f
 
-test: check-stubs test-db test-storage ## Run all tests
-	@echo "All tests passed ✓"
+test: check-stubs test-unit ## Run fast tests (unit only)
+	@echo "Unit tests passed ✓"
+
+test-all: check-stubs test-unit test-integration ## Run unit + integration (requires local infra)
+	@echo "Unit + integration tests passed ✓"
+
+test-unit: ## Run unit tests only (no external services)
+	@echo "Running unit tests..."
+	@$(PYTEST) -q tests/unit
+
+test-integration: ## Run integration tests (requires local infra: Postgres/MinIO/Temporal)
+	@echo "Running integration tests..."
+	@$(PYTEST) -q tests/integration
+
+test-e2e: ## Run end-to-end tests (slow; may require Docker/Temporal)
+	@echo "Running e2e tests..."
+	@$(PYTEST) -q tests/e2e
 
 test-db: ## Run database migration tests
 	@echo "Running database migration tests..."
 	@echo "Creating test database if needed..."
 	@docker exec agora-postgres psql -U agora -c "DROP DATABASE IF EXISTS agora_test;" 2>/dev/null || true
 	@docker exec agora-postgres psql -U agora -c "CREATE DATABASE agora_test;" 2>/dev/null || true
-	cd packages/db && TEST_DATABASE_URL=postgresql://agora:agora_dev_password@localhost:5432/agora_test pytest test_migrations.py -v
+	cd packages/db && TEST_DATABASE_URL=postgresql://agora:agora_dev_password@localhost:5432/agora_test $(PYTEST) test_migrations.py -v
 	@echo "Database tests passed ✓"
 
 test-storage: ## Run storage layer tests
 	@echo "Running storage layer tests..."
-	cd packages/shared-types && pytest test_storage.py -v
+	cd packages/shared-types && $(PYTEST) test_storage.py -v
 	@echo "Storage tests passed ✓"
 
 check-stubs: ## Check for TODO/stub code in production dirs
