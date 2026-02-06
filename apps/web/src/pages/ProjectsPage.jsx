@@ -5,6 +5,7 @@ import { PageContainer, Card } from '../components/Layout';
 import { PhaseBadge, StatusBadge } from '../components/Badge';
 import { FilterBar } from '../components/Molecules';
 import { Timestamp, IdentityChip } from '../components/Atoms';
+import { CreateWorkspaceModal } from '../components/CreateWorkspaceModal';
 import './ProjectsPage.css';
 
 export default function ProjectsPage() {
@@ -14,6 +15,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({});
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     loadWorkspaces();
@@ -117,7 +119,17 @@ export default function ProjectsPage() {
   }
 
   return (
-    <PageContainer title="Projects">
+    <PageContainer 
+      title="Projects"
+      actions={
+        <button 
+          className="btn btn-primary"
+          onClick={() => setIsCreateModalOpen(true)}
+        >
+          + New Project
+        </button>
+      }
+    >
       <FilterBar 
         filters={filterDefinitions}
         onFilterChange={handleFilterChange}
@@ -180,6 +192,11 @@ export default function ProjectsPage() {
           })}
         </div>
       )}
+      <CreateWorkspaceModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={loadWorkspaces}
+      />
     </PageContainer>
   );
 }

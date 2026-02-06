@@ -11,8 +11,8 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if we have a token in sessionStorage
-    const token = sessionStorage.getItem('agent_session_jwt');
+    // Check if we have a token in storage.
+    const token = apiClient.getToken();
     if (token) {
       // Verify the token is still valid
       apiClient.getCurrentAgent()
@@ -22,7 +22,7 @@ function App() {
         })
         .catch(() => {
           // Token is invalid, clear it
-          sessionStorage.removeItem('agent_session_jwt');
+          apiClient.setToken(null);
           setIsAuthenticated(false);
           setLoading(false);
         });
@@ -37,7 +37,7 @@ function App() {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem('agent_session_jwt');
+    apiClient.setToken(null);
     setIsAuthenticated(false);
   };
 

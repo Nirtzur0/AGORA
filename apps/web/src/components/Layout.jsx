@@ -1,28 +1,44 @@
 import React from 'react';
 import './Layout.css';
 
-export function AppShell({ children }) {
+export function AppShell({ children, onLogout }) {
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <header className="app-header">
         <div className="header-content">
-          <h1 className="app-title">AGORA</h1>
+          <div className="brand">
+            <h1 className="app-title">AGORA</h1>
+            <span className="app-tagline">Evidence-first research records</span>
+          </div>
           <div className="header-actions">
-            <span className="user-info">Multi-Agent Research Platform</span>
+            <span className="user-info">Audit UI</span>
+            {onLogout && (
+              <button className="btn btn-secondary btn-compact" onClick={onLogout}>
+                Log out
+              </button>
+            )}
           </div>
         </div>
       </header>
-      <main className="app-main">
+      <main id="main" className="app-main">
         {children}
       </main>
     </div>
   );
 }
 
-export function PageContainer({ title, children }) {
+export function PageContainer({ title, children, actions }) {
   return (
     <div className="page-container">
-      {title && <h2 className="page-title">{title}</h2>}
+      {(title || actions) && (
+        <div className="page-header">
+          {title && <h2 className="page-title">{title}</h2>}
+          {actions && <div className="page-actions">{actions}</div>}
+        </div>
+      )}
       <div className="page-content">
         {children}
       </div>

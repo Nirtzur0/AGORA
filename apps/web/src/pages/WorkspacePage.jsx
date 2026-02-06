@@ -3,7 +3,10 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../api/client';
 import { PageContainer, TabNav, Card } from '../components/Layout';
 import { PhaseBadge, StatusBadge, SeverityBadge } from '../components/Badge';
+import { SplitPane } from '../components/Molecules';
 import EvidenceDrawer from '../components/EvidenceDrawer';
+import ArtifactViewer from '../components/ArtifactViewer';
+import { CreateCritiqueModal } from '../components/CreateCritiqueModal';
 import ReactMarkdown from 'react-markdown';
 import './WorkspacePage.css';
 
@@ -302,6 +305,7 @@ function TimelineTab({ workspaceId }) {
 // Artifacts Tab
 function ArtifactsTab({ workspaceId }) {
   const [artifacts, setArtifacts] = useState([]);
+  const [selectedArtifact, setSelectedArtifact] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -309,6 +313,9 @@ function ArtifactsTab({ workspaceId }) {
       try {
         const data = await apiClient.getWorkspaceArtifacts(workspaceId);
         setArtifacts(data.artifacts || []);
+        if (data.artifacts?.length > 0 && !selectedArtifact) {
+           // Optional: Auto-select first? Maybe not.
+        }
       } catch (err) {
         console.error('Error loading artifacts:', err);
       } finally {
@@ -321,25 +328,51 @@ function ArtifactsTab({ workspaceId }) {
   if (loading) return <div className="loading">Loading artifacts...</div>;
 
   return (
-    <Card title="Artifacts">
-      {artifacts.length === 0 ? (
-        <div className="empty-state">No artifacts yet.</div>
-      ) : (
-        <div className="artifacts-list">
-          {artifacts.map((artifact) => (
-            <div key={artifact.id} className="artifact-item">
-              <div className="artifact-header">
-                <span className="artifact-type">{artifact.type}</span>
-                <span className="artifact-short-id">{artifact.short_id}</span>
+    <div className="artifacts-tab">
+      <SplitPane
+        left={
+          <div className="artifacts-list-container">
+            <h4 className="sidebar-title">Artifacts</h4>
+            {artifacts.length === 0 ? (
+              <div className="empty-state">No artifacts yet.</div>
+            ) : (
+              <div className="artifacts-list">
+                {artifacts.map((artifact) => (
+                  <div 
+                    key={artifact.id} 
+                    className={`artifact-item ${selectedArtifact?.id === artifact.id ? 'active' : ''}`}
+                    onClick={() => setSelectedArtifact(artifact)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="artifact-header">
+                      <span className="artifact-type">{artifact.type}</span>
+                      <span className="artifact-short-id">{artifact.short_id}</span>
+                    </div>
+                    <div className="artifact-meta">
+                      <span>{new Date(artifact.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="artifact-meta">
-                <span>Created: {new Date(artifact.created_at).toLocaleDateString()}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
+            )}
+          </div>
+        }
+        right={
+          selectedArtifact ? (
+            <Card>
+              <ArtifactViewer 
+                artifactId={selectedArtifact.id} 
+                onClose={() => setSelectedArtifact(null)}
+              />
+            </Card>
+          ) : (
+             <div className="empty-state-large">
+               <p>Select an artifact to view details</p>
+             </div>
+          )
+        }
+      />
+    </div>
   );
 }
 
@@ -348,6 +381,7 @@ function ClaimsTab({ workspaceId }) {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [evidenceDrawer, setEvidenceDrawer] = useState(null);
+  const [critiqueTarget, setCritiqueTarget] = useState(null);
 
   useEffect(() => {
     const loadClaims = async () => {
@@ -378,7 +412,16 @@ function ClaimsTab({ workspaceId }) {
           <div className="claims-list">
             {claims.map((claim) => (
               <div key={claim.id} className="claim-item">
-                <p className="claim-text">{claim.text}</p>
+                <div className="claim-header-row" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <p className="claim-text">{claim.text}</p>
+                  <button 
+                    className="btn-text" 
+                    onClick={() => setCritiqueTarget({ type: 'claim', id: claim.id })}
+                    title="Critique Claim"
+                  >
+                    💬
+                  </button>
+                </div>
                 {claim.evidence && claim.evidence.length > 0 && (
                   <div className="claim-evidence">
                     <strong>Evidence: </strong>
@@ -399,12 +442,25 @@ function ClaimsTab({ workspaceId }) {
         )}
       </Card>
       
-      {evidenceDrawer && (
-        <EvidenceDrawer
-          artifactVersionId={evidenceDrawer.artifactVersionId}
-          location={evidenceDrawer.location}
-          onClose={() => setEvidenceDrawer(null)}
-        />
+      {(evidenceDrawer || critiqueTarget) && (
+        <>
+          {evidenceDrawer && (
+            <EvidenceDrawer
+              artifactVersionId={evidenceDrawer.artifactVersionId}
+              location={evidenceDrawer.location}
+              onClose={() => setEvidenceDrawer(null)}
+            />
+          )}
+          {critiqueTarget && (
+            <CreateCritiqueModal
+              isOpen={true}
+              onClose={() => setCritiqueTarget(null)}
+              workspaceId={workspaceId}
+              targetType={critiqueTarget.type}
+              targetId={critiqueTarget.id}
+            />
+          )}
+        </>
       )}
     </>
   );

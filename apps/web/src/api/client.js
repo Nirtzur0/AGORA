@@ -5,18 +5,22 @@
  */
 
 const API_BASE_URL = '/api';
+const TOKEN_KEY = 'agent_session_jwt';
 
 class APIClient {
   constructor() {
-    this.token = sessionStorage.getItem('agent_session_jwt');
+    // Prefer localStorage for persistence across refreshes; fall back to sessionStorage.
+    this.token = (typeof window !== 'undefined' && (localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY))) || null;
   }
 
   setToken(token) {
     this.token = token;
     if (token) {
-      sessionStorage.setItem('agent_session_jwt', token);
+      localStorage.setItem(TOKEN_KEY, token);
+      sessionStorage.setItem(TOKEN_KEY, token);
     } else {
-      sessionStorage.removeItem('agent_session_jwt');
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
     }
   }
 
@@ -70,6 +74,13 @@ class APIClient {
   }
 
   // Workspaces
+  async createWorkspace(data) {
+    return this.request('/workspaces', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getWorkspaces(filters = {}) {
     const params = new URLSearchParams();
     if (filters.phase) params.append('phase', filters.phase);
@@ -102,6 +113,13 @@ class APIClient {
     return this.request(`/workspaces/${workspaceId}/critiques`);
   }
 
+  async createCritique(workspaceId, data) {
+    return this.request(`/workspaces/${workspaceId}/critiques`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getWorkspaceTasks(workspaceId) {
     return this.request(`/workspaces/${workspaceId}/tasks`);
   }
@@ -116,7 +134,8 @@ class APIClient {
   }
 
   async getArtifactVersionContent(versionId) {
-    return this.request(`/artifact-versions/${versionId}/content`);
+    // UI uses the processed view endpoint; raw bytes live at `/content`.
+    return this.request(`/artifact-versions/${versionId}/view`);
   }
 
   // Rule Checks

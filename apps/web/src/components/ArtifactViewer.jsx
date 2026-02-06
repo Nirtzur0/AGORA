@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../api/client';
-import { ArtifactTypeIcon, VersionChip, CopyButton } from './Atoms';
+import { ArtifactTypeIcon, VersionChip, CopyButton, Spinner } from './Atoms';
+import { CreateCritiqueModal } from './CreateCritiqueModal';
 import './ArtifactViewer.css';
 
 /**
@@ -18,6 +19,7 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
   const [selectedFile, setSelectedFile] = useState(null);
   // For PDF artifacts
   const [selectedPage, setSelectedPage] = useState(1);
+  const [isCritiqueModalOpen, setIsCritiqueModalOpen] = useState(false);
 
   useEffect(() => {
     loadArtifact();
@@ -26,11 +28,24 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
   const loadArtifact = async () => {
     try {
       setLoading(true);
-      const artifactData = await apiClient.getArtifact(artifactId);
+      const [artifactData, versions] = await Promise.all([
+        apiClient.getArtifact(artifactId),
+        apiClient.getArtifactVersions(artifactId)
+      ]);
+      
       setArtifact(artifactData);
 
+      let targetVersion = null;
       if (versionId) {
-        const contentData = await apiClient.getArtifactVersionContent(versionId);
+        targetVersion = versions.find(v => v.id === versionId);
+      } else if (versions.length > 0) {
+        targetVersion = versions[versions.length - 1];
+      }
+
+      setVersion(targetVersion);
+
+      if (targetVersion) {
+        const contentData = await apiClient.getArtifactVersionContent(targetVersion.id);
         setContent(contentData);
         
         // If repo, set first file as selected
@@ -45,7 +60,16 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
     }
   };
 
-  if (loading) return <div className="artifact-viewer-loading">Loading artifact...</div>;
+  if (loading) {
+    return (
+      <div className="artifact-viewer-loading">
+        <div className="artifact-viewer-loading-content">
+          <Spinner size="xl" />
+          <span>Loading artifact...</span>
+        </div>
+      </div>
+    );
+  }
   if (error) return <div className="artifact-viewer-error">Error: {error}</div>;
   if (!artifact) return <div className="artifact-viewer-empty">No artifact found</div>;
 
@@ -60,6 +84,14 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
           {version && <VersionChip version={version.version} />}
         </div>
         <div className="artifact-viewer-actions">
+          <button 
+            className={`btn-action ${!version ? 'disabled' : ''}`}
+            onClick={() => version && setIsCritiqueModalOpen(true)}
+            title={version ? "Add Critique" : "No version to critique"}
+            disabled={!version}
+          >
+            💬 Critique
+          </button>
           <CopyButton text={artifact.id} label="Copy ID" />
           {onClose && (
             <button className="artifact-viewer-close" onClick={onClose}>
@@ -82,6 +114,18 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
           </div>
         )}
       </div>
+
+
+      <CreateCritiqueModal
+        isOpen={isCritiqueModalOpen}
+        onClose={() => setIsCritiqueModalOpen(false)}
+        workspaceId={artifact.workspace_id}
+        targetType="artifact_version"
+        targetId={version?.id || artifact.id}
+        onCreated={() => {
+            console.log('Critique added');
+        }}
+      />
     </div>
   );
 }
