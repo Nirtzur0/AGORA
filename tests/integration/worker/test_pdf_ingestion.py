@@ -75,7 +75,7 @@ def workspace_with_artifact(db_session):
     return ws, art, agent
 
 
-def test_exit_1_ingest_real_pdf(pdf_activity, sample_pdf_bytes, workspace_with_artifact, db_session):
+def test_pdf_ingest__real_pdf__creates_artifacts_and_versions(pdf_activity, sample_pdf_bytes, workspace_with_artifact, db_session):
     """
     EXIT TEST 1: Ingest a real (generated) PDF.
 
@@ -150,7 +150,7 @@ def test_exit_1_ingest_real_pdf(pdf_activity, sample_pdf_bytes, workspace_with_a
     assert "pdf.ingestion_completed" in actions
 
 
-def test_exit_2_retrieve_parsed_page_text(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
+def test_pdf_ingest__after_ingest__page_text_retrievable(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
     """
     EXIT TEST 2: Retrieve the parsed page text.
 
@@ -184,7 +184,7 @@ def test_exit_2_retrieve_parsed_page_text(pdf_activity, sample_pdf_bytes, worksp
     assert "Final page" in page3_text
 
 
-def test_exit_3_evidence_resolution(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
+def test_pdf_evidence_resolution__pdf_location__returns_snippet(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
     """
     EXIT TEST 3: Evidence resolution returns correct substring for given char range.
     """
@@ -224,7 +224,7 @@ def test_exit_3_evidence_resolution(pdf_activity, sample_pdf_bytes, workspace_wi
     assert resolved2 == search_str2
 
 
-def test_no_text_pdf_fails(pdf_activity, workspace_with_artifact):
+def test_pdf_ingest__no_text_pdf__returns_fail(pdf_activity, workspace_with_artifact):
     """
     PDFs with no extractable text fail with NoPDFTextError. No OCR fallback per spec.
     """
@@ -249,7 +249,7 @@ def test_no_text_pdf_fails(pdf_activity, workspace_with_artifact):
         )
 
 
-def test_invalid_evidence_location_format(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
+def test_evidence_resolver__invalid_pdf_location__returns_error(pdf_activity, sample_pdf_bytes, workspace_with_artifact):
     """Invalid location formats raise appropriate errors."""
     ws, art, agent = workspace_with_artifact
 
@@ -269,4 +269,3 @@ def test_invalid_evidence_location_format(pdf_activity, sample_pdf_bytes, worksp
 
     with pytest.raises(ValueError, match="Character range"):
         pdf_activity.resolve_pdf_evidence(artifact_version_id=artifact_version_id, location="pdf:p=1#char=0-999999")
-

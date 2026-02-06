@@ -18,7 +18,7 @@ from apps.worker.indexing_activities import index_artifact_content, index_pdf_te
 # Fixtures
 
 @pytest.fixture
-def test_db(migrated_db):
+def worker_db(migrated_db):
     """
     Create a worker-style DB connection.
 
@@ -62,9 +62,9 @@ def test_db(migrated_db):
 
 
 @pytest.fixture
-def workspace_with_artifacts(test_db):
+def workspace_with_artifacts(worker_db):
     """Create a workspace with indexed artifacts."""
-    conn, created = test_db
+    conn, created = worker_db
 
     workspace_id = str(uuid.uuid4())
     agent_id = str(uuid.uuid4())
@@ -168,17 +168,17 @@ def workspace_with_artifacts(test_db):
 
 # Indexing Tests
 
-def test_index_pdf_text(workspace_with_artifacts, test_db):
+def test_index_pdf_text__artifact_version__creates_search_index_row(workspace_with_artifacts, worker_db):
     """Test indexing PDF text content."""
     ws = workspace_with_artifacts
-    conn, _created = test_db
-    
+    conn, _created = worker_db
+
     pdf_text = """
     This is a research paper about quantum computing.
     Quantum computers use qubits to perform calculations.
     The paper discusses entanglement and superposition.
     """
-    
+
     result = asyncio.run(index_pdf_text(
         workspace_id=ws["workspace_id"],
         artifact_id=ws["artifact_id"],
@@ -186,34 +186,34 @@ def test_index_pdf_text(workspace_with_artifacts, test_db):
         pdf_text=pdf_text,
         page_metadata={"pages": 3}
     ))
-    
+
     assert "index_id" in result
     assert result["content_length"] == len(pdf_text)
     assert result["artifact_version_id"] == ws["version_id"]
-    
+
     # Verify indexed in database
     indexed_row = conn.execute(
         text("SELECT content, artifact_type FROM search_index WHERE artifact_version_id = :version_id"),
         {"version_id": ws["version_id"]}
     ).fetchone()
-    
+
     assert indexed_row is not None
     assert indexed_row[0] == pdf_text
     assert indexed_row[1] == "pdf"
 
 
-def test_index_repo_file(workspace_with_artifacts, test_db):
+def test_index_repo_file__artifact_version__creates_search_index_row(workspace_with_artifacts, worker_db):
     """Test indexing repository file content."""
     ws = workspace_with_artifacts
-    conn, _created = test_db
-    
+    conn, _created = worker_db
+
     file_content = """
     def calculate_fibonacci(n):
         if n <= 1:
             return n
         return calculate_fibonacci(n-1) + calculate_fibonacci(n-2)
     """
-    
+
     result = asyncio.run(index_repo_file(
         workspace_id=ws["workspace_id"],
         artifact_id=ws["artifact_id"],
@@ -221,24 +221,24 @@ def test_index_repo_file(workspace_with_artifacts, test_db):
         file_content=file_content,
         file_path="src/algorithms/fibonacci.py"
     ))
-    
+
     assert "index_id" in result
-    
+
     # Verify metadata stored
     indexed_row = conn.execute(
         text("SELECT metadata, artifact_type FROM search_index WHERE artifact_version_id = :version_id"),
         {"version_id": ws["version_id"]}
     ).fetchone()
-    
+
     assert indexed_row[0]["file_path"] == "src/algorithms/fibonacci.py"
     assert indexed_row[1] == "repo"
 
 
-def test_index_update_existing(workspace_with_artifacts, test_db):
+def test_index__reindex__updates_existing_row(workspace_with_artifacts, worker_db):
     """Test updating an existing index entry."""
     ws = workspace_with_artifacts
-    conn, _created = test_db
-    
+    conn, _created = worker_db
+
     # First index
     original_text = "Original content"
     asyncio.run(index_artifact_content(
@@ -248,7 +248,7 @@ def test_index_update_existing(workspace_with_artifacts, test_db):
         artifact_type="pdf",
         content=original_text
     ))
-    
+
     # Update index
     updated_text = "Updated content with new information"
     result = asyncio.run(index_artifact_content(
@@ -258,38 +258,38 @@ def test_index_update_existing(workspace_with_artifacts, test_db):
         artifact_type="pdf",
         content=updated_text
     ))
-    
+
     assert "index_id" in result
-    
+
     # Verify only one entry exists with updated content
     rows = conn.execute(
         text("SELECT content FROM search_index WHERE artifact_version_id = :version_id"),
         {"version_id": ws["version_id"]}
     ).fetchall()
-    
+
     assert len(rows) == 1
     assert rows[0][0] == updated_text
 
 
 # Search Tests
 
-def test_search_finds_indexed_content(workspace_with_artifacts, test_db):
+def test_search__query_matches_indexed_content__returns_hits(workspace_with_artifacts, worker_db):
     """Exit test: Search returns expected hits for ingested PDF text."""
     ws = workspace_with_artifacts
-    conn, created = test_db
-    
+    conn, created = worker_db
+
     # Index multiple documents
     pdf_text_1 = "Machine learning algorithms for classification tasks"
     pdf_text_2 = "Deep neural networks and convolutional architectures"
     pdf_text_3 = "Quantum computing and entanglement phenomena"
-    
+
     asyncio.run(index_pdf_text(
         workspace_id=ws["workspace_id"],
         artifact_id=ws["artifact_id"],
         artifact_version_id=ws["version_id"],
         pdf_text=pdf_text_1
     ))
-    
+
     # Create another artifact for second document
     artifact_id_2 = str(uuid.uuid4())
     version_id_2 = str(uuid.uuid4())
@@ -341,7 +341,7 @@ def test_search_finds_indexed_content(workspace_with_artifacts, test_db):
         artifact_version_id=version_id_2,
         pdf_text=pdf_text_2
     ))
-    
+
     # Search for "machine learning"
     search_results = conn.execute(
         text(
@@ -355,26 +355,26 @@ def test_search_finds_indexed_content(workspace_with_artifacts, test_db):
         ),
         {"workspace_id": ws["workspace_id"]}
     ).fetchall()
-    
+
     assert len(search_results) == 1
     assert str(search_results[0][0]) == ws["artifact_id"]
     assert search_results[0][2] > 0  # Has relevance score
 
 
-def test_search_relevance_ranking(workspace_with_artifacts, test_db):
+def test_search__multiple_hits__orders_by_relevance(workspace_with_artifacts, worker_db):
     """Test that search results are ranked by relevance."""
     ws = workspace_with_artifacts
-    conn, created = test_db
-    
+    conn, created = worker_db
+
     # Document with many occurrences of "quantum"
     text_highly_relevant = """
     Quantum computing is revolutionary. Quantum algorithms leverage quantum mechanics.
     Quantum entanglement and quantum superposition are key quantum properties.
     """
-    
+
     # Document with fewer occurrences
     text_less_relevant = "This paper mentions quantum computing briefly."
-    
+
     # Index both documents
     asyncio.run(index_pdf_text(
         workspace_id=ws["workspace_id"],
@@ -382,10 +382,10 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
         artifact_version_id=ws["version_id"],
         pdf_text=text_highly_relevant
     ))
-    
+
     artifact_id_2 = str(uuid.uuid4())
     version_id_2 = str(uuid.uuid4())
-    
+
     conn.execute(
         text(
             """
@@ -403,7 +403,7 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
             "created_by": ws["agent_id"],
         },
     )
-    
+
     conn.execute(
         text(
             """
@@ -420,7 +420,7 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
             "created_by": ws["agent_id"],
         },
     )
-    
+
     conn.commit()
 
     created["artifact_ids"].add(artifact_id_2)
@@ -432,7 +432,7 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
         artifact_version_id=version_id_2,
         pdf_text=text_less_relevant
     ))
-    
+
     # Search for "quantum"
     search_results = conn.execute(
         text(
@@ -446,7 +446,7 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
         ),
         {"workspace_id": ws["workspace_id"]}
     ).fetchall()
-    
+
     assert len(search_results) == 2
     # First result should be the highly relevant document
     assert str(search_results[0][0]) == ws["artifact_id"]
@@ -454,13 +454,13 @@ def test_search_relevance_ranking(workspace_with_artifacts, test_db):
     assert search_results[0][1] > search_results[1][1]
 
 
-def test_search_workspace_filtering(test_db):
+def test_search__workspace_filter__restricts_results(worker_db):
     """Test that search respects workspace boundaries."""
-    conn, created = test_db
+    conn, created = worker_db
 
     workspace_id_1 = str(uuid.uuid4())
     workspace_id_2 = str(uuid.uuid4())
-    
+
     # Create two workspaces
     for ws_id in [workspace_id_1, workspace_id_2]:
         conn.execute(
@@ -468,12 +468,12 @@ def test_search_workspace_filtering(test_db):
             {"id": ws_id, "name": f"Test {ws_id[:8]}", "phase": "INIT"}
         )
         created["workspace_ids"].add(ws_id)
-    
+
     # Create artifacts in each workspace
     for i, ws_id in enumerate([workspace_id_1, workspace_id_2]):
         artifact_id = str(uuid.uuid4())
         version_id = str(uuid.uuid4())
-        
+
         conn.execute(
             text(
                 """
@@ -491,7 +491,7 @@ def test_search_workspace_filtering(test_db):
             },
         )
         created["artifact_ids"].add(artifact_id)
-        
+
         conn.execute(
             text(
                 """
@@ -512,7 +512,7 @@ def test_search_workspace_filtering(test_db):
         # Indexing activities run in a separate DB session, so the rows above
         # must be committed before invoking them.
         conn.commit()
-        
+
         # Index content
         asyncio.run(index_pdf_text(
             workspace_id=ws_id,
@@ -520,7 +520,7 @@ def test_search_workspace_filtering(test_db):
             artifact_version_id=version_id,
             pdf_text=f"Document in workspace {i} about neural networks"
         ))
-    
+
     # Search in workspace 1 only
     results_ws1 = conn.execute(
         text(
@@ -532,10 +532,10 @@ def test_search_workspace_filtering(test_db):
         ),
         {"workspace_id": workspace_id_1}
     ).fetchone()
-    
+
     # Should only find results in workspace 1
     assert results_ws1[0] == 1
-    
+
     # Verify workspace 2 has its own result
     results_ws2 = conn.execute(
         text(
@@ -547,30 +547,30 @@ def test_search_workspace_filtering(test_db):
         ),
         {"workspace_id": workspace_id_2}
     ).fetchone()
-    
+
     assert results_ws2[0] == 1
 
 
-def test_search_snippet_generation(workspace_with_artifacts, test_db):
+def test_search__hit__includes_snippet(workspace_with_artifacts, worker_db):
     """Test that search generates relevant snippets."""
     ws = workspace_with_artifacts
-    conn, _created = test_db
-    
+    conn, _created = worker_db
+
     long_text = """
-    Machine learning is a field of artificial intelligence. 
+    Machine learning is a field of artificial intelligence.
     Deep learning is a subset of machine learning that uses neural networks.
     Convolutional neural networks are particularly effective for image recognition.
     Recurrent neural networks are useful for sequence data.
     Transformers have revolutionized natural language processing.
     """
-    
+
     asyncio.run(index_pdf_text(
         workspace_id=ws["workspace_id"],
         artifact_id=ws["artifact_id"],
         artifact_version_id=ws["version_id"],
         pdf_text=long_text
     ))
-    
+
     # Search and get snippet
     result = conn.execute(
         text(
@@ -584,13 +584,10 @@ def test_search_snippet_generation(workspace_with_artifacts, test_db):
         ),
         {"workspace_id": ws["workspace_id"]}
     ).fetchone()
-    
+
     snippet = result[0]
-    
+
     # Snippet should contain the search terms
     assert "neural" in snippet.lower()
     assert "networks" in snippet.lower()
 
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

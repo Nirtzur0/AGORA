@@ -35,13 +35,13 @@ def storage():
 
 
 @pytest.fixture
-def test_workspace_id():
+def workspace_id():
     """Generate unique workspace ID for tests."""
     return str(uuid.uuid4())
 
 
 @pytest.fixture
-def test_artifact_id():
+def artifact_id():
     """Generate unique artifact ID for tests."""
     return str(uuid.uuid4())
 
@@ -54,39 +54,39 @@ def make_storage_uri(workspace_id: str, artifact_id: str, version: int, filename
 class TestStorageURIValidation:
     """Test storage URI structure validation."""
     
-    def test_valid_uri_passes(self, storage, test_workspace_id, test_artifact_id):
+    def test_validate_storage_uri__valid_uri__returns_key(self, storage, workspace_id, artifact_id):
         """Valid URI structure should pass validation."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 1, "test.pdf")
+        uri = make_storage_uri(workspace_id, artifact_id, 1, "test.pdf")
         # Should not raise
         key = storage._validate_storage_uri(uri)
-        assert key.startswith(test_workspace_id)
+        assert key.startswith(workspace_id)
         assert "artifacts" in key
-        assert test_artifact_id in key
+        assert artifact_id in key
         assert "v1" in key
     
-    def test_invalid_scheme_fails(self, storage):
+    def test_validate_storage_uri__invalid_scheme__raises(self, storage):
         """Invalid scheme should raise error."""
         with pytest.raises(InvalidStorageURIError, match="Invalid scheme"):
             storage._validate_storage_uri("http://agora/workspace/artifacts/a1/v1/file")
     
-    def test_invalid_bucket_fails(self, storage):
+    def test_validate_storage_uri__invalid_bucket__raises(self, storage):
         """Invalid bucket name should raise error."""
         with pytest.raises(InvalidStorageURIError, match="Invalid bucket"):
             storage._validate_storage_uri("s3://wrong-bucket/workspace/artifacts/a1/v1/file")
     
-    def test_missing_artifacts_component_fails(self, storage, test_workspace_id):
+    def test_validate_storage_uri__missing_artifacts_component__raises(self, storage, workspace_id):
         """Missing 'artifacts' component should raise error."""
         with pytest.raises(InvalidStorageURIError, match="must be 'artifacts'"):
-            storage._validate_storage_uri(f"s3://agora/{test_workspace_id}/wrong/a1/v1/file")
+            storage._validate_storage_uri(f"s3://agora/{workspace_id}/wrong/a1/v1/file")
     
-    def test_invalid_version_format_fails(self, storage, test_workspace_id, test_artifact_id):
+    def test_validate_storage_uri__invalid_version_format__raises(self, storage, workspace_id, artifact_id):
         """Version must start with 'v'."""
         with pytest.raises(InvalidStorageURIError, match="must start with 'v'"):
             storage._validate_storage_uri(
-                f"s3://agora/{test_workspace_id}/artifacts/{test_artifact_id}/1/file"
+                f"s3://agora/{workspace_id}/artifacts/{artifact_id}/1/file"
             )
     
-    def test_too_short_path_fails(self, storage):
+    def test_validate_storage_uri__too_short_path__raises(self, storage):
         """Path must have minimum required components."""
         with pytest.raises(InvalidStorageURIError, match="Invalid path structure"):
             storage._validate_storage_uri("s3://agora/workspace/artifacts")
@@ -95,9 +95,9 @@ class TestStorageURIValidation:
 class TestBasicOperations:
     """Test basic put/get/exists operations."""
     
-    def test_put_and_get_bytes_roundtrip(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__bytes__roundtrip(self, storage, workspace_id, artifact_id):
         """Store bytes and retrieve them exactly."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 1, "test.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 1, "test.txt")
         content = b"Hello, AGORA! This is test content."
         
         # Store
@@ -113,9 +113,9 @@ class TestBasicOperations:
         # Verify exact match
         assert retrieved == content
     
-    def test_put_and_get_stream_roundtrip(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__stream__roundtrip(self, storage, workspace_id, artifact_id):
         """Store stream and retrieve it exactly."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 2, "stream.bin")
+        uri = make_storage_uri(workspace_id, artifact_id, 2, "stream.bin")
         content = b"Binary content with \x00 null bytes \xFF and unicode: \xc3\xa9"
         stream = BytesIO(content)
         
@@ -129,14 +129,14 @@ class TestBasicOperations:
         # Verify exact match
         assert retrieved == content
     
-    def test_exists_returns_false_for_nonexistent(self, storage, test_workspace_id, test_artifact_id):
+    def test_exists__missing_object__returns_false(self, storage, workspace_id, artifact_id):
         """Exists should return False for objects that don't exist."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 999, "nonexistent.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 999, "nonexistent.txt")
         assert not storage.exists(uri)
     
-    def test_get_nonexistent_raises_error(self, storage, test_workspace_id, test_artifact_id):
+    def test_get__missing_object__raises_object_not_found(self, storage, workspace_id, artifact_id):
         """Getting non-existent object should raise ObjectNotFoundError."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 999, "missing.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 999, "missing.txt")
         
         with pytest.raises(ObjectNotFoundError, match="Object not found"):
             storage.get_object(uri)
@@ -145,9 +145,9 @@ class TestBasicOperations:
 class TestImmutability:
     """Test immutability enforcement (no overwrites)."""
     
-    def test_overwrite_same_uri_fails(self, storage, test_workspace_id, test_artifact_id):
+    def test_put__overwrite_same_uri__raises_object_exists(self, storage, workspace_id, artifact_id):
         """Attempting to overwrite existing object should raise ObjectExistsError."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 3, "immutable.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 3, "immutable.txt")
         
         # First write succeeds
         content1 = b"Original content"
@@ -162,9 +162,9 @@ class TestImmutability:
         retrieved = storage.get_object(uri).read()
         assert retrieved == content1
     
-    def test_different_versions_can_coexist(self, storage, test_workspace_id, test_artifact_id):
+    def test_put__different_versions__can_coexist(self, storage, workspace_id, artifact_id):
         """Different versions of same artifact can be stored."""
-        base_path = f"s3://agora/{test_workspace_id}/artifacts/{test_artifact_id}"
+        base_path = f"s3://agora/{workspace_id}/artifacts/{artifact_id}"
         
         # Store v1
         uri_v1 = f"{base_path}/v1/content"
@@ -186,13 +186,13 @@ class TestImmutability:
         assert retrieved_v1 == content_v1
         assert retrieved_v2 == content_v2
     
-    def test_multiple_artifacts_in_workspace_independent(self, storage, test_workspace_id):
+    def test_put_get__multiple_artifacts_same_workspace__independent(self, storage, workspace_id):
         """Multiple artifacts in same workspace are independent."""
         artifact1 = str(uuid.uuid4())
         artifact2 = str(uuid.uuid4())
         
-        uri1 = make_storage_uri(test_workspace_id, artifact1, 1, "file1.txt")
-        uri2 = make_storage_uri(test_workspace_id, artifact2, 1, "file2.txt")
+        uri1 = make_storage_uri(workspace_id, artifact1, 1, "file1.txt")
+        uri2 = make_storage_uri(workspace_id, artifact2, 1, "file2.txt")
         
         content1 = b"Artifact 1 content"
         content2 = b"Artifact 2 content"
@@ -208,9 +208,9 @@ class TestImmutability:
 class TestLargeContent:
     """Test handling of larger content."""
     
-    def test_large_binary_content(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__large_binary__roundtrip(self, storage, workspace_id, artifact_id):
         """Handle larger binary files (simulating PDFs, images)."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 4, "large.bin")
+        uri = make_storage_uri(workspace_id, artifact_id, 4, "large.bin")
         
         # Create 1MB of content
         content = os.urandom(1024 * 1024)
@@ -225,7 +225,7 @@ class TestLargeContent:
 class TestEnvironmentFactory:
     """Test factory function for creating storage from environment."""
     
-    def test_create_from_env(self):
+    def test_create_storage_from_env__env_configured__returns_storage(self):
         """Should create storage from environment variables."""
         storage = create_storage_from_env()
         assert storage is not None
@@ -235,9 +235,9 @@ class TestEnvironmentFactory:
 class TestErrorHandling:
     """Test error handling edge cases."""
     
-    def test_empty_content_allowed(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__empty_content__roundtrip(self, storage, workspace_id, artifact_id):
         """Empty content should be allowed (e.g., empty files)."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 5, "empty.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 5, "empty.txt")
         content = b""
         
         storage.put_object(uri, content)
@@ -245,9 +245,9 @@ class TestErrorHandling:
         
         assert retrieved == b""
     
-    def test_special_characters_in_filename(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__special_characters_in_filename__roundtrip(self, storage, workspace_id, artifact_id):
         """Filenames with special characters should work."""
-        uri = make_storage_uri(test_workspace_id, test_artifact_id, 6, "file-with_special.chars-123.txt")
+        uri = make_storage_uri(workspace_id, artifact_id, 6, "file-with_special.chars-123.txt")
         content = b"Special filename test"
         
         storage.put_object(uri, content)
@@ -259,7 +259,7 @@ class TestErrorHandling:
 class TestStorageURIStructure:
     """Test the canonical storage URI structure per spec."""
     
-    def test_uri_structure_matches_spec(self, storage):
+    def test_validate_storage_uri__canonical_structure__returns_key(self, storage):
         """Storage URI must match spec: s3://agora/{workspace_id}/artifacts/{artifact_id}/v{version}/..."""
         workspace_id = str(uuid.uuid4())
         artifact_id = str(uuid.uuid4())
@@ -278,9 +278,9 @@ class TestStorageURIStructure:
         assert f"v{version}" in key
         assert filename in key
     
-    def test_nested_paths_supported(self, storage, test_workspace_id, test_artifact_id):
+    def test_put_get__nested_paths__roundtrip(self, storage, workspace_id, artifact_id):
         """Support nested paths within version directory."""
-        uri = f"s3://agora/{test_workspace_id}/artifacts/{test_artifact_id}/v1/extracted/page_1.txt"
+        uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v1/extracted/page_1.txt"
         content = b"Page 1 extracted text"
         
         storage.put_object(uri, content)

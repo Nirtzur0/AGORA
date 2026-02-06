@@ -170,7 +170,7 @@ def sample_log_with_version(storage, db_session):
     }
 
 
-def test_exit_1_pdf_resolution(evidence_resolver, sample_pdf_with_version):
+def test_resolve_pdf__valid_locations__returns_snippet_and_metadata(evidence_resolver, sample_pdf_with_version):
     """
     EXIT TEST 1: PDF resolution test.
     
@@ -226,7 +226,7 @@ def test_exit_1_pdf_resolution(evidence_resolver, sample_pdf_with_version):
     assert result3.snippet == page1_text
 
 
-def test_exit_2_log_char_range_resolution(evidence_resolver, sample_log_with_version):
+def test_resolve_log_char_range__valid_ranges__returns_substring(evidence_resolver, sample_log_with_version):
     """
     EXIT TEST 2: Log char-range resolution test.
     
@@ -276,7 +276,7 @@ def test_exit_2_log_char_range_resolution(evidence_resolver, sample_log_with_ver
     assert result3.snippet == log_text
 
 
-def test_log_jsonpath_resolution(evidence_resolver, sample_log_with_version):
+def test_resolve_log_jsonpath__valid_paths__returns_json_snippet(evidence_resolver, sample_log_with_version):
     """
     Test JSON log resolution with jsonpath.
     
@@ -310,7 +310,7 @@ def test_log_jsonpath_resolution(evidence_resolver, sample_log_with_version):
     assert "loss" in result2.snippet
 
 
-def test_exit_3_bad_grammar_deterministic_errors(evidence_resolver, sample_pdf_with_version):
+def test_resolve__invalid_locations__returns_deterministic_errors(evidence_resolver, sample_pdf_with_version):
     """
     EXIT TEST 3: Bad grammar returns deterministic error.
     
@@ -374,7 +374,7 @@ def test_exit_3_bad_grammar_deterministic_errors(evidence_resolver, sample_pdf_w
     assert "1-based" in result5.message
 
 
-def test_artifact_version_not_found(evidence_resolver):
+def test_resolve__unknown_artifact_version__returns_not_found_error(evidence_resolver):
     """Test that non-existent artifact_version returns error."""
     import uuid
     result = evidence_resolver.resolve(
@@ -386,7 +386,7 @@ def test_artifact_version_not_found(evidence_resolver):
     assert result.code == "ARTIFACT_VERSION_NOT_FOUND"
 
 
-def test_char_range_exceeds_bounds(evidence_resolver, sample_pdf_with_version):
+def test_resolve_pdf__char_range_exceeds_bounds__returns_char_range_invalid(evidence_resolver, sample_pdf_with_version):
     """Test that char ranges exceeding content bounds return error."""
     pdf_data = sample_pdf_with_version
     
@@ -402,7 +402,7 @@ def test_char_range_exceeds_bounds(evidence_resolver, sample_pdf_with_version):
     assert "invalid" in result.message.lower()
 
 
-def test_jsonpath_not_found(evidence_resolver, sample_log_with_version):
+def test_resolve_log_jsonpath__path_missing__returns_jsonpath_not_found(evidence_resolver, sample_log_with_version):
     """Test that non-existent JSONPath returns error."""
     log_data = sample_log_with_version
     
@@ -416,7 +416,7 @@ def test_jsonpath_not_found(evidence_resolver, sample_log_with_version):
     assert result.code == "JSONPATH_NOT_FOUND"
 
 
-def test_deterministic_resolution(evidence_resolver, sample_pdf_with_version):
+def test_resolve__same_input__returns_identical_output(evidence_resolver, sample_pdf_with_version):
     """
     Test that resolution is deterministic (same input = same output).
     

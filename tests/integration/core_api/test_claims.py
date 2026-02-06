@@ -178,7 +178,7 @@ def other_workspace_artifact(storage, db_session):
     }
 
 
-def test_create_claim(db_session, workspace_with_agent):
+def test_claim_create__valid_request__persists_claim_with_defaults(db_session, workspace_with_agent):
     """Test basic claim creation."""
     from database import Claim
     from claim_routes import create_claim, CreateClaimRequest
@@ -221,7 +221,7 @@ def test_create_claim(db_session, workspace_with_agent):
     assert claim.text == request.text
 
 
-def test_add_evidence_with_valid_location(db_session, pdf_artifact_with_evidence):
+def test_claim_evidence_add__resolvable_location__persists_evidence(db_session, pdf_artifact_with_evidence):
     """Test adding evidence with valid location."""
     from database import Claim, ClaimEvidence
     from claim_routes import create_claim, add_evidence_to_claim, CreateClaimRequest, AddEvidenceRequest
@@ -281,7 +281,7 @@ def test_add_evidence_with_valid_location(db_session, pdf_artifact_with_evidence
     assert str(evidence.artifact_version_id) == str(version.id)
 
 
-def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifact_with_evidence):
+def test_claim_evidence_add__unresolvable_location__returns_400(db_session, pdf_artifact_with_evidence):
     """
     EXIT TEST 1: Evidence add fails if location doesn't resolve.
     
@@ -374,7 +374,7 @@ def test_exit_1_evidence_fails_if_location_doesnt_resolve(db_session, pdf_artifa
     assert exc_info3.value.detail["code"] == "CHAR_RANGE_INVALID"
 
 
-def test_exit_2_evidence_fails_if_version_from_another_workspace(
+def test_claim_evidence_add__version_from_other_workspace__returns_400(
     db_session, 
     pdf_artifact_with_evidence, 
     other_workspace_artifact
@@ -438,7 +438,7 @@ def test_exit_2_evidence_fails_if_version_from_another_workspace(
     assert "not in the same workspace" in exc_info.value.detail["message"]
 
 
-def test_list_claims_with_evidence(db_session, pdf_artifact_with_evidence):
+def test_claims_list__with_evidence__includes_evidence(db_session, pdf_artifact_with_evidence):
     """Test listing claims with their evidence."""
     from database import Claim, ClaimEvidence
     from claim_routes import list_claims
@@ -510,7 +510,7 @@ def test_list_claims_with_evidence(db_session, pdf_artifact_with_evidence):
     assert len(claim2_result["evidence"]) == 0
 
 
-def test_claim_kind_defaults_to_fact(db_session, workspace_with_agent):
+def test_claim_create__missing_kind__defaults_to_fact(db_session, workspace_with_agent):
     """Test that claim kind defaults to 'fact' if not specified."""
     from database import Claim
     from claim_routes import create_claim, CreateClaimRequest
@@ -534,7 +534,7 @@ def test_claim_kind_defaults_to_fact(db_session, workspace_with_agent):
     assert result.kind == "fact"  # Default value
 
 
-def test_is_key_cannot_be_set_by_agent(db_session, workspace_with_agent):
+def test_claim_create__is_key_set_by_agent__rejected_or_ignored(db_session, workspace_with_agent):
     """Test that is_key is always False for agent-created claims (system-owned)."""
     from claim_routes import create_claim, CreateClaimRequest
     

@@ -19,7 +19,7 @@ TEST_AGENT_ID = "00000000-0000-0000-0000-000000000001"
 import json
 
 
-def test_phase_machine_valid_transitions():
+def test_phase_machine__valid_transitions__allowed():
     """Test valid phase transitions are allowed."""
     from apps.worker.phase_machine import PhaseMachine
     
@@ -38,7 +38,7 @@ def test_phase_machine_valid_transitions():
     assert PhaseMachine.is_valid_transition("CLAIM_VALIDATION", "LIT_REVIEW")
 
 
-def test_phase_machine_invalid_transitions():
+def test_phase_machine__invalid_transitions__rejected():
     """Test invalid phase transitions are rejected."""
     from apps.worker.phase_machine import PhaseMachine
     
@@ -55,7 +55,7 @@ def test_phase_machine_invalid_transitions():
     assert not PhaseMachine.is_valid_transition("ARCHIVED", "LIT_REVIEW")
 
 
-def test_phase_machine_loopback_detection():
+def test_phase_machine__loopback_transition__detected():
     """Test loopback transition detection."""
     from apps.worker.phase_machine import PhaseMachine
     
@@ -68,7 +68,7 @@ def test_phase_machine_loopback_detection():
     assert not PhaseMachine.is_loopback_transition("LIT_REVIEW", "CLAIM_VALIDATION")
 
 
-def test_phase_machine_terminal_phases():
+def test_phase_machine__terminal_phases__no_outgoing_transitions():
     """Test terminal phase detection."""
     from apps.worker.phase_machine import PhaseMachine
     
@@ -80,7 +80,7 @@ def test_phase_machine_terminal_phases():
     assert not PhaseMachine.is_terminal_phase("FINALIZED")
 
 
-def test_phase_advancement_activity(test_db):
+def test_phase_advancement_activity__valid_transition__advances_phase(test_db):
     """Test phase advancement activity."""
     from apps.worker.phase_machine import PhaseAdvancementActivity
     
@@ -143,7 +143,7 @@ def test_phase_advancement_activity(test_db):
     assert payload["workflow_run_id"] == "test_workflow_123"
 
 
-def test_phase_advancement_invalid_transition(test_db):
+def test_phase_advancement_activity__invalid_transition__returns_409(test_db):
     """Test that invalid transitions are rejected."""
     from apps.worker.phase_machine import PhaseAdvancementActivity, PhaseTransitionError
     
@@ -179,7 +179,7 @@ def test_phase_advancement_invalid_transition(test_db):
     assert row[0] == "INIT"
 
 
-def test_agent_cannot_change_phase_directly(test_client, test_db, mock_agent_token):
+def test_phase_routes__agent_cannot_change_phase__returns_403(test_client, test_db, mock_agent_token):
     """Test that agents cannot directly modify workspace.phase."""
     workspace_id = str(uuid.uuid4())
     agent_id = TEST_AGENT_ID
@@ -211,7 +211,7 @@ def test_agent_cannot_change_phase_directly(test_client, test_db, mock_agent_tok
     assert "LIT_REVIEW" in data["allowed_next_phases"]
 
 
-def test_lit_review_exit_gate(test_db):
+def test_exit_gate_lit_review__required_artifacts_present__returns_pass(test_db):
     """Test LIT_REVIEW exit gate evaluation."""
     from apps.worker.gates import GateEvaluationActivity, GateEvaluator
     
@@ -351,7 +351,7 @@ def test_lit_review_exit_gate(test_db):
     assert len(result["reasons"]) > 0
 
 
-def test_lit_review_exit_gate_fails_without_artifacts(test_db):
+def test_exit_gate_lit_review__missing_required_artifacts__returns_fail(test_db):
     """Test LIT_REVIEW exit gate fails without artifacts."""
     from apps.worker.gates import GateEvaluationActivity, GateEvaluator
     
@@ -379,7 +379,7 @@ def test_lit_review_exit_gate_fails_without_artifacts(test_db):
     assert len(result["required_actions"]) > 0
 
 
-def test_internal_review_exit_gate_blocks_without_skeptic(test_db):
+def test_exit_gate_internal_review__missing_skeptic__returns_block(test_db):
     """Test INTERNAL_REVIEW exit gate blocks without Skeptic role."""
     from apps.worker.gates import GateEvaluationActivity, GateEvaluator
     
@@ -409,7 +409,7 @@ def test_internal_review_exit_gate_blocks_without_skeptic(test_db):
     assert any("skeptic" in reason.lower() for reason in result["reasons"])
 
 
-def test_required_action_tasks_created(test_db):
+def test_exit_gate__block_or_fail__creates_required_action_tasks(test_db):
     """Test that required action tasks are created when gates fail."""
     from apps.worker.phase_machine import PhaseAdvancementActivity
     

@@ -24,7 +24,7 @@ import shutil
 from pathlib import Path
 
 
-def test_sandbox_run_activity(test_db, test_storage):
+def test_sandbox_run_activity__script_success__produces_artifacts(test_db, test_storage):
     """Test sandbox execution activity with deterministic output."""
     from apps.worker.sandbox_run import SandboxRunActivity
     
@@ -176,7 +176,7 @@ print("Line 3")
     assert payload["exit_code"] == 0
 
 
-def test_sandbox_run_with_parameters(test_db, test_storage):
+def test_sandbox_run_activity__parameters__available_to_script(test_db, test_storage):
     """Test sandbox execution with environment variables and arguments."""
     from apps.worker.sandbox_run import SandboxRunActivity
     
@@ -284,7 +284,7 @@ print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
     assert "ENV_VAR=test_value" in log_content
 
 
-def test_log_evidence_resolution(test_db, test_storage):
+def test_evidence_resolution__log_char_range__resolves_snippet(test_db, test_storage):
     """Test log evidence pointer resolution (log:char=start-end)."""
     from apps.worker.sandbox_run import SandboxRunActivity
     
@@ -382,7 +382,7 @@ def test_log_evidence_resolution(test_db, test_storage):
         )
 
 
-def test_sandbox_run_endpoint(test_client, test_db, test_storage, mock_agent_token):
+def test_sandbox_run_endpoint__agent_request__creates_workflow_request(test_client, test_db, test_storage, mock_agent_token):
     """Test POST /workspaces/{id}/requests/run_sandbox endpoint."""
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
@@ -478,7 +478,7 @@ def test_sandbox_run_endpoint(test_client, test_db, test_storage, mock_agent_tok
     assert activity_run[1] == "sandbox_run"
 
 
-def test_sandbox_budget_enforcement(test_client, test_db, mock_agent_token):
+def test_sandbox_run_endpoint__budget_exceeded__returns_400(test_client, test_db, mock_agent_token):
     """Test per-workspace sandbox budget enforcement (429 + Retry-After)."""
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
@@ -550,7 +550,7 @@ def test_sandbox_budget_enforcement(test_client, test_db, mock_agent_token):
     assert "budget exhausted" in response.json()["detail"]
 
 
-def test_sandbox_run_timeout(test_db, test_storage):
+def test_sandbox_run_activity__script_hangs__times_out(test_db, test_storage):
     """Test sandbox execution timeout enforcement."""
     from apps.worker.sandbox_run import SandboxRunActivity, DockerError
     

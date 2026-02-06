@@ -106,7 +106,7 @@ def workspace_with_agent_and_artifacts(db_session):
     }
 
 
-def test_exit_missing_citations_fails_coverage(db_session, workspace_with_agent_and_artifacts):
+def test_citation_check__missing_citations__fails_coverage(db_session, workspace_with_agent_and_artifacts):
     """
     EXIT TEST 1: Draft missing citations -> citation_coverage fail recorded.
     
@@ -193,7 +193,7 @@ This is another paragraph without claims or citations.
     assert len(details["failures"]) == 1
 
 
-def test_exit_bad_location_fails_resolves(db_session, workspace_with_agent_and_artifacts):
+def test_citation_check__bad_location__fails_resolves(db_session, workspace_with_agent_and_artifacts):
     """
     EXIT TEST 2: Bad location -> citation_resolves fail recorded.
     
@@ -281,7 +281,7 @@ This is a paragraph with a claim [[claim:{claim1.id}]] and a bad citation [[cite
     assert len(details["failures"]) == 1
 
 
-def test_exit_good_draft_passes_both_checks(db_session, workspace_with_agent_and_artifacts):
+def test_citation_check__good_draft__passes_coverage_and_resolves(db_session, workspace_with_agent_and_artifacts):
     """
     EXIT TEST 3: Good draft -> both pass.
     
@@ -398,7 +398,7 @@ This is another paragraph with claim 2 [[claim:{claim2.id}]] and another citatio
     assert claim2.id in citation_claims
 
 
-def test_agent_request_run_rulecheck(db_session, workspace_with_agent_and_artifacts):
+def test_rule_check_request__agent_endpoint__creates_rule_check(db_session, workspace_with_agent_and_artifacts):
     """Test agent-facing POST /workspaces/{id}/requests/run_rulecheck endpoint."""
     from rulecheck_routes import request_run_rulecheck, RunRuleCheckRequest
     from database import Artifact, ArtifactVersion
@@ -463,7 +463,7 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
     assert response.request_id is not None
 
 
-def test_list_rule_checks_with_filters(db_session, workspace_with_agent_and_artifacts):
+def test_rule_checks_list__filters_applied__returns_matching(db_session, workspace_with_agent_and_artifacts):
     """Test GET /rule-checks with filters."""
     from rulecheck_routes import list_rule_checks
     from database import Artifact, ArtifactVersion

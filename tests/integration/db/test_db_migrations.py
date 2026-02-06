@@ -93,7 +93,7 @@ def migrated_db(engine):
 class TestMigrations:
     """Test migration application."""
     
-    def test_migrations_create_all_tables(self, migrated_db):
+    def test_migrations_up__fresh_db__creates_expected_tables(self, migrated_db):
         """Verify all required tables are created."""
         inspector = inspect(migrated_db)
         tables = set(inspector.get_table_names())
@@ -121,7 +121,7 @@ class TestMigrations:
         
         assert expected_tables.issubset(tables), f"Missing tables: {expected_tables - tables}"
     
-    def test_agents_table_structure(self, migrated_db):
+    def test_agents_table__schema__matches_expected_columns(self, migrated_db):
         """Verify agents table has correct columns."""
         inspector = inspect(migrated_db)
         columns = {col['name']: col for col in inspector.get_columns('agents')}
@@ -137,7 +137,7 @@ class TestMigrations:
         unique_cols = [idx['column_names'] for idx in inspector.get_unique_constraints('agents')]
         assert ['moltbook_id'] in unique_cols or any('moltbook_id' in idx['column_names'] for idx in indexes if idx.get('unique'))
     
-    def test_workspaces_table_structure(self, migrated_db):
+    def test_workspaces_table__schema__matches_expected_columns(self, migrated_db):
         """Verify workspaces table has correct columns."""
         inspector = inspect(migrated_db)
         columns = {col['name']: col for col in inspector.get_columns('workspaces')}
@@ -150,7 +150,7 @@ class TestMigrations:
         assert 'created_by' in columns
         assert 'created_at' in columns
     
-    def test_artifacts_table_structure(self, migrated_db):
+    def test_artifacts_table__schema__matches_expected_columns(self, migrated_db):
         """Verify artifacts table has correct columns and constraints."""
         inspector = inspect(migrated_db)
         columns = {col['name']: col for col in inspector.get_columns('artifacts')}
@@ -169,7 +169,7 @@ class TestMigrations:
         constraint_cols = [set(uc['column_names']) for uc in unique_constraints]
         assert {'workspace_id', 'short_id'} in constraint_cols
     
-    def test_artifact_versions_table_structure(self, migrated_db):
+    def test_artifact_versions_table__schema__matches_expected_columns(self, migrated_db):
         """Verify artifact_versions table has correct columns and constraints."""
         inspector = inspect(migrated_db)
         columns = {col['name']: col for col in inspector.get_columns('artifact_versions')}
@@ -191,7 +191,7 @@ class TestMigrations:
 class TestSchemaConstraints:
     """Test database constraints work correctly."""
     
-    def test_basic_insert_and_select(self, migrated_db):
+    def test_schema_constraints__basic_insert_and_select__succeeds(self, migrated_db):
         """Test basic insert and select for each table."""
         with migrated_db.begin() as conn:
             # Insert agent
@@ -213,7 +213,7 @@ class TestSchemaConstraints:
             assert agent.name == "Test Agent"
             assert float(agent.reputation) == 100.0
     
-    def test_unique_moltbook_id_constraint(self, migrated_db):
+    def test_agents__unique_moltbook_id__enforced(self, migrated_db):
         """Test that duplicate moltbook_id is rejected."""
         with migrated_db.begin() as conn:
             moltbook_id = f"unique_test_{uuid.uuid4()}"
@@ -232,7 +232,7 @@ class TestSchemaConstraints:
                     VALUES (:moltbook_id, :name)
                 """), {"moltbook_id": moltbook_id, "name": "Agent 2"})
     
-    def test_workspace_short_id_unique_per_workspace(self, migrated_db):
+    def test_artifacts__short_id_unique_per_workspace__enforced(self, migrated_db):
         """Test that (workspace_id, short_id) uniqueness is enforced."""
         with migrated_db.begin() as conn:
             # Create agent and workspace
@@ -271,7 +271,7 @@ class TestSchemaConstraints:
                     "storage_uri": "s3://bucket/path2"
                 })
     
-    def test_artifact_version_uniqueness(self, migrated_db):
+    def test_artifact_versions__unique_artifact_id_version__enforced(self, migrated_db):
         """Test that (artifact_id, version) uniqueness is enforced."""
         with migrated_db.begin() as conn:
             # Create prerequisite records
@@ -312,7 +312,7 @@ class TestSchemaConstraints:
                     VALUES (:artifact_id, :version, :storage_uri)
                 """), {"artifact_id": artifact_id, "version": 1, "storage_uri": "s3://bucket/v1_dup"})
     
-    def test_foreign_key_constraints(self, migrated_db):
+    def test_foreign_keys__invalid_references__rejected(self, migrated_db):
         """Test that foreign key constraints are enforced."""
         # Try to insert workspace with non-existent created_by agent
         with pytest.raises(IntegrityError):
@@ -323,7 +323,7 @@ class TestSchemaConstraints:
                     VALUES (:name, :phase, :created_by)
                 """), {"name": "Test", "phase": "INIT", "created_by": fake_agent_id})
     
-    def test_idempotency_keys_unique_constraint(self, migrated_db):
+    def test_idempotency_keys__unique_key_per_agent_request__enforced(self, migrated_db):
         """Test idempotency_keys unique constraint on (workspace_id, agent_id, request_name, idempotency_key)."""
         with migrated_db.begin() as conn:
             # Create prerequisites
@@ -374,7 +374,7 @@ class TestSchemaConstraints:
 class TestIndexes:
     """Test that recommended indexes are created."""
     
-    def test_key_indexes_exist(self, migrated_db):
+    def test_indexes__key_indexes_exist__expected(self, migrated_db):
         """Verify critical indexes are created."""
         inspector = inspect(migrated_db)
         

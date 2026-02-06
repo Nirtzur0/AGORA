@@ -38,7 +38,7 @@ def workspace_with_agent(db_session):
     return ws, agent
 
 
-def test_create_draft(db_session, workspace_with_agent):
+def test_draft_create__empty_workspace__allocates_short_id_and_persists_metadata(db_session, workspace_with_agent):
     """Test basic draft creation."""
     from draft_routes import create_draft, CreateDraftRequest
     
@@ -78,7 +78,7 @@ def test_create_draft(db_session, workspace_with_agent):
     assert metadata["title"] == "Test Draft"
 
 
-def test_exit_draft_version_has_content_hash_and_retrievable(db_session, workspace_with_agent):
+def test_draft_version_create__markdown_content__stores_hash_and_retrievable_bytes(db_session, workspace_with_agent):
     """
     EXIT TEST: Draft version created -> content_hash present -> can fetch exact Markdown.
     
@@ -156,7 +156,7 @@ This is a test draft with **bold** and *italic* text.
     assert version.content_hash == computed_hash
 
 
-def test_multiple_draft_versions(db_session, workspace_with_agent):
+def test_draft_version_create__multiple_versions__increments_and_hashes_unique(db_session, workspace_with_agent):
     """Test creating multiple versions of a draft."""
     from draft_routes import create_draft, create_draft_version, CreateDraftRequest, CreateDraftVersionRequest
     from sqlalchemy import text
@@ -207,7 +207,7 @@ def test_multiple_draft_versions(db_session, workspace_with_agent):
     assert v1.content_hash != v3.content_hash
 
 
-def test_list_draft_versions(db_session, workspace_with_agent):
+def test_draft_versions_list__multiple_versions__returns_descending(db_session, workspace_with_agent):
     """Test listing draft versions."""
     from draft_routes import create_draft, create_draft_version, list_draft_versions, CreateDraftRequest, CreateDraftVersionRequest
     from sqlalchemy import text
@@ -256,7 +256,7 @@ def test_list_draft_versions(db_session, workspace_with_agent):
     assert result["versions"][1]["version"] == 1
 
 
-def test_cannot_create_version_for_finalized_draft(db_session, workspace_with_agent):
+def test_draft_version_create__after_finalization__returns_409(db_session, workspace_with_agent):
     """Test that creating a version for finalized draft fails."""
     from draft_routes import create_draft, create_draft_version, finalize_draft, CreateDraftRequest, CreateDraftVersionRequest, FinalizeDraftRequest
     from fastapi import HTTPException
@@ -304,7 +304,7 @@ def test_cannot_create_version_for_finalized_draft(db_session, workspace_with_ag
     assert "already finalized" in exc_info.value.detail
 
 
-def test_short_id_allocation(db_session, workspace_with_agent):
+def test_draft_create__multiple_drafts__short_ids_increment(db_session, workspace_with_agent):
     """Test that draft short_ids are allocated correctly (D1, D2, D3...)."""
     from draft_routes import create_draft, CreateDraftRequest
     from sqlalchemy import text
@@ -342,7 +342,7 @@ def test_short_id_allocation(db_session, workspace_with_agent):
     assert d3.short_id == "D3"
 
 
-def test_finalize_draft_emits_event(db_session, workspace_with_agent):
+def test_draft_finalize__valid_version__emits_draft_finalized_event(db_session, workspace_with_agent):
     """Test that finalizing a draft emits draft.finalized event."""
     from draft_routes import create_draft, create_draft_version, finalize_draft, CreateDraftRequest, CreateDraftVersionRequest, FinalizeDraftRequest
     from sqlalchemy import text

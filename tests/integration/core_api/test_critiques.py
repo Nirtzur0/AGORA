@@ -46,7 +46,7 @@ def _make_agent_token(agent_id, moltbook_id, reputation=0):
     )
 
 
-def test_create_critique(test_client, test_db):
+def test_critiques_create__valid_request__returns_201_and_persists(test_client, test_db):
     """Test critique creation on a claim."""
     workspace_id = str(uuid.uuid4())
     agent_id = TEST_AGENT_ID
@@ -120,7 +120,7 @@ def test_create_critique(test_client, test_db):
     assert event[0] == "critique.created"
 
 
-def test_target_author_cannot_resolve_own_critique(test_client, test_db, mock_agent_token):
+def test_critiques_resolve__target_author__returns_403(test_client, test_db, mock_agent_token):
     """Test that target author cannot resolve their own critique."""
     workspace_id = str(uuid.uuid4())
     author_id = str(uuid.uuid4())
@@ -194,7 +194,7 @@ def test_target_author_cannot_resolve_own_critique(test_client, test_db, mock_ag
     assert "cannot resolve their own critique" in response.json()["detail"]
 
 
-def test_only_critic_can_update_critique(test_client, test_db, mock_agent_token):
+def test_critiques_update__non_critic__returns_403(test_client, test_db, mock_agent_token):
     """Test that only the critic can update their critique."""
     workspace_id = str(uuid.uuid4())
     critic_id = str(uuid.uuid4())
@@ -279,7 +279,7 @@ def test_only_critic_can_update_critique(test_client, test_db, mock_agent_token)
     assert data["status"] == "resolved"
 
 
-def test_maintainer_can_override_critique(test_client, test_db):
+def test_critiques_update__maintainer_override__allowed(test_client, test_db):
     """Test that Maintainer can override critique (if not target author)."""
     workspace_id = str(uuid.uuid4())
     critic_id = str(uuid.uuid4())
@@ -372,7 +372,7 @@ def test_maintainer_can_override_critique(test_client, test_db):
     assert payload["critique_id"] == critique_id
 
 
-def test_list_critiques_with_filters(test_client, test_db):
+def test_critiques_list__filters_applied__returns_matching(test_client, test_db):
     """Test listing critiques with filters."""
     workspace_id = str(uuid.uuid4())
     agent_id = TEST_AGENT_ID
@@ -467,7 +467,7 @@ def test_list_critiques_with_filters(test_client, test_db):
     assert len(data) == 1
 
 
-def test_critique_sufficiency_high_trust_cannot_defer(test_db):
+def test_critique_sufficiency__high_trust_open_blocking__cannot_defer(test_db):
     """Test that high-trust critic cannot defer (fails sufficiency)."""
     from apps.worker.critique_sufficiency import CritiqueSufficiencyActivity
     
@@ -547,7 +547,7 @@ def test_critique_sufficiency_high_trust_cannot_defer(test_db):
     assert "high_trust" in result["details"]["reason"]
 
 
-def test_critique_sufficiency_low_trust_deferral_passes(test_db):
+def test_critique_sufficiency__low_trust_deferral__passes(test_db):
     """Test that low-trust deferral with rationale passes sufficiency."""
     from apps.worker.critique_sufficiency import CritiqueSufficiencyActivity
     
@@ -626,7 +626,7 @@ def test_critique_sufficiency_low_trust_deferral_passes(test_db):
     assert result["details"]["valid_critique_count"] == 1
 
 
-def test_critique_sufficiency_resolved_passes(test_db):
+def test_critique_sufficiency__resolved_blocking__passes(test_db):
     """Test that resolved critiques pass sufficiency check."""
     from apps.worker.critique_sufficiency import CritiqueSufficiencyActivity
     

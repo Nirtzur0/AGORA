@@ -5,24 +5,16 @@ Tests permission enforcement across all 6 roles with canonical permission keys.
 """
 
 import pytest
-import sys
-import os
-from pathlib import Path
-
-# Add packages to path
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "packages" / "db"))
-sys.path.insert(0, str(repo_root / "apps" / "core-api"))
+import uuid
 
 from database import get_db
 import rbac
-import uuid
 
 
 class TestRoleSeeding:
     """Test that roles are seeded correctly."""
     
-    def test_all_roles_exist(self):
+    def test_list_all_roles__seeded_db__returns_expected_role_names(self):
         """All 6 MVP roles should exist."""
         with get_db() as db:
             roles = rbac.list_all_roles(db)
@@ -39,7 +31,7 @@ class TestRoleSeeding:
         
         assert role_names == expected_roles, f"Expected {expected_roles}, got {role_names}"
     
-    def test_maintainer_permissions(self):
+    def test_list_all_roles__maintainer__includes_expected_permissions(self):
         """Maintainer has full access."""
         with get_db() as db:
             roles = rbac.list_all_roles(db)
@@ -58,7 +50,7 @@ class TestRoleSeeding:
         # Should have 20+ permissions
         assert len(perms) >= 20
     
-    def test_literature_analyst_permissions(self):
+    def test_list_all_roles__literature_analyst__includes_expected_permissions(self):
         """Literature Analyst can ingest PDFs and create claims."""
         with get_db() as db:
             roles = rbac.list_all_roles(db)
@@ -74,7 +66,7 @@ class TestRoleSeeding:
         # Should NOT have sandbox execution
         assert "execution.request.run_sandbox" not in perms
     
-    def test_experimentalist_permissions(self):
+    def test_list_all_roles__experimentalist__includes_expected_permissions(self):
         """Experimentalist can run sandbox."""
         with get_db() as db:
             roles = rbac.list_all_roles(db)
@@ -90,7 +82,7 @@ class TestRoleSeeding:
         # Should NOT have draft permissions
         assert "draft.create" not in perms
     
-    def test_synthesizer_permissions(self):
+    def test_list_all_roles__synthesizer__includes_expected_permissions(self):
         """Synthesizer can create drafts but NOT run sandbox."""
         with get_db() as db:
             roles = rbac.list_all_roles(db)
@@ -112,7 +104,7 @@ class TestRoleSeeding:
         # CANNOT create claims
         assert "claim.create" not in perms
     
-    def test_reputation_requirements(self):
+    def test_list_all_roles__seeded_db__has_expected_min_reputation(self):
         """Roles have correct reputation requirements."""
         with get_db() as db:
             roles = {r["name"]: r for r in rbac.list_all_roles(db)}
@@ -129,7 +121,7 @@ class TestPermissionChecking:
     """Test permission checking logic."""
     
     @pytest.fixture
-    def test_workspace(self):
+    def workspace_id(self):
         """Create a test workspace."""
         with get_db() as db:
             workspace_id = str(uuid.uuid4())
@@ -151,7 +143,7 @@ class TestPermissionChecking:
             db.commit()
     
     @pytest.fixture
-    def test_agent(self):
+    def agent_id(self):
         """Create a test agent."""
         with get_db() as db:
             agent_id = str(uuid.uuid4())
@@ -172,19 +164,19 @@ class TestPermissionChecking:
             db.execute("DELETE FROM agents WHERE id = %s", (agent_id,))
             db.commit()
     
-    def test_agent_not_in_workspace(self, test_workspace, test_agent):
+    def test_check_permission__agent_not_in_workspace__returns_false(self, workspace_id, agent_id):
         """Agent not in workspace should fail permission check."""
         with get_db() as db:
             has_perm = rbac.check_permission(
                 db,
-                test_agent,
-                test_workspace,
+                agent_id,
+                workspace_id,
                 "workspace.read"
             )
         
         assert not has_perm
     
-    def test_experimentalist_can_run_sandbox(self, test_workspace, test_agent):
+    def test_check_permission__experimentalist_member__sandbox_permission_true(self, workspace_id, agent_id):
         """Experimentalist should be able to request sandbox execution."""
         with get_db() as db:
             # Get Experimentalist role
@@ -199,15 +191,15 @@ class TestPermissionChecking:
                 INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (test_workspace, test_agent, exp_role[0], "active")
+                (workspace_id, agent_id, exp_role[0], "active")
             )
             db.commit()
             
             # Check permission
             has_perm = rbac.check_permission(
                 db,
-                test_agent,
-                test_workspace,
+                agent_id,
+                workspace_id,
                 "execution.request.run_sandbox"
             )
         
@@ -217,11 +209,11 @@ class TestPermissionChecking:
         with get_db() as db:
             db.execute(
                 "DELETE FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
-                (test_workspace, test_agent)
+                (workspace_id, agent_id)
             )
             db.commit()
     
-    def test_synthesizer_cannot_run_sandbox(self, test_workspace, test_agent):
+    def test_check_permission__synthesizer_member__sandbox_permission_false(self, workspace_id, agent_id):
         """Synthesizer should NOT be able to request sandbox execution."""
         with get_db() as db:
             # Get Synthesizer role
@@ -236,15 +228,15 @@ class TestPermissionChecking:
                 INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (test_workspace, test_agent, synth_role[0], "active")
+                (workspace_id, agent_id, synth_role[0], "active")
             )
             db.commit()
             
             # Check permission
             has_perm = rbac.check_permission(
                 db,
-                test_agent,
-                test_workspace,
+                agent_id,
+                workspace_id,
                 "execution.request.run_sandbox"
             )
             
@@ -253,8 +245,8 @@ class TestPermissionChecking:
             # But Synthesizer CAN create drafts
             can_draft = rbac.check_permission(
                 db,
-                test_agent,
-                test_workspace,
+                agent_id,
+                workspace_id,
                 "draft.create"
             )
         
@@ -264,11 +256,11 @@ class TestPermissionChecking:
         with get_db() as db:
             db.execute(
                 "DELETE FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
-                (test_workspace, test_agent)
+                (workspace_id, agent_id)
             )
             db.commit()
     
-    def test_maintainer_has_all_permissions(self, test_workspace, test_agent):
+    def test_check_permission__maintainer_member__has_key_permissions(self, workspace_id, agent_id):
         """Maintainer should have all key permissions."""
         with get_db() as db:
             # Get Maintainer role
@@ -283,7 +275,7 @@ class TestPermissionChecking:
                 INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (test_workspace, test_agent, maint_role[0], "active")
+                (workspace_id, agent_id, maint_role[0], "active")
             )
             db.commit()
             
@@ -300,8 +292,8 @@ class TestPermissionChecking:
             for perm in permissions_to_check:
                 has_perm = rbac.check_permission(
                     db,
-                    test_agent,
-                    test_workspace,
+                    agent_id,
+                    workspace_id,
                     perm
                 )
                 assert has_perm, f"Maintainer should have {perm} permission"
@@ -310,11 +302,11 @@ class TestPermissionChecking:
         with get_db() as db:
             db.execute(
                 "DELETE FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
-                (test_workspace, test_agent)
+                (workspace_id, agent_id)
             )
             db.commit()
     
-    def test_require_permission_raises_on_deny(self, test_workspace, test_agent):
+    def test_require_permission__permission_denied__raises_403(self, workspace_id, agent_id):
         """require_permission should raise HTTPException when denied."""
         with get_db() as db:
             # Get Synthesizer role (no sandbox permission)
@@ -329,7 +321,7 @@ class TestPermissionChecking:
                 INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status)
                 VALUES (%s, %s, %s, %s)
                 """,
-                (test_workspace, test_agent, synth_role[0], "active")
+                (workspace_id, agent_id, synth_role[0], "active")
             )
             db.commit()
             
@@ -338,8 +330,8 @@ class TestPermissionChecking:
             with pytest.raises(HTTPException) as exc_info:
                 rbac.require_permission(
                     db,
-                    test_agent,
-                    test_workspace,
+                    agent_id,
+                    workspace_id,
                     "execution.request.run_sandbox",
                     agent_role="Synthesizer"
                 )
@@ -351,7 +343,7 @@ class TestPermissionChecking:
         with get_db() as db:
             db.execute(
                 "DELETE FROM workspace_agents WHERE workspace_id = %s AND agent_id = %s",
-                (test_workspace, test_agent)
+                (workspace_id, agent_id)
             )
             db.commit()
 
@@ -359,7 +351,7 @@ class TestPermissionChecking:
 class TestReputationChecking:
     """Test reputation requirements."""
     
-    def test_low_reputation_fails_analyst_check(self):
+    def test_check_reputation_requirement__low_rep__returns_false(self):
         """Agent with reputation < 100 should fail Literature Analyst check."""
         with get_db() as db:
             # Create agent with low reputation
@@ -382,7 +374,7 @@ class TestReputationChecking:
         
         assert not meets_req
     
-    def test_high_reputation_passes_all_checks(self):
+    def test_check_reputation_requirement__high_rep__all_roles_true(self):
         """Agent with reputation >= 300 should pass all role checks."""
         with get_db() as db:
             # Create agent with high reputation
@@ -422,7 +414,7 @@ class TestRoleRetrieval:
     """Test get_agent_role function."""
     
     @pytest.fixture
-    def test_setup(self):
+    def workspace_with_experimentalist(self):
         """Create workspace, agent, and assign role."""
         with get_db() as db:
             workspace_id = str(uuid.uuid4())
@@ -471,13 +463,13 @@ class TestRoleRetrieval:
             db.execute("DELETE FROM agents WHERE id = %s", (agent_id,))
             db.commit()
     
-    def test_get_agent_role_returns_correct_info(self, test_setup):
+    def test_get_agent_role__member__returns_role_and_permissions(self, workspace_with_experimentalist):
         """get_agent_role should return role_id, role_name, and permissions."""
         with get_db() as db:
             role_info = rbac.get_agent_role(
                 db,
-                test_setup["agent_id"],
-                test_setup["workspace_id"]
+                workspace_with_experimentalist["agent_id"],
+                workspace_with_experimentalist["workspace_id"]
             )
         
         assert role_info is not None
@@ -486,7 +478,7 @@ class TestRoleRetrieval:
         assert "allow" in role_info["permissions"]
         assert "execution.request.run_sandbox" in role_info["permissions"]["allow"]
     
-    def test_get_agent_role_returns_none_for_nonmember(self):
+    def test_get_agent_role__non_member__returns_none(self):
         """get_agent_role should return None for non-member."""
         fake_agent = str(uuid.uuid4())
         fake_workspace = str(uuid.uuid4())
@@ -495,7 +487,3 @@ class TestRoleRetrieval:
             role_info = rbac.get_agent_role(db, fake_agent, fake_workspace)
         
         assert role_info is None
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

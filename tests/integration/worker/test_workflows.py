@@ -79,7 +79,7 @@ def create_artifact_version(db_session, workspace_id: str, created_by: str = Non
     return artifact_id, version_id
 
 
-def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
+def test_exit_workflow__happy_path__creates_workflow_run_and_completes(db_session, workspace_with_agent):
     """
     EXIT TEST 1: Start workflow -> workflow_runs row created -> completes -> status updated.
     
@@ -150,7 +150,7 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     assert updated_row[1] is not None  # completed_at
 
 
-def test_exit_activity_runs_created(db_session, workspace_with_agent):
+def test_exit_workflow__after_run__creates_activity_runs(db_session, workspace_with_agent):
     """
     EXIT TEST 2: Activities produce activity_runs rows.
     
@@ -233,7 +233,7 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     assert updated_row[1] is not None  # completed_at
 
 
-def test_create_agent_task_system_only(db_session, workspace_with_agent):
+def test_agent_tasks_create__system_only_endpoint__agent_forbidden(db_session, workspace_with_agent):
     """Test POST /workspaces/{id}/tasks (SYSTEM-ONLY)."""
     from task_routes import create_task, CreateTaskRequest
     from sqlalchemy import text
@@ -297,7 +297,7 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     assert task[3] == "open"
 
 
-def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
+def test_agent_tasks_list__filters_applied__returns_matching(db_session, workspace_with_agent):
     """Test GET /workspaces/{id}/tasks with filters."""
     from task_routes import create_task, list_tasks, CreateTaskRequest
     from sqlalchemy import text
@@ -390,7 +390,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     assert all(t.status == "open" for t in pending_tasks)
 
 
-def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
+def test_agent_tasks_update__non_assignee__forbidden(db_session, workspace_with_agent):
     """Test PATCH /tasks/{id} (assignee-only updates)."""
     from task_routes import create_task, update_task, CreateTaskRequest, UpdateTaskRequest
     from sqlalchemy import text
@@ -475,7 +475,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     assert "assignee" in exc_info.value.detail.lower()
 
 
-def test_complete_agent_task_with_result(db_session, workspace_with_agent):
+def test_agent_tasks_complete__valid_result__persists_completion(db_session, workspace_with_agent):
     """Test completing task with result_links."""
     from task_routes import create_task, update_task, CreateTaskRequest, UpdateTaskRequest
     from database import Artifact

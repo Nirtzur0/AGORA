@@ -7,10 +7,22 @@ The adapter must be running on MOLTBOOK_ADAPTER_URL.
 
 import pytest
 import requests
-import time
 
 
-def test_root_endpoint_returns_service_info(moltbook_adapter_url):
+pytestmark = pytest.mark.external
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_if_adapter_unreachable(moltbook_adapter_url):
+    try:
+        r = requests.get(f"{moltbook_adapter_url}/health", timeout=1.0)
+        if r.status_code >= 500:
+            pytest.skip(f"Moltbook adapter unhealthy: {r.status_code} {r.text}")
+    except Exception as e:
+        pytest.skip(f"Moltbook adapter not reachable at {moltbook_adapter_url!r}: {e}")
+
+
+def test_root__adapter_running__returns_service_info(moltbook_adapter_url):
     """GET / returns service information."""
     response = requests.get(f"{moltbook_adapter_url}/")
     
@@ -21,7 +33,7 @@ def test_root_endpoint_returns_service_info(moltbook_adapter_url):
     assert "endpoints" in data
 
 
-def test_health_endpoint(moltbook_adapter_url):
+def test_health__adapter_running__returns_health_payload(moltbook_adapter_url):
     """GET /health returns health status."""
     response = requests.get(f"{moltbook_adapter_url}/health")
     
@@ -33,7 +45,7 @@ def test_health_endpoint(moltbook_adapter_url):
     assert "cache_stats" in data
 
 
-def test_verify_missing_identity_token(moltbook_adapter_url):
+def test_verify__missing_identity_token__returns_400(moltbook_adapter_url):
     """POST /verify without identity_token returns 400."""
     response = requests.post(f"{moltbook_adapter_url}/verify", json={})
     
@@ -43,7 +55,7 @@ def test_verify_missing_identity_token(moltbook_adapter_url):
     assert "identity_token" in data["message"]
 
 
-def test_verify_invalid_token_type(moltbook_adapter_url):
+def test_verify__non_string_token__returns_400(moltbook_adapter_url):
     """POST /verify with non-string token returns 400."""
     response = requests.post(
         f"{moltbook_adapter_url}/verify",
@@ -55,7 +67,7 @@ def test_verify_invalid_token_type(moltbook_adapter_url):
     assert data["error"] == "BAD_REQUEST"
 
 
-def test_verify_invalid_token_returns_401(moltbook_adapter_url):
+def test_verify__invalid_token__returns_401_or_503(moltbook_adapter_url):
     """POST /verify with invalid token returns 401."""
     # This test depends on the real Moltbook being configured
     # If Moltbook is not reachable, this might return 503 instead
@@ -78,7 +90,7 @@ def test_verify_invalid_token_returns_401(moltbook_adapter_url):
         assert "retry-after" in response.headers or "Retry-After" in response.headers
 
 
-def test_404_for_unknown_endpoint(moltbook_adapter_url):
+def test_unknown_endpoint__request__returns_404(moltbook_adapter_url):
     """Unknown endpoints return 404."""
     response = requests.get(f"{moltbook_adapter_url}/unknown")
     
@@ -87,7 +99,7 @@ def test_404_for_unknown_endpoint(moltbook_adapter_url):
     assert data["error"] == "NOT_FOUND"
 
 
-def test_health_check_includes_circuit_state(moltbook_adapter_url):
+def test_health__payload__includes_circuit_state_and_cache_stats(moltbook_adapter_url):
     """Health check reports circuit breaker state."""
     response = requests.get(f"{moltbook_adapter_url}/health")
     

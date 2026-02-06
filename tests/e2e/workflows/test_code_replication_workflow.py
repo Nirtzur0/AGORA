@@ -20,7 +20,7 @@ import tarfile
 import subprocess
 
 
-def test_code_replication_workflow_full(test_db, test_storage):
+def test_code_replication_workflow__happy_path__completes(test_db, test_storage):
     """Test full code replication workflow end-to-end."""
     import asyncio
     from apps.worker.code_replication_workflow import code_replication_workflow
@@ -175,7 +175,7 @@ print("Experiment complete!")
         shutil.rmtree(test_repo_dir, ignore_errors=True)
 
 
-def test_code_replication_with_draft_and_citation_check(test_db, test_storage):
+def test_code_replication_workflow__with_draft_and_citation_check__completes(test_db, test_storage):
     """Test full workflow including draft creation and citation check."""
     import asyncio
     from apps.worker.code_replication_workflow import code_replication_workflow
@@ -364,7 +364,7 @@ The execution completed successfully.
         shutil.rmtree(test_repo_dir, ignore_errors=True)
 
 
-def test_code_replication_workflow_with_script_error(test_db, test_storage):
+def test_code_replication_workflow__script_error__records_failure(test_db, test_storage):
     """Test workflow handles script execution errors gracefully."""
     import asyncio
     from apps.worker.code_replication_workflow import code_replication_workflow
@@ -450,7 +450,7 @@ print("This won't print")
         shutil.rmtree(test_repo_dir, ignore_errors=True)
 
 
-def test_code_replication_workflow_with_parameters(test_db, test_storage):
+def test_code_replication_workflow__parameters__passed_to_sandbox(test_db, test_storage):
     """Test workflow with sandbox parameters (env vars)."""
     import asyncio
     from apps.worker.code_replication_workflow import code_replication_workflow

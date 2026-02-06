@@ -63,7 +63,7 @@ def integration_setup(db_session):
     return ws, agent
 
 
-def test_exit_literature_grounding_end_to_end(db_session, integration_setup, storage):
+def test_literature_grounding_workflow__happy_path__completes(db_session, integration_setup, storage):
     import asyncio
 
     from request_routes import request_ingest_pdf, IngestPdfRequest
@@ -267,7 +267,7 @@ The study provides strong support for the hypothesis.
     assert citations[0][2] == evidence_location
 
 
-def test_idempotent_pdf_ingestion(db_session, integration_setup, storage):
+def test_pdf_ingestion__idempotency_key__dedupes(db_session, integration_setup, storage):
     import asyncio
 
     from request_routes import request_ingest_pdf, IngestPdfRequest
@@ -329,7 +329,7 @@ def test_idempotent_pdf_ingestion(db_session, integration_setup, storage):
     assert "idempotent" in response2.message.lower()
 
 
-def test_request_finalize_draft_requires_finalized_phase(db_session, integration_setup, storage):
+def test_finalize_draft_request__workspace_not_finalized__returns_409(db_session, integration_setup, storage):
     import asyncio
     from fastapi import HTTPException
 

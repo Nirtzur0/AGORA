@@ -198,7 +198,7 @@ def _insert_critique_sufficiency(db, ws_id: str, version_id: str, status: str):
     )
 
 
-def test_finalization_gate_all_pass(finalized_workspace_with_draft, db):
+def test_finalization_gate__all_criteria_pass__returns_pass(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     _insert_citation_check(db, ws["workspace_id"], ws["draft_version_id"], status="pass", all_resolve=True)
@@ -215,7 +215,7 @@ def test_finalization_gate_all_pass(finalized_workspace_with_draft, db):
     assert "All finalization criteria met" in result["reasons"]
 
 
-def test_finalization_gate_missing_or_failing_citation_check_fails(finalized_workspace_with_draft, db):
+def test_finalization_gate__citation_check_fails__returns_fail(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     _insert_citation_check(db, ws["workspace_id"], ws["draft_version_id"], status="fail", all_resolve=True)
@@ -232,7 +232,7 @@ def test_finalization_gate_missing_or_failing_citation_check_fails(finalized_wor
     assert "Citation coverage check failed" in result["reasons"]
 
 
-def test_finalization_gate_citation_resolves_fails(finalized_workspace_with_draft, db):
+def test_finalization_gate__citation_resolve_check_fails__returns_fail(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     _insert_citation_check(db, ws["workspace_id"], ws["draft_version_id"], status="pass", all_resolve=False)
@@ -249,7 +249,7 @@ def test_finalization_gate_citation_resolves_fails(finalized_workspace_with_draf
     assert "Citation resolve check failed" in result["reasons"]
 
 
-def test_finalization_gate_blocking_critiques_blocks(finalized_workspace_with_draft, db):
+def test_finalization_gate__open_blocking_critique__returns_block(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     _insert_citation_check(db, ws["workspace_id"], ws["draft_version_id"], status="pass", all_resolve=True)
@@ -289,7 +289,7 @@ def test_finalization_gate_blocking_critiques_blocks(finalized_workspace_with_dr
     assert any("open blocking critique" in r for r in result["reasons"])
 
 
-def test_finalization_gate_missing_skeptic_blocks(finalized_workspace_with_draft, db):
+def test_finalization_gate__missing_skeptic_role__returns_block(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     # Remove Skeptic membership.
@@ -309,7 +309,7 @@ def test_finalization_gate_missing_skeptic_blocks(finalized_workspace_with_draft
     assert "Skeptic role not assigned" in result["reasons"]
 
 
-def test_finalization_gate_method_reviewer_required_with_sandbox(finalized_workspace_with_draft, db):
+def test_finalization_gate__sandbox_runs_exist_without_method_reviewer__returns_block(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     # Add sandbox_run activity.
@@ -344,7 +344,7 @@ def test_finalization_gate_method_reviewer_required_with_sandbox(finalized_works
 
 
 @pytest.mark.asyncio
-async def test_finalize_draft_activity_updates_metadata_and_emits_events(finalized_workspace_with_draft, db):
+async def test_finalize_draft_activity__finalized_workspace__updates_metadata_and_emits_events(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     result = await finalize_draft_artifact(
@@ -378,7 +378,7 @@ async def test_finalize_draft_activity_updates_metadata_and_emits_events(finaliz
 
 
 @pytest.mark.asyncio
-async def test_finalize_draft_activity_rejects_non_finalized_phase(finalized_workspace_with_draft, db):
+async def test_finalize_draft_activity__non_finalized_workspace__raises(finalized_workspace_with_draft, db):
     ws = finalized_workspace_with_draft
 
     db.execute(
