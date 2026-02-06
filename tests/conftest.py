@@ -6,11 +6,9 @@ All tests run via pytest from the repository root.
 
 import os
 import sys
-import subprocess
-import pytest
 from pathlib import Path
-from sqlalchemy import text as sql_text
-from psycopg2.extras import Json as PgJson
+
+import pytest
 
 # Test database URL (must be set before importing database module)
 TEST_DATABASE_URL = os.getenv(
@@ -52,13 +50,13 @@ MOLTBOOK_ADAPTER_URL = os.getenv("MOLTBOOK_ADAPTER_URL", "http://localhost:3001"
 CORE_API_URL = os.getenv("CORE_API_URL")  # optional override; defaults to in-process TestClient
 
 
-@pytest.fixture(scope="session", autouse=True)
-def _ensure_test_db_migrated():
+@pytest.fixture(scope="session")
+def migrated_db():
     """
     Ensure the TEST_DATABASE_URL exists and is migrated before any tests run.
 
-    Some tests use direct worker DB sessions and do not go through the db_session
-    fixture, so migration must be guaranteed globally.
+    This is intentionally NOT autouse: unit tests must be runnable without
+    requiring a running Postgres container.
     """
     # Create database if missing (connect to postgres maintenance DB).
     import re
@@ -171,6 +169,7 @@ class SessionWrapper:
 
     def _coerce_value(self, value):
         if isinstance(value, (dict, list)):
+            from psycopg2.extras import Json as PgJson
             return PgJson(value)
         return value
 
@@ -184,6 +183,7 @@ class SessionWrapper:
                 safe_query = re.sub(r'%(?!s)', '%%', query)
                 cursor.execute(safe_query, self._coerce_params(params))
                 return cursor
+            from sqlalchemy import text as sql_text
             query = sql_text(query)
         if params:
             return self._session.execute(query, self._coerce_params(params))
@@ -200,36 +200,15 @@ class SessionWrapper:
 
 
 @pytest.fixture
-def db_session(db_url):
+def db_session(db_url, migrated_db):
     """
     SQLAlchemy session bound to the test database.
 
     Uses a nested transaction so tests can commit while the outer
     transaction is rolled back at teardown.
     """
-    from sqlalchemy import create_engine, event, inspect
+    from sqlalchemy import create_engine, event
     from sqlalchemy.orm import sessionmaker
-
-    def ensure_migrated(url: str) -> None:
-        engine = create_engine(url, pool_pre_ping=True)
-        try:
-            inspector = inspect(engine)
-            tables = inspector.get_table_names()
-            if "workspaces" not in tables:
-                original_url = os.environ.get("DATABASE_URL")
-                os.environ["DATABASE_URL"] = url
-                try:
-                    from db.migrate import migrate_up
-                    migrate_up()
-                finally:
-                    if original_url is not None:
-                        os.environ["DATABASE_URL"] = original_url
-                    else:
-                        os.environ.pop("DATABASE_URL", None)
-        finally:
-            engine.dispose()
-
-    ensure_migrated(db_url)
 
     engine = create_engine(db_url, pool_pre_ping=True)
     connection = engine.connect()
@@ -310,7 +289,7 @@ def storage(test_storage):
 
 
 @pytest.fixture
-def test_client(core_api_url, core_api_app):
+def test_client(core_api_url, core_api_app, migrated_db):
     """
     Test HTTP client for Core API.
     
