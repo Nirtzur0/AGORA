@@ -12,4 +12,5 @@
 - Notes: warning volume is high (mostly `datetime.utcnow()` deprecations); no failures observed.
 - Added CI guardrail job in `.github/workflows/ci.yml` enforcing docs updates when PRs change tests/CI/runtime.
 - Wrote final stabilization report: `Docs/implementation/reports/test_stabilization_final_report.md`.
+- Final pre-push check: `make test-all` initially failed stub-check due to bare `pass` statements in Core API. Removed them and reran `make test-all` green.
 - Next: none.
