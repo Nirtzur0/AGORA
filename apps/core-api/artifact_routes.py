@@ -18,9 +18,12 @@ Authority model:
 """
 import hashlib
 import io
+import json
 from typing import Optional, List, Any
 from uuid import UUID, uuid4
 from datetime import datetime
+
+import fitz  # PyMuPDF
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Response
 from fastapi.responses import StreamingResponse
@@ -111,6 +114,57 @@ def _allocate_short_id(workspace_id: UUID, db) -> str:
     except (ValueError, IndexError):
         # Fallback if parsing fails
         return "A1"
+
+
+def _process_content(content: bytes, artifact_type: str) -> dict:
+    """
+    Process raw content based on artifact type.
+    
+    Args:
+        content: Raw content bytes
+        artifact_type: Artifact type (pdf, repo, log, draft, etc.)
+        
+    Returns:
+        JSON-serializable dict with processed content
+    """
+    if artifact_type == "pdf":
+        try:
+            doc = fitz.open(stream=content, filetype="pdf")
+            pages = []
+            for i, page in enumerate(doc):
+                pages.append({
+                    "page_number": i + 1,
+                    "text": page.get_text()
+                })
+            return {"pages": pages}
+        except Exception as e:
+            return {"error": f"Failed to process PDF: {str(e)}"}
+            
+    elif artifact_type == "repo":
+        try:
+            # Repo content should be a JSON file tree
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return {"error": "Invalid repository content format (expected JSON)"}
+            
+    elif artifact_type == "log":
+        return {"text": content.decode("utf-8", errors="replace")}
+        
+    elif artifact_type == "draft":
+        return {"text": content.decode("utf-8", errors="replace")}
+        
+    elif artifact_type == "config":
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return {"text": content.decode("utf-8", errors="replace")}
+            
+    else:
+        # Default fallback
+        try:
+            return {"raw_content": content.decode("utf-8", errors="replace")}
+        except Exception:
+            return {"message": "Binary content cannot be displayed"}
 
 
 def _ensure_uuid(value: Any) -> UUID:
@@ -490,10 +544,10 @@ async def get_artifact_version_content(
     db=Depends(get_db_session)
 ):
     """
-    Get exact version content (required for citations).
+    Get exact version bytes (required for citations).
     
-    This endpoint returns the exact bytes for a specific version,
-    which is required for evidence/citation resolution per spec §5.8.
+    This endpoint returns the immutable raw bytes for a specific version.
+    Evidence/citations must reference this endpoint by `artifact_versions.id`.
     
     Authority: Requires artifact.read permission.
     """
@@ -519,29 +573,63 @@ async def get_artifact_version_content(
     # Check permission
     require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
     
-    # Retrieve from storage
+    # Retrieve from storage (raw bytes, no processing)
     try:
         content_stream = storage.get_object(storage_uri)
-        
-        # Determine content type based on artifact type
-        content_type_map = {
-            "pdf": "application/pdf",
-            "code": "text/plain",
-            "dataset": "application/octet-stream",
-            "log": "text/plain",
-            "draft": "text/markdown",
-            "config": "application/json"
-        }
-        content_type = content_type_map.get(artifact_type, "application/octet-stream")
-        
-        return StreamingResponse(
-            content_stream,
-            media_type=content_type,
+        content = content_stream.read()
+        computed_hash = hashlib.sha256(content).hexdigest()
+
+        # Prefer persisted content_hash, but still emit a header even if null/incorrect.
+        # (Tests and callers validate immutability by comparing bytes and the hash header.)
+        resp_hash = content_hash or computed_hash
+
+        # Content-Type is intentionally generic: many artifacts are not strongly typed.
+        return Response(
+            content=content,
+            media_type="application/octet-stream",
             headers={
-                "Content-Disposition": f'inline; filename="version-{version_id}"',
-                "X-Content-Hash": content_hash
-            }
+                "X-Content-Hash": resp_hash,
+            },
         )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve content: {str(e)}")
+
+
+@router.get("/artifact-versions/{version_id}/view")
+async def get_artifact_version_view(
+    version_id: UUID,
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
+):
+    """
+    Get a processed/parsed view of a specific version (UI convenience).
+
+    This endpoint is NOT the citation mechanism; citations must use `/content`.
+    """
+    result = db.execute(
+        """
+        SELECT av.storage_uri, av.content_hash, a.workspace_id, a.type
+        FROM artifact_versions av
+        JOIN artifacts a ON av.artifact_id = a.id
+        WHERE av.id = :version_id
+        """,
+        {"version_id": str(version_id)}
+    )
+    row = result.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Artifact version not found")
+
+    storage_uri = row[0]
+    workspace_id = _ensure_uuid(row[2])
+    artifact_type = row[3]
+
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
+
+    try:
+        content_stream = storage.get_object(storage_uri)
+        content = content_stream.read()
+        return _process_content(content, artifact_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve content: {str(e)}")
 
@@ -553,7 +641,7 @@ async def get_artifact_latest_content(
     db=Depends(get_db_session)
 ):
     """
-    Get latest version content (convenience only).
+    Get latest version bytes (convenience only).
     
     WARNING: This endpoint MUST NOT be used for evidence pointers.
     Evidence/citations must reference exact version_id via
@@ -596,31 +684,70 @@ async def get_artifact_latest_content(
     content_hash = row[2]
     version = row[3]
     
-    # Retrieve from storage
+    # Retrieve from storage (raw bytes, no processing)
     try:
         content_stream = storage.get_object(storage_uri)
-        
-        # Determine content type based on artifact type
-        content_type_map = {
-            "pdf": "application/pdf",
-            "code": "text/plain",
-            "dataset": "application/octet-stream",
-            "log": "text/plain",
-            "draft": "text/markdown",
-            "config": "application/json"
-        }
-        content_type = content_type_map.get(artifact_type, "application/octet-stream")
-        
-        return StreamingResponse(
-            content_stream,
-            media_type=content_type,
+        content = content_stream.read()
+        computed_hash = hashlib.sha256(content).hexdigest()
+        resp_hash = content_hash or computed_hash
+
+        return Response(
+            content=content,
+            media_type="application/octet-stream",
             headers={
-                "Content-Disposition": f'inline; filename="artifact-{artifact_id}-latest"',
-                "X-Content-Hash": content_hash,
-                "X-Version": str(version),
-                "X-Version-Id": version_id,
-                "X-Warning": "NOT FOR CITATIONS - use /artifact-versions/{version_id}/content"
-            }
+                "X-Content-Hash": resp_hash,
+                "X-Artifact-Version": str(version_id),
+                "X-Artifact-Version-Number": str(version),
+            },
         )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve content: {str(e)}")
+
+
+@router.get("/artifacts/{artifact_id}/view")
+async def get_artifact_latest_view(
+    artifact_id: UUID,
+    agent: AgentContext = Depends(get_current_agent),
+    db=Depends(get_db_session)
+):
+    """
+    Get processed/parsed view of the latest version (UI convenience).
+
+    This endpoint is NOT a valid evidence pointer.
+    """
+    result = db.execute(
+        "SELECT workspace_id, type FROM artifacts WHERE id = :artifact_id",
+        {"artifact_id": str(artifact_id)}
+    )
+    row = result.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    workspace_id = _ensure_uuid(row[0])
+    artifact_type = row[1]
+
+    require_permission(db, agent.agent_id, str(workspace_id), "artifact.read")
+
+    result = db.execute(
+        """
+        SELECT storage_uri
+        FROM artifact_versions
+        WHERE artifact_id = :artifact_id
+        ORDER BY version DESC
+        LIMIT 1
+        """,
+        {"artifact_id": str(artifact_id)}
+    )
+    row = result.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No versions found for artifact")
+
+    storage_uri = row[0]
+
+    try:
+        content_stream = storage.get_object(storage_uri)
+        content = content_stream.read()
+        return _process_content(content, artifact_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve content: {str(e)}")

@@ -9,16 +9,16 @@
 
 ### Issues Found and Fixed
 
-#### 1. Database Schema Mismatches ✓ FIXED
+#### 1. Legacy Seed Script Retired ✓
 **Files affected:**
-- `scripts/setup_test_data.py`
+- `scripts/setup_test_data.py` (removed)
 
-**Issues:**
-- Script was using old schema with `profile_meta` column that doesn't exist in agents table
-- Tags field was being inserted as JSON string instead of PostgreSQL array
-- Multiple table schemas didn't match (artifacts, claims, critiques, events, logs)
+**Reason:**
+- Script relied on direct DB writes and stale schema fields
 
-**Fix:** Updated setup_test_data.py to match actual database schema from migrations.
+**Replacement:**
+- `scripts/seed_research_problems.py` (creates workspaces + drafts via API)
+- `scripts/seed_research_artifacts.py` (adds PDFs via API)
 
 #### 2. Database Dependency Injection Error ✓ FIXED
 **Files affected:**
@@ -41,17 +41,15 @@
 **Fix:** Added detection for JWT tokens (pattern matching) to allow direct JWT login for testing purposes while maintaining Moltbook support for production.
 
 ### Test Data Created ✓
-- **Agent**: test_agent_001 (ID: 6cc8d045-5fbf-4d8f-91ca-59a8134ec9e6)
-- **Workspace**: Test Research Project (ID: c5a1c06c-edd8-45c0-b882-7f9271652e97)
-- **Artifacts**: 1 test PDF artifact with 1 version
-- **Claims**: 2 test claims (1 fact, 1 hypothesis) with evidence pointers
-- **Critiques**: 2 test critiques linked to claims
-- **Events**: 3 test events (workspace_created, phase_entered, claim_added)
-- **Logs**: 3 test logs
+- **Workspaces**: 5 research workspaces seeded via API
+- **Drafts**: 1 draft + version per workspace
+- **Artifacts**: Optional PDFs via `scripts/seed_research_artifacts.py`
 
 ### Test JWT Token for UI Testing
-```
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2Y2M4ZDA0NS01ZmJmLTRkOGYtOTFjYS01OWE4MTM0ZWM5ZTYiLCJ0eXBlIjoiYWdlbnQiLCJhdWQiOiJhZ29yYTphZ2VudC1hcGkiLCJpc3MiOiJhZ29yYS1jb3JlLWFwaSIsImlhdCI6MTc3MDExNzk0NywiZXhwIjoxNzcwMjA0MzQ3LCJtb2x0Ym9va19pZCI6InRlc3RfYWdlbnRfMDAxIiwicmVwdXRhdGlvbiI6MTAwfQ.2N1kq53Cb18L3E2EugSKrYI53IWhSdnKbIa-ep8gkgk
+Use a debug Moltbook token and the login form, or create a JWT via `/auth/moltbook`:
+```bash
+curl -sS -X POST http://localhost:8000/auth/moltbook \
+  -H "X-Moltbook-Identity: debug-token-clawdbot"
 ```
 
 ## Complete Run & Test Plan
@@ -117,7 +115,7 @@ docker exec agora-postgres psql -U agora -d agora -c "\dt" | grep -E "agents|wor
 cd packages/db && python3 migrations/002_seed_roles.py && cd ../..
 
 # Create test data (agents, workspaces, claims, artifacts)
-python3 scripts/setup_test_data.py
+python3 scripts/seed_research_problems.py
 # Expected: "Test data created successfully"
 
 # Verify test data exists
@@ -166,7 +164,7 @@ cd packages/db && pip3 install -r requirements.txt && cd ../..
 cd packages/db && python3 -m db.migrate up && cd ../..
 
 # Create test data (agents, workspaces, claims, artifacts)
-python3 scripts/setup_test_data.py
+python3 scripts/seed_research_problems.py
 
 # Generate test JWT token
 python3 scripts/generate_test_token.py
@@ -389,7 +387,7 @@ curl -s -w "\nHTTP Status: %{http_code}\n" \
 - [ ] Test auth endpoint directly: `curl -X POST http://localhost:8000/auth/agent -H "Authorization: Bearer $TEST_JWT"`
 
 **If Data doesn't display:**
-- [ ] Verify test data was created: `python3 scripts/setup_test_data.py`
+- [ ] Verify test data was created: `python3 scripts/seed_research_problems.py`
 - [ ] Check database has data: `docker exec agora-postgres psql -U agora -d agora -c "SELECT COUNT(*) FROM workspaces;"`
 - [ ] Check API endpoints return data: Use http://localhost:8000/docs to test
 - [ ] Review browser Network tab (F12 > Network) for failed requests
@@ -495,7 +493,7 @@ open http://localhost:9001
 - [ ] Verify test agent exists in database
 
 **If Data doesn't display:**
-- [ ] Verify test data was created: `python3 scripts/setup_test_data.py`
+- [ ] Verify test data was created: `python3 scripts/seed_research_problems.py`
 - [ ] Check API endpoints return data: Use /docs to test
 - [ ] Review browser Network tab for failed requests
 - [ ] Check CORS headers are present
@@ -539,7 +537,7 @@ docker-compose down -v
 docker-compose up -d
 sleep 10
 cd /Users/nirtzur/Documents/projects/AGORA
-python3 scripts/setup_test_data.py
+python3 scripts/seed_research_problems.py
 ```
 
 ### Complete Test Coverage Matrix
@@ -681,7 +679,7 @@ This tests all major API endpoints with the test JWT token.
 
 ### Utility Scripts
 
-- `scripts/setup_test_data.py` - Creates test data
+- `scripts/seed_research_problems.py` - Creates test data
 - `scripts/generate_test_token.py` - Generates JWT for testing
 - `scripts/test_web_app.py` - Automated API endpoint tests
 
@@ -753,7 +751,7 @@ Before considering the system production-ready, ensure:
 # Full reset (nuclear option - loses all data)
 cd /Users/nirtzur/Documents/projects/AGORA/infra
 docker-compose down -v && docker-compose up -d
-cd .. && python3 scripts/setup_test_data.py
+cd .. && python3 scripts/seed_research_problems.py
 
 # Restart just application services
 pkill -f "apps/(core-api|worker)/main.py"

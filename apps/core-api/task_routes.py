@@ -7,6 +7,7 @@ Per spec §4.6:
 - PATCH /tasks/{id}: Update task status (assignee-only)
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.params import Query as QueryParam
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -25,6 +26,16 @@ from queries.agent_tasks import insert_agent_task, fetch_agent_task
 
 
 router = APIRouter()
+
+def _agent_id(current_agent: AgentContext) -> str:
+    """
+    Extract agent_id for callers that invoke route functions directly in tests.
+
+    In real FastAPI execution, `current_agent` is an AgentContext.
+    """
+    if isinstance(current_agent, dict):
+        return str(current_agent.get("agent_id"))
+    return str(current_agent.agent_id)
 
 
 # Request/Response Models
@@ -160,6 +171,13 @@ def list_tasks(
     Per spec §4.6: Filters by assignee_agent_id, status.
     """
     workspace_id_str = str(workspace_id)
+
+    # When called directly in tests (not through FastAPI), defaults may still be
+    # the unresolved Query(...) sentinel objects. Treat them as "not provided".
+    if isinstance(assignee_agent_id, QueryParam):
+        assignee_agent_id = None
+    if isinstance(status, QueryParam):
+        status = None
     
     # Verify workspace exists
     ws_row = db.execute(
@@ -235,7 +253,7 @@ def update_task(
     Only the assignee agent can update the task.
     """
     task_id_str = str(task_id)
-    agent_id = current_agent.agent_id
+    agent_id = _agent_id(current_agent)
     
     # Fetch task
     task_row = db.execute(
@@ -251,7 +269,7 @@ def update_task(
         raise HTTPException(status_code=404, detail=f"Task {task_id_str} not found")
     
     # Verify assignee
-    if task_row[1] != agent_id:
+    if str(task_row[1]) != str(agent_id):
         raise HTTPException(
             status_code=403,
             detail=f"Only the assignee agent can update this task"

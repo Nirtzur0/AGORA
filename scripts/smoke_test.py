@@ -3,11 +3,13 @@
 Simple end-to-end smoke test for AGORA system.
 Tests basic functionality without complex test dependencies.
 """
+import os
 import requests
 import json
 import sys
 
 BASE_URL = "http://localhost:8000"
+MOLTBOOK_IDENTITY = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
 
 def test_health():
     """Test health endpoint."""
@@ -23,10 +25,10 @@ def test_auth_flow():
     print("\nTesting authentication...")
     
     # Try to authenticate with Moltbook adapter
-    # Note: This will fail if Moltbook is not properly configured, but we can check the response
     response = requests.post(
         f"{BASE_URL}/auth/moltbook",
-        json={"moltbook_identity_token": "test_token_123"}
+        headers={"X-Moltbook-Identity": MOLTBOOK_IDENTITY},
+        timeout=5
     )
     
     # We expect either success or a proper error response
@@ -35,7 +37,7 @@ def test_auth_flow():
     
     if response.status_code == 200:
         print("✓ Authentication successful")
-        return response.json().get("access_token")
+        return response.json().get("agent_session_jwt")
     else:
         print("⚠ Authentication failed (expected if Moltbook not configured)")
         return None

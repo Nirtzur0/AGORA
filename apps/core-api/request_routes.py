@@ -9,7 +9,8 @@ Per spec §4.15:
 
 All endpoints start workflows/activities and return tracking IDs.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi.params import Header as HeaderParam
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from pathlib import Path
@@ -19,6 +20,7 @@ import json
 
 from database import DBWrapper, get_db_session
 from auth_middleware import require_agent_token, require_system_token, AgentContext, SystemContext
+from idempotency import check_idempotency, store_idempotency_result
 
 
 router = APIRouter()
@@ -29,6 +31,16 @@ def _ensure_worker_path() -> None:
     worker_path_str = str(worker_path)
     if worker_path_str not in sys.path:
         sys.path.insert(0, worker_path_str)
+
+def _agent_id(current_agent: AgentContext) -> str:
+    """
+    Extract agent_id for callers that invoke route functions directly in tests.
+
+    In real FastAPI execution, `current_agent` is an AgentContext.
+    """
+    if isinstance(current_agent, dict):
+        return str(current_agent.get("agent_id"))
+    return str(current_agent.agent_id)
 
 
 # Request/Response Models
@@ -101,7 +113,8 @@ async def request_ingest_pdf(
     workspace_id: uuid.UUID,
     request: IngestPdfRequest,
     current_agent: AgentContext = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db_session)
+    db: DBWrapper = Depends(get_db_session),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     Start literature_grounding workflow to ingest PDF.
@@ -112,6 +125,11 @@ async def request_ingest_pdf(
     - Returns tracking IDs for monitoring
     """
     workspace_id_str = str(workspace_id)
+
+    # When calling route functions directly (tests), FastAPI Header defaults are not resolved and
+    # we receive the Header() sentinel object. Treat it as "not provided".
+    if isinstance(idempotency_key, HeaderParam):
+        idempotency_key = None
     
     # Verify workspace exists
     ws_row = db.execute(
@@ -147,7 +165,28 @@ async def request_ingest_pdf(
             detail=f"Artifact {request.artifact_id} is not a PDF (type={artifact_row[1]})"
         )
     
-    # Note: We rely on Idempotency-Key for deduplication; do not short-circuit on existing versions.
+    # Idempotency on agent writes (schema-backed). This dedupes the *request* to ingest,
+    # not the existence of versions in storage.
+    agent_id = _agent_id(current_agent)
+    if not agent_id:
+        # In normal FastAPI execution, require_agent_token guarantees this.
+        raise HTTPException(status_code=401, detail="Missing agent context")
+
+    if idempotency_key and agent_id:
+        existing = await check_idempotency(
+            idempotency_key=idempotency_key,
+            agent_id=agent_id,
+            request_name="request.ingest_pdf",
+            db=db,
+            workspace_id=workspace_id_str,
+        )
+        if existing:
+            return IngestPdfResponse(
+                request_id=str(existing["result_id"]),
+                workflow_run_id=str(existing["result_id"]),
+                artifact_id=request.artifact_id,
+                message="PDF ingestion request already processed (idempotent).",
+            )
     
     # Start literature_grounding workflow
     _ensure_worker_path()
@@ -158,14 +197,25 @@ async def request_ingest_pdf(
             workspace_id=workspace_id_str,
             artifact_id=request.artifact_id,
             db=db,
-            created_by=current_agent.agent_id
+            created_by=agent_id
         )
         
-        request_id = str(uuid.uuid4())
+        workflow_run_id = result["workflow_run_id"]
+
+        if idempotency_key and agent_id:
+            await store_idempotency_result(
+                idempotency_key=idempotency_key,
+                workspace_id=workspace_id_str,
+                agent_id=agent_id,
+                request_name="request.ingest_pdf",
+                result_type="workflow_run",
+                result_id=workflow_run_id,
+                db=db,
+            )
         
         return IngestPdfResponse(
-            request_id=request_id,
-            workflow_run_id=result["workflow_run_id"],
+            request_id=workflow_run_id,
+            workflow_run_id=workflow_run_id,
             artifact_id=request.artifact_id,
             message=f"Literature grounding workflow started. Task {result['task_id']} created for claim extraction."
         )
@@ -220,7 +270,7 @@ async def request_ingest_repo(
         return IngestRepoResponse(
             request_id=str(uuid.uuid4()),
             activity_run_id="existing",
-            artifact_id=existing_artifact[0],
+            artifact_id=str(existing_artifact[0]),
             message=f"Repository already ingested at commit {request.commit_hash}"
         )
     
@@ -240,7 +290,7 @@ async def request_ingest_repo(
             "type": "code",
             "metadata": json.dumps({"repo_url": request.repo_url}),
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{artifact_id}/",
-            "created_by": current_agent.agent_id
+            "created_by": _agent_id(current_agent)
         }
     )
     
@@ -292,7 +342,7 @@ async def request_ingest_repo(
             artifact_id=artifact_id,
             workspace_id=workspace_id_str,
             repo_url=request.repo_url,
-            created_by=current_agent.agent_id,
+            created_by=_agent_id(current_agent),
             branch=request.branch,
             commit_hash=request.commit_hash,
             activity_run_id=activity_run_id
@@ -480,7 +530,7 @@ async def request_run_sandbox(
                 }
             ),
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
-            "created_by": current_agent.agent_id
+            "created_by": _agent_id(current_agent)
         }
     )
     
@@ -516,7 +566,7 @@ async def request_run_sandbox(
             workspace_id=workspace_id_str,
             script_artifact_id=request.script_artifact_id,
             parameters=request.parameters,
-            created_by=current_agent.agent_id,
+            created_by=_agent_id(current_agent),
             activity_run_id=activity_run_id,
             image=request.image or "python:3.11-slim",
             timeout_seconds=request.timeout_seconds or 300,

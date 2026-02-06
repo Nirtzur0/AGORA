@@ -107,11 +107,21 @@ async def get_system_context(
             headers={"WWW-Authenticate": "Bearer"}
         )
     except pyjwt.InvalidTokenError as e:
-        raise HTTPException(
-            status_code=401,
-            detail={"error": "INVALID_TOKEN", "message": str(e)},
-            headers={"WWW-Authenticate": "Bearer"}
-        )
+        # If this is a valid *agent* token, return 403 (system-only endpoint).
+        try:
+            verify_agent_token(credentials.credentials)
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "FORBIDDEN", "message": "Agent tokens cannot access system-only endpoints"},
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=401,
+                detail={"error": "INVALID_TOKEN", "message": str(e)},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
 
 async def get_optional_agent_context(

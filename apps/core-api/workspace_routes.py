@@ -94,12 +94,15 @@ def emit_event(db, workspace_id: str, actor_type: str, actor_id: str, event_type
     event_id = str(uuid.uuid4())
     # Ensure payload is JSON-serializable (e.g., UUIDs -> strings)
     safe_payload = json.loads(json.dumps(payload, default=str))
-    # Ensure actor_id is a UUID string (system events may not have a natural UUID)
-    if actor_type == "system":
+    # events.actor_id is UUID in Postgres. Agents have natural UUIDs; system
+    # components may use stable string identifiers, so map deterministically.
+    if actor_type == "agent":
+        actor_id = str(uuid.UUID(str(actor_id)))
+    else:
         try:
             actor_id = str(uuid.UUID(str(actor_id)))
         except Exception:
-            actor_id = str(uuid.UUID(int=0))
+            actor_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"agora-system:{actor_id}"))
     
     db.execute(
         """

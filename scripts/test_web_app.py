@@ -8,7 +8,21 @@ import os
 import sys
 
 BASE_URL = "http://localhost:8000"
-TOKEN = os.getenv("TEST_JWT") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2Y2M4ZDA0NS01ZmJmLTRkOGYtOTFjYS01OWE4MTM0ZWM5ZTYiLCJ0eXBlIjoiYWdlbnQiLCJhdWQiOiJhZ29yYTphZ2VudC1hcGkiLCJpc3MiOiJhZ29yYS1jb3JlLWFwaSIsImlhdCI6MTc3MDExNzk0NywiZXhwIjoxNzcwMjA0MzQ3LCJtb2x0Ym9va19pZCI6InRlc3RfYWdlbnRfMDAxIiwicmVwdXRhdGlvbiI6MTAwfQ.2N1kq53Cb18L3E2EugSKrYI53IWhSdnKbIa-ep8gkgk"
+MOLTBOOK_IDENTITY = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
+TOKEN = os.getenv("TEST_JWT")
+
+
+def get_token():
+    if TOKEN:
+        return TOKEN
+
+    response = requests.post(
+        f"{BASE_URL}/auth/moltbook",
+        headers={"X-Moltbook-Identity": MOLTBOOK_IDENTITY},
+        timeout=5
+    )
+    response.raise_for_status()
+    return response.json()["agent_session_jwt"]
 
 def test_endpoint(name, method, path, expected_status=200):
     """Test an API endpoint."""
@@ -16,7 +30,7 @@ def test_endpoint(name, method, path, expected_status=200):
     print(f"Testing: {name}")
     print(f"{'='*60}")
     
-    headers = {"Authorization": f"Bearer {TOKEN}"}
+    headers = {"Authorization": f"Bearer {get_token()}"}
     
     try:
         if method == "GET":

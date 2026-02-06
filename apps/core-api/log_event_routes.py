@@ -62,6 +62,28 @@ class EventResponse(BaseModel):
     created_at: str
 
 
+def _coerce_event_actor_id(actor_type: str, actor_id: str) -> str:
+    """
+    events.actor_id is stored as UUID in Postgres.
+
+    Agents have natural UUIDs. System components may provide a stable string
+    identifier (e.g., "worker-1"); map it deterministically to a UUID.
+    """
+    import uuid as _uuid
+
+    if actor_type == "agent":
+        try:
+            return str(_uuid.UUID(str(actor_id)))
+        except Exception:
+            raise HTTPException(status_code=422, detail="actor_id must be a UUID when actor_type='agent'")
+
+    # actor_type == "system"
+    try:
+        return str(_uuid.UUID(str(actor_id)))
+    except Exception:
+        return str(_uuid.uuid5(_uuid.NAMESPACE_URL, f"agora-system:{actor_id}"))
+
+
 @router.post("/workspaces/{workspace_id}/logs", status_code=201)
 async def create_log(
     workspace_id: UUID,
@@ -216,6 +238,7 @@ async def create_event(
     # Create event entry
     event_id = uuid4()
     created_at = datetime.utcnow()
+    actor_id_uuid = _coerce_event_actor_id(req.actor_type, req.actor_id)
     
     db.execute(
         """
@@ -226,7 +249,7 @@ async def create_event(
             "id": str(event_id),
             "workspace_id": str(workspace_id),
             "actor_type": req.actor_type,
-            "actor_id": req.actor_id,
+            "actor_id": actor_id_uuid,
             "event_type": req.event_type,
             "payload": req.payload,
             "created_at": created_at
@@ -239,7 +262,7 @@ async def create_event(
         "id": str(event_id),
         "workspace_id": str(workspace_id),
         "actor_type": req.actor_type,
-        "actor_id": req.actor_id,
+        "actor_id": actor_id_uuid,
         "event_type": req.event_type,
         "payload": req.payload,
         "created_at": created_at.isoformat()
