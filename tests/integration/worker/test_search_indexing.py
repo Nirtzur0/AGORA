@@ -18,7 +18,7 @@ from apps.worker.indexing_activities import index_artifact_content, index_pdf_te
 # Fixtures
 
 @pytest.fixture
-def test_db():
+def test_db(migrated_db):
     """
     Create a worker-style DB connection.
 

@@ -70,7 +70,7 @@ def _cleanup_workspace(db, workspace_id: str, agent_ids: list[str]) -> None:
 
 
 @pytest.fixture
-def db():
+def db(migrated_db):
     from apps.worker.database import get_db_connection
 
     conn = get_db_connection()
