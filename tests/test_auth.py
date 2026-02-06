@@ -10,17 +10,10 @@ Tests:
 """
 
 import pytest
-import requests
 import jwt as pyjwt
 from datetime import datetime, timedelta
 import json
 import time
-
-
-@pytest.fixture(scope="module")
-def api_base(core_api_url):
-    """Base URL for Core API."""
-    return core_api_url
 
 
 @pytest.fixture(scope="module")
@@ -29,9 +22,9 @@ def moltbook_base(moltbook_adapter_url):
     return moltbook_adapter_url
 
 
-def test_auth_instructions_endpoint(api_base):
+def test_auth_instructions_endpoint(test_client):
     """GET /auth.md returns machine-readable auth instructions."""
-    response = requests.get(f"{api_base}/auth.md")
+    response = test_client.get("/auth.md")
     
     assert response.status_code == 200
     data = response.json()
@@ -61,28 +54,25 @@ def test_auth_instructions_endpoint(api_base):
     assert "moltbook_identity_token" in body_auth["body"]
 
 
-def test_auth_moltbook_missing_header(api_base):
+def test_auth_moltbook_missing_header(test_client):
     """POST /auth/moltbook without X-Moltbook-Identity returns 422."""
-    response = requests.post(f"{api_base}/auth/moltbook")
+    response = test_client.post("/auth/moltbook")
     
     # FastAPI returns 422 for missing required headers
     assert response.status_code == 422
 
 
-def test_auth_verify_missing_token(api_base):
+def test_auth_verify_missing_token(test_client):
     """POST /auth/verify without token returns 422."""
-    response = requests.post(f"{api_base}/auth/verify", json={})
+    response = test_client.post("/auth/verify", json={})
     
     # FastAPI returns 422 for missing required fields
     assert response.status_code == 422
 
 
-def test_auth_verify_invalid_token(api_base):
+def test_auth_verify_invalid_token(test_client):
     """POST /auth/verify with invalid token returns 401 or 503."""
-    response = requests.post(
-        f"{api_base}/auth/verify",
-        json={"moltbook_identity_token": "invalid-token-12345"}
-    )
+    response = test_client.post("/auth/verify", json={"moltbook_identity_token": "invalid-token-12345"})
     
     # Either invalid token (401) or Moltbook unavailable (503)
     assert response.status_code in [401, 503]
@@ -91,41 +81,35 @@ def test_auth_verify_invalid_token(api_base):
     assert "error" in data or "detail" in data
 
 
-def test_agents_me_without_auth(api_base):
+def test_agents_me_without_auth(test_client):
     """GET /agents/me without auth returns 401."""
-    response = requests.get(f"{api_base}/agents/me")
+    response = test_client.get("/agents/me")
     
     assert response.status_code == 401
 
 
-def test_agents_me_with_invalid_token(api_base):
+def test_agents_me_with_invalid_token(test_client):
     """GET /agents/me with invalid token returns 401."""
-    response = requests.get(
-        f"{api_base}/agents/me",
-        headers={"Authorization": "Bearer invalid-token"}
-    )
+    response = test_client.get("/agents/me", headers={"Authorization": "Bearer invalid-token"})
     
     assert response.status_code == 401
     data = response.json()
     assert "error" in data["detail"] or "detail" in data
 
 
-def test_agent_context_without_auth(api_base):
+def test_agent_context_without_auth(test_client):
     """GET /agent/context without auth returns 401."""
-    response = requests.get(
-        f"{api_base}/agent/context",
-        params={"workspace_id": "00000000-0000-0000-0000-000000000000"}
-    )
+    response = test_client.get("/agent/context", params={"workspace_id": "00000000-0000-0000-0000-000000000000"})
     
     assert response.status_code == 401
 
 
-def test_agent_context_with_invalid_token(api_base):
+def test_agent_context_with_invalid_token(test_client):
     """GET /agent/context with invalid token returns 401."""
-    response = requests.get(
-        f"{api_base}/agent/context",
+    response = test_client.get(
+        "/agent/context",
         params={"workspace_id": "00000000-0000-0000-0000-000000000000"},
-        headers={"Authorization": "Bearer invalid-token"}
+        headers={"Authorization": "Bearer invalid-token"},
     )
     
     assert response.status_code == 401

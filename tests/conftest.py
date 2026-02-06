@@ -6,6 +6,7 @@ All tests run via pytest from the repository root.
 
 import os
 import sys
+import subprocess
 import pytest
 from pathlib import Path
 from sqlalchemy import text as sql_text
@@ -48,7 +49,53 @@ MINIO_BUCKET = os.getenv("MINIO_BUCKET", "agora")
 MOLTBOOK_ADAPTER_URL = os.getenv("MOLTBOOK_ADAPTER_URL", "http://localhost:3001")
 
 # Core API configuration
-CORE_API_URL = os.getenv("CORE_API_URL", "http://localhost:8000")
+CORE_API_URL = os.getenv("CORE_API_URL")  # optional override; defaults to in-process TestClient
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _ensure_test_db_migrated():
+    """
+    Ensure the TEST_DATABASE_URL exists and is migrated before any tests run.
+
+    Some tests use direct worker DB sessions and do not go through the db_session
+    fixture, so migration must be guaranteed globally.
+    """
+    # Create database if missing (connect to postgres maintenance DB).
+    import re
+    import psycopg2
+    from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+    m = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.*)", TEST_DATABASE_URL)
+    if not m:
+        raise RuntimeError(f"Invalid TEST_DATABASE_URL: {TEST_DATABASE_URL}")
+    user, password, host, port, dbname = m.groups()
+
+    conn = psycopg2.connect(host=host, port=int(port), database="postgres", user=user, password=password)
+    try:
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+        exists = cur.fetchone() is not None
+        if not exists:
+            cur.execute(f"CREATE DATABASE {dbname}")
+    finally:
+        conn.close()
+
+    # Run migrations against the test database.
+    original = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    try:
+        # The migration runner binds DATABASE_URL at import time; force it to the
+        # test DB even if another test/module imported it earlier.
+        import importlib
+        migrate = importlib.import_module("migrate")
+        migrate.DATABASE_URL = TEST_DATABASE_URL
+        migrate.migrate_up()
+    finally:
+        if original is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = original
 
 
 @pytest.fixture(scope="session")
@@ -76,8 +123,34 @@ def moltbook_adapter_url():
 
 @pytest.fixture(scope="session")
 def core_api_url():
-    """Core API URL for integration tests."""
-    return CORE_API_URL
+    """Core API URL for integration tests (session-scoped)."""
+    # If caller provided an explicit CORE_API_URL, respect it. Otherwise, tests
+    # should use the in-process `test_client` fixture (preferred).
+    return CORE_API_URL or "http://testserver"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _shutdown_core_api_server():
+    """
+    Back-compat fixture: older versions spawned uvicorn and needed cleanup.
+    Core API is now exercised via in-process TestClient for determinism.
+    """
+    yield
+
+
+@pytest.fixture(scope="session")
+def core_api_app():
+    """
+    In-process FastAPI app instance.
+
+    This avoids subprocess + readiness polling, while still exercising:
+    routing, auth middleware, request parsing, and persistence.
+    """
+    # If users explicitly want to target a running server (CORE_API_URL), they
+    # can bypass this fixture and use requests directly.
+    from main import app
+
+    return app
 
 
 class SessionWrapper:
@@ -237,36 +310,52 @@ def storage(test_storage):
 
 
 @pytest.fixture
-def test_client(core_api_url):
+def test_client(core_api_url, core_api_app):
     """
     Test HTTP client for Core API.
     
-    Provides a requests-like client configured to call the Core API.
+    Preferred: an in-process client (deterministic, no port conflicts).
+    If CORE_API_URL is set, falls back to making real HTTP calls to that server.
     """
     import requests
-    
-    class APIClient:
-        def __init__(self, base_url):
-            self.base_url = base_url.rstrip("/")
-            self.session = requests.Session()
-        
+    from fastapi.testclient import TestClient
+
+    if CORE_API_URL:
+        class RequestsAPIClient:
+            def __init__(self, base_url: str):
+                self.base_url = base_url.rstrip("/")
+                self.session = requests.Session()
+
+            def get(self, path, **kwargs):
+                return self.session.get(f"{self.base_url}{path}", **kwargs)
+
+            def post(self, path, **kwargs):
+                return self.session.post(f"{self.base_url}{path}", **kwargs)
+
+            def patch(self, path, **kwargs):
+                return self.session.patch(f"{self.base_url}{path}", **kwargs)
+
+            def delete(self, path, **kwargs):
+                return self.session.delete(f"{self.base_url}{path}", **kwargs)
+
+        return RequestsAPIClient(CORE_API_URL)
+
+    client = TestClient(core_api_app)
+
+    class InProcessAPIClient:
         def get(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.get(url, **kwargs)
-        
+            return client.get(path, **kwargs)
+
         def post(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.post(url, **kwargs)
-        
+            return client.post(path, **kwargs)
+
         def patch(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.patch(url, **kwargs)
-        
+            return client.patch(path, **kwargs)
+
         def delete(self, path, **kwargs):
-            url = f"{self.base_url}{path}"
-            return self.session.delete(url, **kwargs)
-    
-    return APIClient(core_api_url)
+            return client.delete(path, **kwargs)
+
+    return InProcessAPIClient()
 
 
 @pytest.fixture

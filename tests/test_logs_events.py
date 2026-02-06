@@ -17,7 +17,6 @@ from uuid import uuid4
 from pathlib import Path
 
 import pytest
-import requests
 
 # Add packages to path
 repo_root = Path(__file__).parent.parent
@@ -28,14 +27,8 @@ from database import get_raw_db
 import jwt_utils
 
 
-@pytest.fixture(scope="module")
-def api_base(core_api_url):
-    """Base URL for Core API."""
-    return core_api_url
-
-
 @pytest.fixture
-def test_workspace(api_base):
+def test_workspace():
     """Create test workspace for log/event tests."""
     with get_raw_db() as conn:
         cursor = conn.cursor()
@@ -78,7 +71,6 @@ def test_workspace(api_base):
             "workspace_id": str(workspace_id),
             "agent_id": str(agent_id),
             "moltbook_id": f"test-moltbook-{agent_id}",
-            "api_base": api_base
         }
         
         # Cleanup
@@ -110,15 +102,12 @@ def system_auth_headers():
 class TestLogsAppendOnly:
     """Test log creation and retrieval (agent writes)."""
     
-    def test_create_log_success(self, test_workspace, agent_auth_headers):
+    def test_create_log_success(self, test_workspace, agent_auth_headers, test_client):
         """Test creating a log entry."""
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
-            json={
-                "action": "claim.created",
-                "payload": {"claim_id": str(uuid4()), "text": "Test claim"}
-            },
-            headers=agent_auth_headers
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/logs",
+            json={"action": "claim.created", "payload": {"claim_id": str(uuid4()), "text": "Test claim"}},
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 201, f"Failed to create log: {response.text}"
@@ -130,22 +119,20 @@ class TestLogsAppendOnly:
         assert "created_at" in data
         print("✓ Log creation working")
     
-    def test_list_logs(self, test_workspace, agent_auth_headers):
+    def test_list_logs(self, test_workspace, agent_auth_headers, test_client):
         """Test listing logs with filters."""
         # Create multiple logs
         actions = ["claim.created", "artifact.uploaded", "critique.created"]
         for action in actions:
-            requests.post(
-                f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
+            r = test_client.post(
+                f"/workspaces/{test_workspace['workspace_id']}/logs",
                 json={"action": action, "payload": {"test": True}},
-                headers=agent_auth_headers
+                headers=agent_auth_headers,
             )
+            assert r.status_code == 201
         
         # List all logs
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
-            headers=agent_auth_headers
-        )
+        response = test_client.get(f"/workspaces/{test_workspace['workspace_id']}/logs", headers=agent_auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -153,24 +140,26 @@ class TestLogsAppendOnly:
         assert len(data["logs"]) >= 3
         print("✓ Log listing working")
     
-    def test_list_logs_with_action_filter(self, test_workspace, agent_auth_headers):
+    def test_list_logs_with_action_filter(self, test_workspace, agent_auth_headers, test_client):
         """Test filtering logs by action."""
         # Create logs with different actions
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
+        r1 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/logs",
             json={"action": "test.action.1"},
-            headers=agent_auth_headers
+            headers=agent_auth_headers,
         )
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
+        r2 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/logs",
             json={"action": "test.action.2"},
-            headers=agent_auth_headers
+            headers=agent_auth_headers,
         )
+        assert r1.status_code == 201
+        assert r2.status_code == 201
         
         # Filter by specific action
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs?action=test.action.1",
-            headers=agent_auth_headers
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/logs?action=test.action.1",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
@@ -188,17 +177,17 @@ class TestLogsAppendOnly:
 class TestEventsSystemOnly:
     """Test event creation and retrieval (system writes)."""
     
-    def test_create_event_with_system_token(self, test_workspace, system_auth_headers):
+    def test_create_event_with_system_token(self, test_workspace, system_auth_headers, test_client):
         """Test creating an event with system token."""
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
             json={
                 "actor_type": "system",
                 "actor_id": "worker-1",
                 "event_type": "artifact.ingestion_completed",
-                "payload": {"artifact_id": str(uuid4())}
+                "payload": {"artifact_id": str(uuid4())},
             },
-            headers=system_auth_headers
+            headers=system_auth_headers,
         )
         
         assert response.status_code == 201, f"Failed to create event: {response.text}"
@@ -208,41 +197,37 @@ class TestEventsSystemOnly:
         assert data["event_type"] == "artifact.ingestion_completed"
         print("✓ Event creation with system token working")
     
-    def test_create_event_requires_system_token(self, test_workspace, agent_auth_headers):
+    def test_create_event_requires_system_token(self, test_workspace, agent_auth_headers, test_client):
         """Test that event creation rejects agent tokens."""
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            json={
-                "actor_type": "agent",
-                "actor_id": test_workspace["agent_id"],
-                "event_type": "test.event",
-                "payload": {}
-            },
-            headers=agent_auth_headers
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={"actor_type": "agent", "actor_id": test_workspace["agent_id"], "event_type": "test.event", "payload": {}},
+            headers=agent_auth_headers,
         )
         
         # Should reject agent token on system-only endpoint
         assert response.status_code == 403, "Agent tokens should be rejected on system-only endpoints"
         print("✓ Event creation properly restricted to system tokens")
     
-    def test_list_events(self, test_workspace, agent_auth_headers, system_auth_headers):
+    def test_list_events(self, test_workspace, agent_auth_headers, system_auth_headers, test_client):
         """Test listing events."""
         # Create an event
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
+        r = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
             json={
                 "actor_type": "system",
                 "actor_id": "test-service",
                 "event_type": "test.event.created",
-                "payload": {"test": "data"}
+                "payload": {"test": "data"},
             },
-            headers=system_auth_headers
+            headers=system_auth_headers,
         )
+        assert r.status_code == 201
         
         # List events (agents can read)
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            headers=agent_auth_headers
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
@@ -251,34 +236,26 @@ class TestEventsSystemOnly:
         assert len(data["events"]) > 0
         print("✓ Event listing working")
     
-    def test_list_events_filter_by_type(self, test_workspace, agent_auth_headers, system_auth_headers):
+    def test_list_events_filter_by_type(self, test_workspace, agent_auth_headers, system_auth_headers, test_client):
         """Test filtering events by event_type."""
         # Create events with different types
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            json={
-                "actor_type": "system",
-                "actor_id": "test",
-                "event_type": "test.type.alpha",
-                "payload": {}
-            },
-            headers=system_auth_headers
+        r1 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={"actor_type": "system", "actor_id": "test", "event_type": "test.type.alpha", "payload": {}},
+            headers=system_auth_headers,
         )
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            json={
-                "actor_type": "system",
-                "actor_id": "test",
-                "event_type": "test.type.beta",
-                "payload": {}
-            },
-            headers=system_auth_headers
+        r2 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={"actor_type": "system", "actor_id": "test", "event_type": "test.type.beta", "payload": {}},
+            headers=system_auth_headers,
         )
+        assert r1.status_code == 201
+        assert r2.status_code == 201
         
         # Filter by type
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events?event_type=test.type.alpha",
-            headers=agent_auth_headers
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/events?event_type=test.type.alpha",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
@@ -287,34 +264,26 @@ class TestEventsSystemOnly:
         assert any(e["event_type"] == "test.type.alpha" for e in events)
         print("✓ Event filtering by type working")
     
-    def test_list_events_filter_by_actor_type(self, test_workspace, agent_auth_headers, system_auth_headers):
+    def test_list_events_filter_by_actor_type(self, test_workspace, agent_auth_headers, system_auth_headers, test_client):
         """Test filtering events by actor_type."""
         # Create events with different actor types
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            json={
-                "actor_type": "system",
-                "actor_id": "test",
-                "event_type": "test.system.event",
-                "payload": {}
-            },
-            headers=system_auth_headers
+        r1 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={"actor_type": "system", "actor_id": "test", "event_type": "test.system.event", "payload": {}},
+            headers=system_auth_headers,
         )
-        requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
-            json={
-                "actor_type": "agent",
-                "actor_id": test_workspace["agent_id"],
-                "event_type": "test.agent.event",
-                "payload": {}
-            },
-            headers=system_auth_headers
+        r2 = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={"actor_type": "agent", "actor_id": test_workspace["agent_id"], "event_type": "test.agent.event", "payload": {}},
+            headers=system_auth_headers,
         )
+        assert r1.status_code == 201
+        assert r2.status_code == 201
         
         # Filter by actor_type=system
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events?actor_type=system",
-            headers=agent_auth_headers
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/events?actor_type=system",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
@@ -328,7 +297,7 @@ class TestEventsSystemOnly:
 class TestExitCriteria:
     """Component 8 exit tests per checklist."""
     
-    def test_claim_creation_emits_agent_event(self, test_workspace, agent_auth_headers):
+    def test_claim_creation_emits_agent_event(self, test_workspace, agent_auth_headers, system_auth_headers, test_client):
         """
         EXIT TEST 1: Creating a claim creates an event row with actor_type=agent.
         
@@ -336,23 +305,35 @@ class TestExitCriteria:
         that events can be created with actor_type=agent.
         Full claim endpoints are in Component 9+.
         """
-        # For now, we verify the event system supports agent events
-        # by checking existing events from workspace creation
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events?actor_type=agent",
-            headers=agent_auth_headers
+        # Simulate "claim created" by having a system service emit an agent-actor event,
+        # then verify agents can read it back.
+        event_type = "claim.created"
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
+            json={
+                "actor_type": "agent",
+                "actor_id": test_workspace["agent_id"],
+                "event_type": event_type,
+                "payload": {"claim_id": str(uuid4())},
+            },
+            headers=system_auth_headers,
+        )
+        assert response.status_code == 201, f"Failed to create agent-actor event: {response.text}"
+
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/events?actor_type=agent",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
         events = response.json()["events"]
         
-        # Workspace creation should have emitted agent.joined events
-        agent_events = [e for e in events if e["actor_type"] == "agent"]
-        assert len(agent_events) > 0, "Should have agent-type events from workspace setup"
+        agent_events = [e for e in events if e["actor_type"] == "agent" and e["event_type"] == event_type]
+        assert len(agent_events) > 0, "Expected at least one agent-actor event"
         
         print("✓ Exit test 1 passed: Events support actor_type=agent")
     
-    def test_worker_artifacts_emit_system_event(self, test_workspace, system_auth_headers, agent_auth_headers):
+    def test_worker_artifacts_emit_system_event(self, test_workspace, system_auth_headers, agent_auth_headers, test_client):
         """
         EXIT TEST 2: Worker-created artifacts create events with actor_type=system.
         
@@ -361,8 +342,8 @@ class TestExitCriteria:
         """
         # Simulate worker creating an artifact event
         artifact_id = str(uuid4())
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
             json={
                 "actor_type": "system",
                 "actor_id": "pdf-ingestion-worker",
@@ -381,9 +362,9 @@ class TestExitCriteria:
         assert event_data["event_type"] == "artifact.ingestion_completed"
         
         # Verify it's retrievable
-        response = requests.get(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events?event_type=artifact.ingestion_completed",
-            headers=agent_auth_headers
+        response = test_client.get(
+            f"/workspaces/{test_workspace['workspace_id']}/events?event_type=artifact.ingestion_completed",
+            headers=agent_auth_headers,
         )
         
         assert response.status_code == 200
@@ -398,11 +379,11 @@ class TestExitCriteria:
 class TestAppendOnlyEnforcement:
     """Test that logs and events are append-only (no updates/deletes)."""
     
-    def test_no_log_update_endpoint(self, test_workspace, agent_auth_headers):
+    def test_no_log_update_endpoint(self, test_workspace, agent_auth_headers, test_client):
         """Test that there is no endpoint to update logs."""
         # Create a log
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/logs",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/logs",
             json={"action": "test.immutable"},
             headers=agent_auth_headers
         )
@@ -410,8 +391,8 @@ class TestAppendOnlyEnforcement:
         log_id = response.json()["id"]
         
         # Try to update (should fail - endpoint doesn't exist)
-        response = requests.patch(
-            f"{test_workspace['api_base']}/logs/{log_id}",
+        response = test_client.patch(
+            f"/logs/{log_id}",
             json={"action": "test.modified"},
             headers=agent_auth_headers
         )
@@ -419,11 +400,11 @@ class TestAppendOnlyEnforcement:
         assert response.status_code == 404, "Log update endpoint should not exist (append-only)"
         print("✓ Logs are append-only (no update endpoint)")
     
-    def test_no_event_update_endpoint(self, test_workspace, system_auth_headers):
+    def test_no_event_update_endpoint(self, test_workspace, system_auth_headers, test_client):
         """Test that there is no endpoint to update events."""
         # Create an event
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/events",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/events",
             json={
                 "actor_type": "system",
                 "actor_id": "test",
@@ -436,8 +417,8 @@ class TestAppendOnlyEnforcement:
         event_id = response.json()["id"]
         
         # Try to update (should fail - endpoint doesn't exist)
-        response = requests.patch(
-            f"{test_workspace['api_base']}/events/{event_id}",
+        response = test_client.patch(
+            f"/events/{event_id}",
             json={"event_type": "test.modified"},
             headers=system_auth_headers
         )

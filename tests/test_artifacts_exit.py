@@ -7,30 +7,16 @@ Critical exit tests per checklist:
 """
 import io
 import hashlib
-import sys
 from uuid import uuid4
-from pathlib import Path
 
 import pytest
-import requests
-
-# Add packages to path
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "packages" / "db"))
-sys.path.insert(0, str(repo_root / "apps" / "core-api"))
 
 from database import get_raw_db
 import jwt_utils
 
 
-@pytest.fixture(scope="module")
-def api_base(core_api_url):
-    """Base URL for Core API."""
-    return core_api_url
-
-
 @pytest.fixture
-def test_workspace(api_base):
+def test_workspace():
     """Create test workspace for artifact tests."""
     with get_raw_db() as conn:
         cursor = conn.cursor()
@@ -76,7 +62,6 @@ def test_workspace(api_base):
             "workspace_id": str(workspace_id),
             "agent_id": str(creator_id),
             "moltbook_id": f"test-moltbook-{creator_id}",
-            "api_base": api_base
         }
         
         # Cleanup
@@ -102,7 +87,7 @@ def auth_headers(test_workspace):
 class TestArtifactExitCriteria:
     """Component 7 exit tests per checklist."""
     
-    def test_upload_and_retrieve_exact_bytes_by_version_id(self, test_workspace, auth_headers):
+    def test_upload_and_retrieve_exact_bytes_by_version_id(self, test_workspace, auth_headers, test_client):
         """
         EXIT TEST 1: Upload bytes as a version and retrieve exact bytes by artifact_version_id.
         
@@ -113,10 +98,10 @@ class TestArtifactExitCriteria:
         - This is the mechanism required for citations
         """
         # Create artifact
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/artifacts",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
             json={"type": "pdf"},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201, f"Failed to create artifact: {response.text}"
         artifact_id = response.json()["id"]
@@ -125,10 +110,10 @@ class TestArtifactExitCriteria:
         test_content = b"This is the exact content that must be retrievable for citation resolution"
         expected_hash = hashlib.sha256(test_content).hexdigest()
         
-        response = requests.post(
-            f"{test_workspace['api_base']}/artifacts/{artifact_id}/versions",
+        response = test_client.post(
+            f"/artifacts/{artifact_id}/versions",
             files={"file": ("test.pdf", io.BytesIO(test_content), "application/pdf")},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201, f"Failed to create version: {response.text}"
         version_data = response.json()
@@ -136,9 +121,9 @@ class TestArtifactExitCriteria:
         assert version_data["content_hash"] == expected_hash
         
         # Retrieve exact version content
-        response = requests.get(
-            f"{test_workspace['api_base']}/artifact-versions/{version_id}/content",
-            headers=auth_headers
+        response = test_client.get(
+            f"/artifact-versions/{version_id}/content",
+            headers=auth_headers,
         )
         assert response.status_code == 200, f"Failed to retrieve content: {response.text}"
         retrieved_content = response.content
@@ -148,7 +133,7 @@ class TestArtifactExitCriteria:
         assert response.headers["X-Content-Hash"] == expected_hash
         print("✓ Exit test 1 passed: Exact bytes uploaded and retrieved successfully")
     
-    def test_version_immutability(self, test_workspace, auth_headers):
+    def test_version_immutability(self, test_workspace, auth_headers, test_client):
         """
         EXIT TEST 2: Validate immutability (cannot "update version 1").
         
@@ -158,10 +143,10 @@ class TestArtifactExitCriteria:
         - Storage is append-only (versions are immutable)
         """
         # Create artifact
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/artifacts",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
             json={"type": "dataset"},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201
         artifact_id = response.json()["id"]
@@ -170,10 +155,10 @@ class TestArtifactExitCriteria:
         content_v1 = b"Version 1 original data that must never change"
         hash_v1 = hashlib.sha256(content_v1).hexdigest()
         
-        response = requests.post(
-            f"{test_workspace['api_base']}/artifacts/{artifact_id}/versions",
+        response = test_client.post(
+            f"/artifacts/{artifact_id}/versions",
             files={"file": ("data.csv", io.BytesIO(content_v1), "text/csv")},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201
         version_1_id = response.json()["id"]
@@ -184,10 +169,10 @@ class TestArtifactExitCriteria:
         content_v2 = b"Version 2 different data"
         hash_v2 = hashlib.sha256(content_v2).hexdigest()
         
-        response = requests.post(
-            f"{test_workspace['api_base']}/artifacts/{artifact_id}/versions",
+        response = test_client.post(
+            f"/artifacts/{artifact_id}/versions",
             files={"file": ("data.csv", io.BytesIO(content_v2), "text/csv")},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201
         version_2_id = response.json()["id"]
@@ -196,9 +181,9 @@ class TestArtifactExitCriteria:
         assert version_2_id != version_1_id
         
         # Verify version 1 is unchanged (retrieve original content)
-        response = requests.get(
-            f"{test_workspace['api_base']}/artifact-versions/{version_1_id}/content",
-            headers=auth_headers
+        response = test_client.get(
+            f"/artifact-versions/{version_1_id}/content",
+            headers=auth_headers,
         )
         assert response.status_code == 200
         retrieved_v1 = response.content
@@ -206,9 +191,9 @@ class TestArtifactExitCriteria:
         assert response.headers["X-Content-Hash"] == hash_v1
         
         # Verify version 2 has different content
-        response = requests.get(
-            f"{test_workspace['api_base']}/artifact-versions/{version_2_id}/content",
-            headers=auth_headers
+        response = test_client.get(
+            f"/artifact-versions/{version_2_id}/content",
+            headers=auth_headers,
         )
         assert response.status_code == 200
         retrieved_v2 = response.content
@@ -233,25 +218,25 @@ class TestArtifactExitCriteria:
         
         print("✓ Exit test 2 passed: Version immutability validated")
     
-    def test_short_id_allocation(self, test_workspace, auth_headers):
+    def test_short_id_allocation(self, test_workspace, auth_headers, test_client):
         """Test that short_ids are allocated correctly (A1, A2, A3...)."""
         for expected_num in range(1, 4):
-            response = requests.post(
-                f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/artifacts",
+            response = test_client.post(
+                f"/workspaces/{test_workspace['workspace_id']}/artifacts",
                 json={"type": "log"},
-                headers=auth_headers
+                headers=auth_headers,
             )
             assert response.status_code == 201
             assert response.json()["short_id"] == f"A{expected_num}"
         print("✓ Short ID allocation working correctly")
     
-    def test_events_emitted(self, test_workspace, auth_headers):
+    def test_events_emitted(self, test_workspace, auth_headers, test_client):
         """Test that artifact.created and artifact.version_created events are emitted."""
         # Create artifact
-        response = requests.post(
-            f"{test_workspace['api_base']}/workspaces/{test_workspace['workspace_id']}/artifacts",
+        response = test_client.post(
+            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
             json={"type": "code"},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201
         artifact_id = response.json()["id"]
@@ -273,10 +258,10 @@ class TestArtifactExitCriteria:
             assert row[1] == "agent"
         
         # Upload version
-        response = requests.post(
-            f"{test_workspace['api_base']}/artifacts/{artifact_id}/versions",
+        response = test_client.post(
+            f"/artifacts/{artifact_id}/versions",
             files={"file": ("code.py", io.BytesIO(b"print('test')"), "text/plain")},
-            headers=auth_headers
+            headers=auth_headers,
         )
         assert response.status_code == 201
         version_id = response.json()["id"]
