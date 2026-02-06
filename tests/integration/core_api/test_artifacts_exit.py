@@ -5,6 +5,7 @@ Critical exit tests per checklist:
 1. Upload bytes as a version and retrieve exact bytes by artifact_version_id
 2. Validate immutability (cannot "update version 1")
 """
+
 import io
 import hashlib
 from uuid import uuid4
@@ -16,8 +17,8 @@ import jwt_utils
 
 
 @pytest.fixture
-def test_workspace():
-    """Create test workspace for artifact tests."""
+def workspace_ctx(migrated_db):
+    """Create a workspace + member agent for artifact tests."""
     with get_raw_db() as conn:
         cursor = conn.cursor()
         
@@ -75,19 +76,19 @@ def test_workspace():
 
 
 @pytest.fixture
-def auth_headers(test_workspace):
-    """Generate auth headers for test agent."""
+def auth_headers(workspace_ctx):
+    """Authorization header for the workspace agent."""
     token = jwt_utils.create_agent_token(
-        agent_id=test_workspace["agent_id"],
-        moltbook_id=test_workspace["moltbook_id"]
-        )
+        agent_id=workspace_ctx["agent_id"],
+        moltbook_id=workspace_ctx["moltbook_id"],
+    )
     return {"Authorization": f"Bearer {token}"}
 
 
 class TestArtifactExitCriteria:
     """Component 7 exit tests per checklist."""
     
-    def test_upload_and_retrieve_exact_bytes_by_version_id(self, test_workspace, auth_headers, test_client):
+    def test_artifact_version_content__uploaded_bytes__retrievable_by_version_id(self, workspace_ctx, auth_headers, test_client):
         """
         EXIT TEST 1: Upload bytes as a version and retrieve exact bytes by artifact_version_id.
         
@@ -99,7 +100,7 @@ class TestArtifactExitCriteria:
         """
         # Create artifact
         response = test_client.post(
-            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
+            f"/workspaces/{workspace_ctx['workspace_id']}/artifacts",
             json={"type": "pdf"},
             headers=auth_headers,
         )
@@ -131,9 +132,8 @@ class TestArtifactExitCriteria:
         # Verify exact bytes match
         assert retrieved_content == test_content, "Retrieved content does not match uploaded content"
         assert response.headers["X-Content-Hash"] == expected_hash
-        print("✓ Exit test 1 passed: Exact bytes uploaded and retrieved successfully")
     
-    def test_version_immutability(self, test_workspace, auth_headers, test_client):
+    def test_artifact_versions__multiple_uploads__version_1_immutable(self, workspace_ctx, auth_headers, test_client):
         """
         EXIT TEST 2: Validate immutability (cannot "update version 1").
         
@@ -144,7 +144,7 @@ class TestArtifactExitCriteria:
         """
         # Create artifact
         response = test_client.post(
-            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
+            f"/workspaces/{workspace_ctx['workspace_id']}/artifacts",
             json={"type": "dataset"},
             headers=auth_headers,
         )
@@ -213,28 +213,25 @@ class TestArtifactExitCriteria:
             )
             rows = cursor.fetchall()
             assert len(rows) == 2, "Should have exactly 2 versions"
-            assert rows[0][0] == 1 and rows[0][1] == hash_v1
-            assert rows[1][0] == 2 and rows[1][1] == hash_v2
-        
-        print("✓ Exit test 2 passed: Version immutability validated")
+        assert rows[0][0] == 1 and rows[0][1] == hash_v1
+        assert rows[1][0] == 2 and rows[1][1] == hash_v2
     
-    def test_short_id_allocation(self, test_workspace, auth_headers, test_client):
+    def test_artifacts__create_multiple__short_ids_increment(self, workspace_ctx, auth_headers, test_client):
         """Test that short_ids are allocated correctly (A1, A2, A3...)."""
         for expected_num in range(1, 4):
             response = test_client.post(
-                f"/workspaces/{test_workspace['workspace_id']}/artifacts",
+                f"/workspaces/{workspace_ctx['workspace_id']}/artifacts",
                 json={"type": "log"},
                 headers=auth_headers,
             )
             assert response.status_code == 201
             assert response.json()["short_id"] == f"A{expected_num}"
-        print("✓ Short ID allocation working correctly")
     
-    def test_events_emitted(self, test_workspace, auth_headers, test_client):
+    def test_artifacts__create_and_version__emits_expected_events(self, workspace_ctx, auth_headers, test_client):
         """Test that artifact.created and artifact.version_created events are emitted."""
         # Create artifact
         response = test_client.post(
-            f"/workspaces/{test_workspace['workspace_id']}/artifacts",
+            f"/workspaces/{workspace_ctx['workspace_id']}/artifacts",
             json={"type": "code"},
             headers=auth_headers,
         )
@@ -251,7 +248,7 @@ class TestArtifactExitCriteria:
                 WHERE workspace_id = %s AND event_type = 'artifact.created'
                 AND payload->>'artifact_id' = %s
                 """,
-                (test_workspace["workspace_id"], artifact_id)
+                (workspace_ctx["workspace_id"], artifact_id)
             )
             row = cursor.fetchone()
             assert row is not None, "artifact.created event not found"
@@ -276,10 +273,8 @@ class TestArtifactExitCriteria:
                 WHERE workspace_id = %s AND event_type = 'artifact.version_created'
                 AND payload->>'artifact_version_id' = %s
                 """,
-                (test_workspace["workspace_id"], version_id)
+                (workspace_ctx["workspace_id"], version_id)
             )
             row = cursor.fetchone()
             assert row is not None, "artifact.version_created event not found"
             assert row[1] == "agent"
-        
-        print("✓ Events emitted correctly")
