@@ -4,19 +4,19 @@ Checked boxes imply the verification commands were run and relevant notes were c
 
 ## Phase 0: Identify Test Interface
 
-- [ ] Map test runner + CI entrypoints and environment needs.
+- [x] Map test runner + CI entrypoints and environment needs.
   - AC: command map exists; markers documented; CI mapping documented.
   - Verify: read `pytest.ini`, `Makefile`, `.github/workflows/*`.
   - Files: `docs/manifest/10_testing.md`, `docs/manifest/11_ci.md`, `docs/implementation/00_status.md`
 
 ## Phase 1: Establish Baseline Signal
 
-- [ ] Run unit suite once (baseline).
+- [x] Run unit suite once (baseline).
   - AC: unit suite green.
   - Verify: `make test-unit`
   - Reruns: later in Phase 5 (3x total).
 
-- [ ] Run unit data contract tests once (baseline).
+- [x] Run unit data contract tests once (baseline).
   - AC: `tests/unit/data_contracts` green.
   - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts`
   - Reruns: later in Phase 5 (3x total).
@@ -73,4 +73,3 @@ Checked boxes imply the verification commands were run and relevant notes were c
 - [ ] Write final stabilization report.
   - AC: report includes failures/root causes/fixes/contracts/how-to-run/gated tests.
   - File: `docs/implementation/reports/test_stabilization_final_report.md`
-
