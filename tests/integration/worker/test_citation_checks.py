@@ -24,7 +24,7 @@ def workspace_with_agent_and_artifacts(db_session):
     ws = Workspace(
         id=str(uuid.uuid4()),
         name="Citation Test Workspace",
-        phase="literature_review"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
     

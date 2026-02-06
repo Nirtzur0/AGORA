@@ -92,7 +92,7 @@ def repo_setup(db_session):
     ws = Workspace(
         id=str(uuid.uuid4()),
         name="Repo Ingestion Test",
-        phase="code_replication"
+        phase="EXPERIMENTATION"
     )
     db_session.add(ws)
     
@@ -320,17 +320,13 @@ def test_repo_ingest_endpoint(db_session, repo_setup, test_repo_fixture):
     ws, agent = repo_setup
     repo_path, commit_hash = test_repo_fixture
     
-    # Create DB wrapper
-    db = DBWrapper(db_session)
-    
     # Mock agent token
     from auth_middleware import AgentContext
     mock_agent = AgentContext(
         agent_id=str(agent.id),
-        moltbook_identity=agent.moltbook_identity,
-        is_system=False,
-        reputation=agent.reputation_score,
-        workspace_id=None
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
     )
     
     # Call endpoint
@@ -345,7 +341,7 @@ def test_repo_ingest_endpoint(db_session, repo_setup, test_repo_fixture):
                 commit_hash=None
             ),
             current_agent=mock_agent,
-            db=db
+            db=db_session
         )
         return response
     
@@ -359,7 +355,7 @@ def test_repo_ingest_endpoint(db_session, repo_setup, test_repo_fixture):
     # Verify artifact created
     artifact = db_session.query(Artifact).filter_by(id=response.artifact_id).first()
     assert artifact is not None
-    assert artifact.workspace_id == str(ws.id)
+    assert str(artifact.workspace_id) == str(ws.id)
     assert artifact.type == "code"
     
     # Verify artifact_version created
@@ -368,7 +364,7 @@ def test_repo_ingest_endpoint(db_session, repo_setup, test_repo_fixture):
     assert version.content_hash == commit_hash
     
     # Verify activity_run completed
-    activity_run = db.execute(
+    activity_run = db_session.execute(
         "SELECT status FROM activity_runs WHERE id = :id",
         {"id": response.activity_run_id}
     ).fetchone()
@@ -393,15 +389,12 @@ def test_repo_ingest_idempotency(db_session, repo_setup, test_repo_fixture):
     ws, agent = repo_setup
     repo_path, commit_hash = test_repo_fixture
     
-    db = DBWrapper(db_session)
-    
     from auth_middleware import AgentContext
     mock_agent = AgentContext(
         agent_id=str(agent.id),
-        moltbook_identity=agent.moltbook_identity,
-        is_system=False,
-        reputation=agent.reputation_score,
-        workspace_id=None
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
     )
     
     import asyncio
@@ -414,7 +407,7 @@ def test_repo_ingest_idempotency(db_session, repo_setup, test_repo_fixture):
                 commit_hash=commit_hash
             ),
             current_agent=mock_agent,
-            db=db
+            db=db_session
         )
     
     # First ingest
@@ -430,7 +423,7 @@ def test_repo_ingest_idempotency(db_session, repo_setup, test_repo_fixture):
     assert "already ingested" in response2.message.lower()
     
     # Verify only one artifact created
-    count = db.execute(
+    count = db_session.execute(
         """
         SELECT COUNT(*) FROM artifacts
         WHERE workspace_id = :ws_id AND type = 'code'

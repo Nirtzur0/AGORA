@@ -32,8 +32,8 @@ class TestWorkspaceCreation:
             cursor = db.cursor()
             cursor.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 100)
             )
@@ -47,6 +47,7 @@ class TestWorkspaceCreation:
             # Delete related records first
             cursor.execute("DELETE FROM workspace_agents WHERE agent_id = %s", (agent_id,))
             cursor.execute("DELETE FROM join_requests WHERE agent_id = %s", (agent_id,))
+            cursor.execute("DELETE FROM workspaces WHERE created_by = %s", (agent_id,))
             cursor.execute("DELETE FROM agents WHERE id = %s", (agent_id,))
             db.commit()
     
@@ -58,10 +59,10 @@ class TestWorkspaceCreation:
             # Create workspace
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
                 """,
-                (workspace_id, "Test Workspace", "Test description", "INIT", {}, test_agent)
+                (workspace_id, "Test Workspace", "Test description", "INIT", test_agent)
             )
             
             # Get Maintainer role
@@ -88,10 +89,10 @@ class TestWorkspaceCreation:
             ).fetchone()
             
             assert workspace is not None
-            assert workspace[0] == workspace_id
+            assert str(workspace[0]) == workspace_id
             assert workspace[1] == "Test Workspace"
             assert workspace[2] == "INIT"
-            assert workspace[3] == test_agent
+            assert str(workspace[3]) == test_agent
             
             # Verify creator is Maintainer
             member = db.execute(
@@ -105,7 +106,7 @@ class TestWorkspaceCreation:
             ).fetchone()
             
             assert member is not None
-            assert member[0] == test_agent
+            assert str(member[0]) == test_agent
             assert member[1] == "Maintainer"
             assert member[2] == "active"
             
@@ -122,10 +123,10 @@ class TestWorkspaceCreation:
             
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
                 """,
-                (workspace_id, "Test", None, "INIT", {}, test_agent)
+                (workspace_id, "Test", None, "INIT", test_agent)
             )
             db.commit()
             
@@ -155,8 +156,8 @@ class TestWorkspaceEvents:
             # Create agent
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 100)
             )
@@ -164,10 +165,10 @@ class TestWorkspaceEvents:
             # Create workspace
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
                 """,
-                (workspace_id, "Test Workspace", "Test", "INIT", {}, agent_id)
+                (workspace_id, "Test Workspace", "Test", "INIT", agent_id)
             )
             
             db.commit()
@@ -213,7 +214,7 @@ class TestWorkspaceEvents:
             assert event is not None
             assert event[0] == "workspace.created"
             assert event[1] == "agent"
-            assert event[2] == test_workspace["agent_id"]
+            assert str(event[2]) == test_workspace["agent_id"]
     
     def test_agent_joined_event_emitted(self, test_workspace):
         """agent.joined event should be emitted when agent joins."""
@@ -235,11 +236,11 @@ class TestWorkspaceEvents:
                     event_id,
                     test_workspace["workspace_id"],
                     "system",
-                    "core-api",
+                    str(uuid.uuid5(uuid.NAMESPACE_URL, "agora-system:core-api")),
                     "agent.joined",
                     {
                         "agent_id": test_workspace["agent_id"],
-                        "role_id": role[0],
+                        "role_id": str(role[0]),
                         "role_name": role[1]
                     }
                 )
@@ -271,16 +272,16 @@ class TestJoinRequests:
             # Create agents
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (maintainer_id, f"moltbook-{maintainer_id}", 100)
             )
             
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (requester_id, f"moltbook-{requester_id}", 200)  # Higher rep for Experimentalist
             )
@@ -288,10 +289,10 @@ class TestJoinRequests:
             # Create workspace
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
                 """,
-                (workspace_id, "Test Workspace", "Test", "INIT", {}, maintainer_id)
+                (workspace_id, "Test Workspace", "Test", "INIT", maintainer_id)
             )
             
             # Add maintainer to workspace
@@ -360,8 +361,8 @@ class TestJoinRequests:
             
             assert jr is not None
             assert jr[1] == "pending"
-            assert jr[2] == test_setup["requester_id"]
-            assert jr[3] == exp_role[0]
+            assert str(jr[2]) == test_setup["requester_id"]
+            assert str(jr[3]) == str(exp_role[0])
     
     def test_join_request_approval(self, test_setup):
         """Maintainer should be able to approve join request."""
@@ -411,7 +412,7 @@ class TestJoinRequests:
             ).fetchone()
             
             assert status[0] == "approved"
-            assert status[1] == test_setup["maintainer_id"]
+            assert str(status[1]) == test_setup["maintainer_id"]
             
             # Verify agent is now a member
             member = db.execute(
@@ -420,8 +421,8 @@ class TestJoinRequests:
             ).fetchone()
             
             assert member is not None
-            assert member[0] == test_setup["requester_id"]
-            assert member[1] == exp_role[0]
+            assert str(member[0]) == test_setup["requester_id"]
+            assert str(member[1]) == str(exp_role[0])
             assert member[2] == "active"
     
     def test_role_capacity_enforcement(self, test_setup):
@@ -429,7 +430,7 @@ class TestJoinRequests:
         with get_db() as db:
             # Get a role with capacity 1 (Maintainer)
             maint_role = db.execute(
-                "SELECT id, capacity FROM roles WHERE name = %s",
+                "SELECT id, role_capacity FROM roles WHERE name = %s",
                 ("Maintainer",)
             ).fetchone()
             
@@ -453,8 +454,8 @@ class TestJoinRequests:
             low_rep_agent = str(uuid.uuid4())
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (low_rep_agent, f"moltbook-{low_rep_agent}", 50)  # Below Literature Analyst min (100)
             )
@@ -490,18 +491,18 @@ class TestWorkspaceUpdates:
             
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 100)
             )
             
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, description, phase, reputation_config, created_by, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+                INSERT INTO workspaces (id, name, description, phase, created_by, created_at)
+                VALUES (%s, %s, %s, %s, %s, NOW())
                 """,
-                (workspace_id, "Test Workspace", "Original description", "INIT", {}, agent_id)
+                (workspace_id, "Test Workspace", "Original description", "INIT", agent_id)
             )
             
             db.commit()
@@ -523,7 +524,7 @@ class TestWorkspaceUpdates:
             db.execute(
                 """
                 UPDATE workspaces
-                SET description = %s, updated_at = NOW()
+                SET description = %s
                 WHERE id = %s
                 """,
                 ("Updated description", test_workspace["workspace_id"])

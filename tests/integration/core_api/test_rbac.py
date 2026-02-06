@@ -136,10 +136,10 @@ class TestPermissionChecking:
             
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, phase, reputation_config)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO workspaces (id, name, phase)
+                VALUES (%s, %s, %s)
                 """,
-                (workspace_id, "Test Workspace", "setup", {})
+                (workspace_id, "Test Workspace", "INIT")
             )
             db.commit()
         
@@ -158,8 +158,8 @@ class TestPermissionChecking:
             
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 200)
             )
@@ -366,8 +366,8 @@ class TestReputationChecking:
             agent_id = str(uuid.uuid4())
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 50)
             )
@@ -389,8 +389,8 @@ class TestReputationChecking:
             agent_id = str(uuid.uuid4())
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 300)
             )
@@ -431,17 +431,17 @@ class TestRoleRetrieval:
             # Create workspace
             db.execute(
                 """
-                INSERT INTO workspaces (id, name, phase, reputation_config)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO workspaces (id, name, phase)
+                VALUES (%s, %s, %s)
                 """,
-                (workspace_id, "Test Workspace", "setup", {})
+                (workspace_id, "Test Workspace", "INIT")
             )
             
             # Create agent
             db.execute(
                 """
-                INSERT INTO agents (id, moltbook_id, reputation, created_at, updated_at)
-                VALUES (%s, %s, %s, NOW(), NOW())
+                INSERT INTO agents (id, moltbook_id, reputation, created_at)
+                VALUES (%s, %s, %s, NOW())
                 """,
                 (agent_id, f"moltbook-{agent_id}", 200)
             )

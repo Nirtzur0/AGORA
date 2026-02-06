@@ -135,7 +135,9 @@ def test_phase_advancement_activity(test_db):
     assert event[0] == "workspace.phase_changed"
     assert event[1] == "system"
     
-    payload = json.loads(event[2])
+    payload = event[2]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
     assert payload["previous_phase"] == "INIT"
     assert payload["next_phase"] == "LIT_REVIEW"
     assert payload["workflow_run_id"] == "test_workflow_123"
@@ -215,6 +217,23 @@ def test_lit_review_exit_gate(test_db):
     
     workspace_id = str(uuid.uuid4())
     agent_id = str(uuid.uuid4())
+    critic_id = str(uuid.uuid4())
+
+    # Create agents (FK targets for created_by / critic_agent_id).
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        """,
+        {"id": agent_id, "moltbook_id": f"test-moltbook-{agent_id}", "name": "Agent", "reputation": 50.0},
+    )
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        """,
+        {"id": critic_id, "moltbook_id": f"test-moltbook-{critic_id}", "name": "Critic", "reputation": 50.0},
+    )
     
     # Create workspace
     test_db.execute(
@@ -242,39 +261,56 @@ def test_lit_review_exit_gate(test_db):
             "created_by": agent_id
         }
     )
+
+    # Create artifact_version referenced by claim_evidence.
+    artifact_version_id = str(uuid.uuid4())
+    test_db.execute(
+        """
+        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
+        """,
+        {
+            "id": artifact_version_id,
+            "artifact_id": artifact_id,
+            "version": 1,
+            "storage_uri": "s3://test/v1/document.pdf",
+            "content_hash": "testhash",
+            "created_by": agent_id,
+        },
+    )
     
     # Create a claim with evidence
     claim_id = str(uuid.uuid4())
     test_db.execute(
         """
-        INSERT INTO claims (id, workspace_id, text, kind, confidence, created_by, created_at)
-        VALUES (:id, :workspace_id, :text, :kind, :confidence, :created_by, NOW())
+        INSERT INTO claims (id, workspace_id, text, kind, confidence, status, created_by, created_at)
+        VALUES (:id, :workspace_id, :text, :kind, :confidence, :status, :created_by, NOW())
         """,
         {
             "id": claim_id,
             "workspace_id": workspace_id,
             "text": "Test claim",
             "kind": "fact",
-            "confidence": 0.9,
+            "confidence": "high",
+            "status": "active",
             "created_by": agent_id
         }
     )
     
     test_db.execute(
         """
-        INSERT INTO claim_evidence (id, claim_id, artifact_version_id, location, created_at)
-        VALUES (:id, :claim_id, :artifact_version_id, :location, NOW())
+        INSERT INTO claim_evidence (id, claim_id, artifact_version_id, location)
+        VALUES (:id, :claim_id, :artifact_version_id, :location)
         """,
         {
             "id": str(uuid.uuid4()),
             "claim_id": claim_id,
-            "artifact_version_id": artifact_id,  # Simplified for test
+            "artifact_version_id": artifact_version_id,
             "location": "pdf:p=1#char=0-100"
         }
     )
     
     # Create a critique by different agent
-    critic_id = str(uuid.uuid4())
     test_db.execute(
         """
         INSERT INTO critiques (

@@ -9,55 +9,77 @@ Tests verify:
 """
 import pytest
 import os
+import re
+import uuid
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import IntegrityError
-import uuid
-from sqlalchemy import text
 
-# Use test database
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
-)
+DEFAULT_TEST_DATABASE_URL = "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
 
 
 @pytest.fixture(scope="module")
 def engine():
-    """Create test database engine."""
-    engine = create_engine(TEST_DATABASE_URL)
-    
-    # Drop all tables before test
-    with engine.begin() as conn:
-        # Get all table names
-        inspector = inspect(engine)
-        tables = inspector.get_table_names()
-        
-        if tables:
-            # Drop all tables
-            for table in tables:
-                conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-            conn.execute(text('DROP TABLE IF EXISTS alembic_version'))
-    
-    yield engine
-    
-    # Cleanup after tests
-    with engine.begin() as conn:
-        inspector = inspect(engine)
-        tables = inspector.get_table_names()
-        for table in tables:
-            conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+    """
+    Create an isolated database for migration tests.
+
+    IMPORTANT: Do not reuse the shared TEST_DATABASE_URL database. Other tests
+    depend on it, and these migration tests intentionally drop tables.
+    """
+    base_url = os.getenv("TEST_DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
+    m = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.*)", base_url)
+    if not m:
+        raise RuntimeError(f"Invalid TEST_DATABASE_URL: {base_url}")
+    user, password, host, port, _dbname = m.groups()
+
+    db_name = f"agora_migrations_{uuid.uuid4().hex[:10]}"
+    admin_url = f"postgresql://{user}:{password}@{host}:{port}/postgres"
+    test_url = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+
+    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    try:
+        with admin_engine.connect() as conn:
+            conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+
+        engine = create_engine(test_url)
+        try:
+            yield engine
+        finally:
+            engine.dispose()
+
+        # Drop the database (terminate any remaining connections first).
+        with admin_engine.connect() as conn:
+            conn.execute(
+                text(
+                    """
+                    SELECT pg_terminate_backend(pid)
+                    FROM pg_stat_activity
+                    WHERE datname = :dbname
+                      AND pid <> pg_backend_pid()
+                    """
+                ),
+                {"dbname": db_name},
+            )
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}"'))
+    finally:
+        admin_engine.dispose()
 
 
 @pytest.fixture(scope="module")
 def migrated_db(engine):
     """Apply migrations to test database."""
-    # Set DATABASE_URL for migration runner
+    # Set DATABASE_URL for migration runner.
+    # IMPORTANT: str(engine.url) hides the password (renders as "***") which
+    # breaks connections when used as DATABASE_URL.
+    db_url = engine.url.render_as_string(hide_password=False)
     original_url = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ["DATABASE_URL"] = db_url
     
     try:
-        from db.migrate import migrate_up
-        migrate_up()
+        # The migration runner binds DATABASE_URL at import time; force it for this DB.
+        import importlib
+        migrate = importlib.import_module("migrate")
+        migrate.DATABASE_URL = db_url
+        migrate.migrate_up()
     finally:
         # Restore original DATABASE_URL
         if original_url:

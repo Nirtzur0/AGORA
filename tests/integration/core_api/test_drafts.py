@@ -22,7 +22,7 @@ def workspace_with_agent(db_session):
     ws = Workspace(
         id=str(uuid.uuid4()),
         name="Drafts Test Workspace",
-        phase="literature_review"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
     

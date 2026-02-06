@@ -21,7 +21,7 @@ def workspace_with_agent(db_session):
     ws = Workspace(
         id=str(uuid.uuid4()),
         name="Workflow Test Workspace",
-        phase="literature_review"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
     
@@ -121,8 +121,8 @@ def test_exit_workflow_runs_lifecycle(db_session, workspace_with_agent):
     ).fetchone()
     
     assert row is not None
-    assert row[0] == workflow_run_id
-    assert row[1] == str(ws.id)
+    assert str(row[0]) == workflow_run_id
+    assert str(row[1]) == str(ws.id)
     assert row[2] == "literature_grounding"
     assert row[3] == workflow_id
     assert row[4] == "running"
@@ -204,8 +204,8 @@ def test_exit_activity_runs_created(db_session, workspace_with_agent):
     ).fetchone()
     
     assert row is not None
-    assert row[0] == activity_run_id
-    assert row[1] == workflow_run_id
+    assert str(row[0]) == activity_run_id
+    assert str(row[1]) == workflow_run_id
     assert row[2] == "pdf_ingest"
     assert row[3] == activity_id
     assert row[4] == "running"
@@ -237,6 +237,7 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     """Test POST /workspaces/{id}/tasks (SYSTEM-ONLY)."""
     from task_routes import create_task, CreateTaskRequest
     from sqlalchemy import text
+    from auth_middleware import AgentContext
     
     ws, agent = workspace_with_agent
     
@@ -245,12 +246,18 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     
     # Mock system token
     mock_system = {"token_type": "system"}
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
+    )
     
     # Create task
     artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     request = CreateTaskRequest(
         type="extract_claims",
-        assignee_agent_id=agent.id,
+        assignee_agent_id=str(agent.id),
         payload={
             "objective": "Extract claims from the PDF and add evidence.",
             "inputs": [{"artifact_version_id": version_id, "label": "PDF"}],
@@ -271,7 +278,7 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     # Verify response
     assert response.workspace_id == str(ws.id)
     assert response.type == "extract_claims"
-    assert response.assignee_agent_id == agent.id
+    assert response.assignee_agent_id == str(agent.id)
     assert response.status == "open"
     assert response.payload["objective"] == "Extract claims from the PDF and add evidence."
     
@@ -286,7 +293,7 @@ def test_create_agent_task_system_only(db_session, workspace_with_agent):
     ).fetchone()
     
     assert task is not None
-    assert task[1] == str(ws.id)
+    assert str(task[1]) == str(ws.id)
     assert task[3] == "open"
 
 
@@ -294,6 +301,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     """Test GET /workspaces/{id}/tasks with filters."""
     from task_routes import create_task, list_tasks, CreateTaskRequest
     from sqlalchemy import text
+    from auth_middleware import AgentContext
     
     ws, agent = workspace_with_agent
     
@@ -302,7 +310,12 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     
     # Mock tokens
     mock_system = {"token_type": "system"}
-    mock_agent = {"agent_id": agent.id}
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
+    )
 
     artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
@@ -311,7 +324,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
         workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
             type="extract_claims",
-            assignee_agent_id=agent.id,
+            assignee_agent_id=str(agent.id),
             payload={
                 "objective": "First task",
                 "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
@@ -329,7 +342,7 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
         workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
             type="review_draft",
-            assignee_agent_id=agent.id,
+            assignee_agent_id=str(agent.id),
             payload={
                 "objective": "Second task",
                 "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
@@ -358,13 +371,13 @@ def test_list_agent_tasks_with_filters(db_session, workspace_with_agent):
     # Filter by assignee
     filtered = list_tasks(
         workspace_id=uuid.UUID(str(ws.id)),
-        assignee_agent_id=agent.id,
+        assignee_agent_id=str(agent.id),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     assert len(filtered) >= 2
-    assert all(t.assignee_agent_id == agent.id for t in filtered)
+    assert all(t.assignee_agent_id == str(agent.id) for t in filtered)
     
     # Filter by status
     pending_tasks = list_tasks(
@@ -382,6 +395,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     from task_routes import create_task, update_task, CreateTaskRequest, UpdateTaskRequest
     from sqlalchemy import text
     from fastapi import HTTPException
+    from auth_middleware import AgentContext
     
     ws, agent = workspace_with_agent
     
@@ -400,8 +414,18 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
     
     # Mock tokens
     mock_system = {"token_type": "system"}
-    mock_agent = {"agent_id": agent.id}
-    mock_other_agent = {"agent_id": other_agent.id}
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
+    )
+    mock_other_agent = AgentContext(
+        agent_id=str(other_agent.id),
+        moltbook_id=str(other_agent.moltbook_id),
+        reputation=int(other_agent.reputation_score or 0),
+        workspace_id=None,
+    )
 
     artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
@@ -410,7 +434,7 @@ def test_update_agent_task_assignee_only(db_session, workspace_with_agent):
         workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
             type="extract_claims",
-            assignee_agent_id=agent.id,
+            assignee_agent_id=str(agent.id),
             payload={
                 "objective": "Task for testing update",
                 "inputs": [{"artifact_version_id": version_id, "label": "Input"}],
@@ -456,6 +480,7 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
     from task_routes import create_task, update_task, CreateTaskRequest, UpdateTaskRequest
     from database import Artifact
     from sqlalchemy import text
+    from auth_middleware import AgentContext
     
     ws, agent = workspace_with_agent
     
@@ -475,7 +500,12 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
     
     # Mock tokens
     mock_system = {"token_type": "system"}
-    mock_agent = {"agent_id": agent.id}
+    mock_agent = AgentContext(
+        agent_id=str(agent.id),
+        moltbook_id=str(agent.moltbook_id),
+        reputation=int(agent.reputation_score or 0),
+        workspace_id=None,
+    )
 
     artifact_id, version_id = create_artifact_version(db_session, ws.id, created_by=agent.id)
     
@@ -484,7 +514,7 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
         workspace_id=uuid.UUID(str(ws.id)),
         request=CreateTaskRequest(
             type="write_draft",
-            assignee_agent_id=agent.id,
+            assignee_agent_id=str(agent.id),
             payload={
                 "objective": "Write a draft document",
                 "inputs": [{"artifact_version_id": version_id, "label": "Source"}],
@@ -503,12 +533,12 @@ def test_complete_agent_task_with_result(db_session, workspace_with_agent):
         task_id=uuid.UUID(str(task.id)),
         request=UpdateTaskRequest(
             status="completed",
-            result_links=[{"type": "artifact", "id": result_artifact.id, "note": "Draft result"}]
+            result_links=[{"type": "artifact", "id": str(result_artifact.id), "note": "Draft result"}]
         ),
         current_agent=mock_agent,
         db=db_wrapper
     )
     
     assert updated.status == "completed"
-    assert updated.payload["result_links"][0]["id"] == result_artifact.id
+    assert updated.payload["result_links"][0]["id"] == str(result_artifact.id)
     assert updated.completed_at is not None

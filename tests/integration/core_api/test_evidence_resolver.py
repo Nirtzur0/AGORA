@@ -32,20 +32,21 @@ def sample_pdf_with_version(storage, db_session):
     
     # Create workspace and artifact
     ws = Workspace(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         name="Evidence Test Workspace",
-        phase="ingestion"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
+    db_session.flush()
     
     art = Artifact(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         workspace_id=ws.id,
         short_id="A1",
         content_type="application/pdf",
-        created_by="agent_test"
     )
     db_session.add(art)
+    db_session.flush()
     
     # Generate PDF with known text
     buffer = io.BytesIO()
@@ -83,20 +84,19 @@ def sample_pdf_with_version(storage, db_session):
     # Create artifact_version
     content_hash = hashlib.sha256(pdf_bytes).hexdigest()
     version = ArtifactVersion(
-        id=f"{art.id}_v1",
+        id=uuid.uuid4(),
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
         storage_uri=binary_uri,
-        created_by="agent_test"
     )
     db_session.add(version)
     db_session.commit()
     
     return {
-        "workspace_id": ws.id,
-        "artifact_id": art.id,
-        "artifact_version_id": version.id,
+        "workspace_id": str(ws.id),
+        "artifact_id": str(art.id),
+        "artifact_version_id": str(version.id),
         "page1_text": page1_text,
         "page2_text": page2_text
     }
@@ -111,20 +111,21 @@ def sample_log_with_version(storage, db_session):
     
     # Create workspace and artifact
     ws = Workspace(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         name="Log Test Workspace",
-        phase="ingestion"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
+    db_session.flush()
     
     art = Artifact(
-        id=str(uuid.uuid4()),
+        id=uuid.uuid4(),
         workspace_id=ws.id,
         short_id="L1",
         content_type="application/json",
-        created_by="agent_test"
     )
     db_session.add(art)
+    db_session.flush()
     
     # Create log content (JSON)
     log_data = {
@@ -147,22 +148,23 @@ def sample_log_with_version(storage, db_session):
     storage.put_object(log_txt_uri, log_text.encode("utf-8"))
     
     # Create artifact_version
-    content_hash = hashlib.sha256(log_json.encode("utf-8")).hexdigest()
+    # For char-range resolution, SandboxRunActivity pulls bytes from artifact_versions.storage_uri,
+    # so we point the version at the plain-text file while still writing log.json for jsonpath.
+    content_hash = hashlib.sha256(log_text.encode("utf-8")).hexdigest()
     version = ArtifactVersion(
-        id=f"{art.id}_v1",
+        id=uuid.uuid4(),
         artifact_id=art.id,
         version=1,
         content_hash=content_hash,
-        storage_uri=log_uri,
-        created_by="agent_test"
+        storage_uri=log_txt_uri,
     )
     db_session.add(version)
     db_session.commit()
     
     return {
-        "workspace_id": ws.id,
-        "artifact_id": art.id,
-        "artifact_version_id": version.id,
+        "workspace_id": str(ws.id),
+        "artifact_id": str(art.id),
+        "artifact_version_id": str(version.id),
         "log_data": log_data,
         "log_text": log_text
     }
@@ -374,8 +376,9 @@ def test_exit_3_bad_grammar_deterministic_errors(evidence_resolver, sample_pdf_w
 
 def test_artifact_version_not_found(evidence_resolver):
     """Test that non-existent artifact_version returns error."""
+    import uuid
     result = evidence_resolver.resolve(
-        artifact_version_id="nonexistent_uuid",
+        artifact_version_id=str(uuid.uuid4()),
         location="pdf:p=1#char=0-10"
     )
     
@@ -396,7 +399,7 @@ def test_char_range_exceeds_bounds(evidence_resolver, sample_pdf_with_version):
     
     assert result.ok is False
     assert result.code == "CHAR_RANGE_INVALID"
-    assert "out of bounds" in result.message.lower()
+    assert "invalid" in result.message.lower()
 
 
 def test_jsonpath_not_found(evidence_resolver, sample_log_with_version):

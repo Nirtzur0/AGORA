@@ -31,6 +31,17 @@ def test_sandbox_run_activity(test_db, test_storage):
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
     log_artifact_id = str(uuid.uuid4())
+    agent_id = TEST_AGENT_ID
+
+    # Ensure agent exists for FK constraints.
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        ON CONFLICT (id) DO NOTHING
+        """,
+        {"id": agent_id, "moltbook_id": "test_moltbook_id", "name": "Test Agent", "reputation": 0},
+    )
     
     # Create workspace
     test_db.execute(
@@ -49,9 +60,9 @@ def test_sandbox_run_activity(test_db, test_storage):
             "workspace_id": workspace_id,
             "short_id": "SCR1",
             "type": "code",
-            "metadata": json.dumps({"language": "python"}),
+            "metadata": {"language": "python"},
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -77,7 +88,7 @@ print("Line 3")
             "version": 1,
             "storage_uri": script_storage_uri,
             "content_hash": "test_hash",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -92,9 +103,9 @@ print("Line 3")
             "workspace_id": workspace_id,
             "short_id": "LOG1",
             "type": "log",
-            "metadata": json.dumps({"source": "sandbox_execution"}),
+            "metadata": {"source": "sandbox_execution"},
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{log_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -108,7 +119,7 @@ print("Line 3")
         workspace_id=workspace_id,
         script_artifact_id=script_artifact_id,
         parameters=None,
-        created_by="test_agent",
+        created_by=agent_id,
         activity_run_id=None,
         image="python:3.11-slim",
         timeout_seconds=60,
@@ -152,15 +163,17 @@ print("Line 3")
     
     # Verify log entry created
     log_entry = test_db.execute(
-        "SELECT message, metadata FROM logs WHERE workspace_id = :id",
+        "SELECT action, payload FROM logs WHERE workspace_id = :id ORDER BY created_at DESC LIMIT 1",
         {"id": workspace_id}
     ).fetchone()
     
     assert log_entry is not None
-    assert "Sandbox execution completed" in log_entry[0]
-    metadata = json.loads(log_entry[1])
-    assert metadata["event"] == "sandbox_execution"
-    assert metadata["exit_code"] == 0
+    assert log_entry[0] == "sandbox.execution"
+    payload = log_entry[1]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    assert payload["event"] == "sandbox_execution"
+    assert payload["exit_code"] == 0
 
 
 def test_sandbox_run_with_parameters(test_db, test_storage):
@@ -170,6 +183,16 @@ def test_sandbox_run_with_parameters(test_db, test_storage):
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
     log_artifact_id = str(uuid.uuid4())
+    agent_id = TEST_AGENT_ID
+
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        ON CONFLICT (id) DO NOTHING
+        """,
+        {"id": agent_id, "moltbook_id": "test_moltbook_id", "name": "Test Agent", "reputation": 0},
+    )
     
     # Create workspace
     test_db.execute(
@@ -188,9 +211,9 @@ def test_sandbox_run_with_parameters(test_db, test_storage):
             "workspace_id": workspace_id,
             "short_id": "SCR2",
             "type": "code",
-            "metadata": json.dumps({"language": "python"}),
+            "metadata": {"language": "python"},
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -214,7 +237,7 @@ print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
             "version": 1,
             "storage_uri": script_storage_uri,
             "content_hash": "test_hash2",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -229,9 +252,9 @@ print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
             "workspace_id": workspace_id,
             "short_id": "LOG2",
             "type": "log",
-            "metadata": json.dumps({"source": "sandbox_execution"}),
+            "metadata": {"source": "sandbox_execution"},
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{log_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -245,7 +268,7 @@ print(f"ENV_VAR={os.environ.get('TEST_VAR', 'not_set')}")
         workspace_id=workspace_id,
         script_artifact_id=script_artifact_id,
         parameters={"env": {"TEST_VAR": "test_value"}},
-        created_by="test_agent"
+        created_by=agent_id
     )
     
     assert result["exit_code"] == 0
@@ -268,6 +291,16 @@ def test_log_evidence_resolution(test_db, test_storage):
     workspace_id = str(uuid.uuid4())
     artifact_id = str(uuid.uuid4())
     version_id = str(uuid.uuid4())
+    agent_id = TEST_AGENT_ID
+
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        ON CONFLICT (id) DO NOTHING
+        """,
+        {"id": agent_id, "moltbook_id": "test_moltbook_id", "name": "Test Agent", "reputation": 0},
+    )
     
     # Create workspace
     test_db.execute(
@@ -287,7 +320,7 @@ def test_log_evidence_resolution(test_db, test_storage):
             "short_id": "LOG3",
             "type": "log",
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -308,7 +341,7 @@ def test_log_evidence_resolution(test_db, test_storage):
             "version": 1,
             "storage_uri": log_storage_uri,
             "content_hash": "test_hash3",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -391,23 +424,19 @@ def test_sandbox_run_endpoint(test_client, test_db, test_storage, mock_agent_tok
     version_id = str(uuid.uuid4())
     script_storage_uri = f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/v1/script.py"
     test_storage.put_object(script_storage_uri, script_content.encode("utf-8"))
-    
-    test_db.execute(
-        """
-        INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
-        VALUES (:id, :artifact_id, :version, :storage_uri, :content_hash, :created_by, NOW())
-        """,
-        {
-            "id": version_id,
-            "artifact_id": script_artifact_id,
-            "version": 1,
-            "storage_uri": script_storage_uri,
-            "content_hash": "test_hash4",
-            "created_by": agent_id
-        }
-    )
-    
-    test_db.commit()
+
+    # Insert version via raw DB so it's visible to the in-test Core API server
+    # (db_session/test_db runs inside a long-lived transaction).
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO artifact_versions (id, artifact_id, version, storage_uri, content_hash, created_by, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (version_id, script_artifact_id, 1, script_storage_uri, "test_hash4", agent_id),
+        )
+        conn.commit()
     
     # Make request
     response = test_client.post(
@@ -487,38 +516,27 @@ def test_sandbox_budget_enforcement(test_client, test_db, mock_agent_token):
     
     # Create workflow_run for sandbox activity tracking
     workflow_run_id = str(uuid.uuid4())
-    test_db.execute(
-        """
-        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
-        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
-        """,
-        {
-            "id": workflow_run_id,
-            "workspace_id": workspace_id,
-            "workflow_type": "sandbox_run",
-            "temporal_workflow_id": f"sandbox_run_{workflow_run_id}",
-            "status": "completed"
-        }
-    )
-    
-    # Create 100 completed sandbox runs (at budget limit)
-    for i in range(100):
-        run_id = str(uuid.uuid4())
-        test_db.execute(
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
             """
-            INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
-            VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
+            INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
+            VALUES (%s, %s, %s, %s, %s)
             """,
-            {
-                "id": run_id,
-                "workflow_run_id": workflow_run_id,
-                "activity_type": "sandbox_run",
-                "temporal_activity_id": f"sandbox_run_{run_id}",
-                "status": "completed"
-            }
+            (workflow_run_id, workspace_id, "sandbox_run", f"sandbox_run_{workflow_run_id}", "completed"),
         )
-    
-    test_db.commit()
+
+        # Create 100 completed sandbox runs (at budget limit)
+        for _i in range(100):
+            run_id = str(uuid.uuid4())
+            cursor.execute(
+                """
+                INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (run_id, workflow_run_id, "sandbox_run", f"sandbox_run_{run_id}", "completed"),
+            )
+        conn.commit()
     
     # Try to run another sandbox - should get 429
     response = test_client.post(
@@ -539,6 +557,16 @@ def test_sandbox_run_timeout(test_db, test_storage):
     workspace_id = str(uuid.uuid4())
     script_artifact_id = str(uuid.uuid4())
     log_artifact_id = str(uuid.uuid4())
+    agent_id = TEST_AGENT_ID
+
+    test_db.execute(
+        """
+        INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+        VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+        ON CONFLICT (id) DO NOTHING
+        """,
+        {"id": agent_id, "moltbook_id": "test_moltbook_id", "name": "Test Agent", "reputation": 0},
+    )
     
     # Create workspace
     test_db.execute(
@@ -558,7 +586,7 @@ def test_sandbox_run_timeout(test_db, test_storage):
             "short_id": "SCR6",
             "type": "code",
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{script_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -578,7 +606,7 @@ def test_sandbox_run_timeout(test_db, test_storage):
             "version": 1,
             "storage_uri": script_storage_uri,
             "content_hash": "test_hash6",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     
@@ -593,7 +621,7 @@ def test_sandbox_run_timeout(test_db, test_storage):
             "short_id": "LOG6",
             "type": "log",
             "storage_uri": f"s3://agora/{workspace_id}/artifacts/{log_artifact_id}/",
-            "created_by": "test_agent"
+            "created_by": agent_id
         }
     )
     

@@ -23,7 +23,7 @@ def workspace_with_agent(db_session):
     ws = Workspace(
         id=str(uuid.uuid4()),
         name="Claims Test Workspace",
-        phase="literature_review"
+        phase="LIT_REVIEW"
     )
     db_session.add(ws)
     
@@ -112,7 +112,7 @@ def other_workspace_artifact(storage, db_session):
     other_ws = Workspace(
         id=str(uuid.uuid4()),
         name="Other Workspace",
-        phase="ingestion"
+        phase="LIT_REVIEW"
     )
     db_session.add(other_ws)
     
