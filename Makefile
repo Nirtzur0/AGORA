@@ -4,7 +4,7 @@ PYTHON ?= python3
 PYTEST_ENV ?= PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 # We disable global plugin autoloading because dev machines sometimes have
 # third-party pytest plugins installed that can break collection (ex: langsmith).
-PYTEST ?= $(PYTEST_ENV) $(PYTHON) -m pytest -p pytest_asyncio
+PYTEST ?= $(PYTEST_ENV) $(PYTHON) -m pytest -p pytest_asyncio.plugin
 
 help: ## Show this help message
 	@echo "Available targets:"

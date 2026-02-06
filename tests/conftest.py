@@ -10,6 +10,10 @@ from pathlib import Path
 
 import pytest
 
+# When we disable third-party plugin autoloading (for determinism), we still
+# want first-party async tests to execute.
+pytest_plugins = ("pytest_asyncio.plugin",)
+
 # Test database URL (must be set before importing database module)
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
