@@ -21,11 +21,11 @@ Checked boxes imply the verification commands were run and relevant notes were c
   - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts`
   - Reruns: later in Phase 5 (3x total).
 
-- [ ] Run integration suite once (baseline) in intended environment.
+- [x] Run integration suite once (baseline) in intended environment.
   - AC: integration suite green OR explicit documented skips with markers/reasons.
   - Verify: `make test-integration`
 
-- [ ] Run e2e suite once (baseline) for critical flows.
+- [x] Run e2e suite once (baseline) for critical flows.
   - AC: e2e suite green OR explicit gating behind opt-in markers with documented env needs.
   - Verify: `make test-e2e`
 
@@ -49,27 +49,27 @@ Checked boxes imply the verification commands were run and relevant notes were c
 
 ## Phase 4: CI + Guardrails
 
-- [ ] Add CI guardrail: PRs that change tests/CI/runtime must update status + checklist docs.
+- [x] Add CI guardrail: PRs that change tests/CI/runtime must update status + checklist docs.
   - AC: CI fails if guardrail violated; docs explain policy.
   - Verify: update `.github/workflows/ci.yml` and test locally (best-effort).
   - Docs: `docs/manifest/11_ci.md`
 
 ## Phase 5: Final Verification (No Flakes)
 
-- [ ] Unit suite green 3x.
+- [x] Unit suite green 3x.
   - Verify: `make test-unit` (3 runs)
 
-- [ ] Unit data contracts green 3x.
+- [x] Unit data contracts green 3x.
   - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts` (3 runs)
 
-- [ ] Integration suite green (or intended skips documented).
+- [x] Integration suite green (or intended skips documented).
   - Verify: `make test-integration`
 
-- [ ] E2E suite green (or gated/opt-in documented).
+- [x] E2E suite green (or gated/opt-in documented).
   - Verify: `make test-e2e`
 
 ## Phase 6: Final Report
 
-- [ ] Write final stabilization report.
+- [x] Write final stabilization report.
   - AC: report includes failures/root causes/fixes/contracts/how-to-run/gated tests.
   - File: `docs/implementation/reports/test_stabilization_final_report.md`
