@@ -358,24 +358,26 @@ def test_client(core_api_url, core_api_app, migrated_db):
 
 
 @pytest.fixture
-def mock_agent_token(test_db):
+def mock_agent_token(migrated_db):
     """
     Mock JWT token for testing authenticated endpoints.
     
     Creates a JWT token with test agent credentials.
     """
     from jwt_utils import create_agent_token
+    from database import get_db
 
     # Ensure test agent exists for FK constraints
-    test_db.execute(
-        """
-        INSERT INTO agents (id, moltbook_id, name)
-        VALUES (:id, :moltbook_id, :name)
-        ON CONFLICT (id) DO NOTHING
-        """,
-        {"id": TEST_AGENT_ID, "moltbook_id": TEST_MOLTBOOK_ID, "name": "Test Agent"}
-    )
-    test_db.commit()
+    with get_db() as db:
+        db.execute(
+            """
+            INSERT INTO agents (id, moltbook_id, name)
+            VALUES (:id, :moltbook_id, :name)
+            ON CONFLICT (id) DO NOTHING
+            """,
+            {"id": TEST_AGENT_ID, "moltbook_id": TEST_MOLTBOOK_ID, "name": "Test Agent"},
+        )
+        db.commit()
 
     return create_agent_token(
         agent_id=TEST_AGENT_ID,
