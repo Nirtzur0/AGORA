@@ -60,6 +60,20 @@ def integration_setup(db_session):
     db_session.add(agent)
     db_session.commit()
 
+    # RBAC: request actions require workspace membership + permission.
+    maintainer_role_id = db_session.execute(
+        "SELECT id FROM roles WHERE name = :name",
+        {"name": "Maintainer"},
+    ).fetchone()[0]
+    db_session.execute(
+        """
+        INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status, joined_at)
+        VALUES (:workspace_id, :agent_id, :role_id, 'active', NOW())
+        """,
+        {"workspace_id": str(ws.id), "agent_id": str(agent.id), "role_id": str(maintainer_role_id)},
+    )
+    db_session.commit()
+
     return ws, agent
 
 

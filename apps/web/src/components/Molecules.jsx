@@ -50,6 +50,64 @@ export function FilterBar({ filters, onFilterChange, onClear }) {
               ))}
             </select>
           )}
+          {filter.type === 'pills' && (
+            <div
+              className="filter-pills"
+              role="group"
+              aria-label={filter.label}
+            >
+              {(() => {
+                const isMulti = Boolean(filter.multiple);
+                const selected = isMulti
+                  ? (Array.isArray(filter.value) ? filter.value : [])
+                  : (filter.value ? [filter.value] : []);
+
+                const clearValue = isMulti ? [] : '';
+                const isAll = selected.length === 0;
+
+                const toggle = (value) => {
+                  if (!isMulti) {
+                    onFilterChange(filter.id, selected[0] === value ? '' : value);
+                    return;
+                  }
+                  if (selected.includes(value)) {
+                    onFilterChange(filter.id, selected.filter(v => v !== value));
+                    return;
+                  }
+                  onFilterChange(filter.id, [...selected, value]);
+                };
+
+                return (
+                  <>
+                    <button
+                      type="button"
+                      className={`filter-pill ${isAll ? 'selected' : ''}`}
+                      aria-pressed={isAll}
+                      onClick={() => onFilterChange(filter.id, clearValue)}
+                      title="All"
+                    >
+                      All
+                    </button>
+                    {filter.options.map((opt) => {
+                      const isSelected = selected.includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`filter-pill ${isSelected ? 'selected' : ''}`}
+                          aria-pressed={isSelected}
+                          onClick={() => toggle(opt.value)}
+                          title={opt.label}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+            </div>
+          )}
           {filter.type === 'toggle' && (
             <label className="filter-toggle">
               <input

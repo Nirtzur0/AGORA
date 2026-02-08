@@ -186,7 +186,7 @@ ls -R tests/
 # Read implementation files
 cat apps/core-api/main.py
 cat tests/evaluation_harness.py
-cat scripts/seed_research_problems.py
+cat scripts/edit_tools/seed_research_problems.py
 ```
 
 ### ✅ Documentation Review

@@ -39,10 +39,18 @@ class APIClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } catch (err) {
+      // Browser-level network error (most commonly: core-api not running).
+      throw new Error(
+        'Cannot reach Core API (expected at /api). Start infra with `make up`, then start the API with `make dev-core-api`.'
+      );
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
@@ -64,6 +72,19 @@ class APIClient {
       method: 'POST',
       skipAuth: true,
       body: JSON.stringify({ moltbook_identity_token: moltbookToken }),
+    });
+    this.setToken(data.agent_session_jwt);
+    return data;
+  }
+
+  // Dev convenience: exchange a Moltbook identity token via header (same as curl examples).
+  async loginViaMoltbookHeader(moltbookIdentityToken) {
+    const data = await this.request('/auth/moltbook', {
+      method: 'POST',
+      skipAuth: true,
+      headers: {
+        'X-Moltbook-Identity': moltbookIdentityToken,
+      },
     });
     this.setToken(data.agent_session_jwt);
     return data;
@@ -135,7 +156,15 @@ class APIClient {
 
   async getArtifactVersionContent(versionId) {
     // UI uses the processed view endpoint; raw bytes live at `/content`.
-    return this.request(`/artifact-versions/${versionId}/view`);
+    try {
+      return await this.request(`/artifact-versions/${versionId}/view`);
+    } catch (err) {
+      // Most common dev footgun: core-api running from an older process without `/view` routes.
+      if (err?.message === 'Not Found') {
+        throw new Error('Core API endpoint missing: GET /artifact-versions/{id}/view. Restart core-api and refresh.');
+      }
+      throw err;
+    }
   }
 
   // Rule Checks

@@ -11,6 +11,7 @@ import './ArtifactViewer.css';
 export default function ArtifactViewer({ artifactId, versionId, onClose }) {
   const [artifact, setArtifact] = useState(null);
   const [version, setVersion] = useState(null);
+  const [versions, setVersions] = useState([]);
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,18 +29,24 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
   const loadArtifact = async () => {
     try {
       setLoading(true);
-      const [artifactData, versions] = await Promise.all([
+      const [artifactData, versionsResp] = await Promise.all([
         apiClient.getArtifact(artifactId),
         apiClient.getArtifactVersions(artifactId)
       ]);
       
       setArtifact(artifactData);
 
+      const versionsList = Array.isArray(versionsResp)
+        ? versionsResp
+        : (versionsResp?.versions || []);
+      setVersions(versionsList);
+
       let targetVersion = null;
       if (versionId) {
-        targetVersion = versions.find(v => v.id === versionId);
-      } else if (versions.length > 0) {
-        targetVersion = versions[versions.length - 1];
+        targetVersion = versionsList.find(v => v.id === versionId);
+      } else if (versionsList.length > 0) {
+        // Core API returns versions ordered by version DESC.
+        targetVersion = versionsList[0];
       }
 
       setVersion(targetVersion);
@@ -47,6 +54,7 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
       if (targetVersion) {
         const contentData = await apiClient.getArtifactVersionContent(targetVersion.id);
         setContent(contentData);
+        setSelectedPage(1);
         
         // If repo, set first file as selected
         if (artifactData.type === 'repo' && contentData.files && contentData.files.length > 0) {
@@ -102,16 +110,25 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
       </div>
 
       <div className="artifact-viewer-content">
-        {artifact.type === 'pdf' && <PDFViewer content={content} page={selectedPage} onPageChange={setSelectedPage} />}
-        {artifact.type === 'repo' && <RepoViewer content={content} selectedFile={selectedFile} onFileSelect={setSelectedFile} />}
-        {artifact.type === 'log' && <LogViewer content={content} />}
-        {artifact.type === 'dataset' && <DatasetViewer content={content} />}
-        {artifact.type === 'draft' && <DraftViewer content={content} />}
-        {artifact.type === 'config' && <ConfigViewer content={content} />}
-        {!['pdf', 'repo', 'log', 'dataset', 'draft', 'config'].includes(artifact.type) && (
-          <div className="artifact-viewer-unsupported">
-            Viewer for type "{artifact.type}" not implemented
+        {!version ? (
+          <div className="viewer-empty">
+            No versions available for this artifact yet.
           </div>
+        ) : (
+          <>
+            {artifact.type === 'pdf' && <PDFViewer content={content} page={selectedPage} onPageChange={setSelectedPage} />}
+            {artifact.type === 'code' && <CodeViewer content={content} artifact={artifact} />}
+            {artifact.type === 'repo' && <RepoViewer content={content} selectedFile={selectedFile} onFileSelect={setSelectedFile} />}
+            {artifact.type === 'log' && <LogViewer content={content} />}
+            {artifact.type === 'dataset' && <DatasetViewer content={content} />}
+            {artifact.type === 'draft' && <DraftViewer content={content} />}
+            {artifact.type === 'config' && <ConfigViewer content={content} />}
+            {!['pdf', 'code', 'repo', 'log', 'dataset', 'draft', 'config'].includes(artifact.type) && (
+              <div className="artifact-viewer-unsupported">
+                Viewer for type "{artifact.type}" not implemented
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -131,6 +148,9 @@ export default function ArtifactViewer({ artifactId, versionId, onClose }) {
 }
 
 function PDFViewer({ content, page, onPageChange }) {
+  if (content?.error) {
+    return <div className="viewer-empty">{content.error}</div>;
+  }
   if (!content || !content.pages) {
     return <div className="viewer-empty">No PDF content available</div>;
   }
@@ -159,6 +179,48 @@ function PDFViewer({ content, page, onPageChange }) {
       </div>
       <div className="pdf-viewer-text">
         <pre>{currentPage?.text || 'No text extracted for this page'}</pre>
+      </div>
+    </div>
+  );
+}
+
+function CodeViewer({ content, artifact }) {
+  const text =
+    (typeof content === 'string' ? content : null) ||
+    content?.text ||
+    content?.raw_content ||
+    '';
+
+  if (!text) {
+    // Show processing errors if present; otherwise a generic message.
+    if (content?.error) return <div className="viewer-empty">{content.error}</div>;
+    return <div className="viewer-empty">No code content available</div>;
+  }
+
+  const filename = artifact?.metadata?.filename || artifact?.metadata?.path || artifact?.metadata?.title || null;
+  const language = artifact?.metadata?.language || artifact?.metadata?.lang || null;
+
+  const lines = text.split('\n');
+
+  return (
+    <div className="code-viewer">
+      <div className="code-viewer-header">
+        <div className="code-viewer-meta">
+          {filename && <span className="code-viewer-filename">{filename}</span>}
+          {language && <span className="code-viewer-language">{language}</span>}
+        </div>
+        <CopyButton text={text} label="Copy Code" title="Copy code to clipboard" />
+      </div>
+
+      <div className="code-viewer-body" role="region" aria-label="Code">
+        <pre className="code-viewer-pre">
+          {lines.map((line, idx) => (
+            <div key={idx} className="code-line">
+              <span className="code-line-no">{idx + 1}</span>
+              <span className="code-line-text">{line || ' '}</span>
+            </div>
+          ))}
+        </pre>
       </div>
     </div>
   );

@@ -36,6 +36,13 @@ def get_workspaces(jwt):
         headers={"Authorization": f"Bearer {jwt}"},
     )
 
+def get_workspace_artifacts(jwt, workspace_id):
+    return http_json(
+        "GET",
+        f"{BASE_URL}/workspaces/{workspace_id}/artifacts",
+        headers={"Authorization": f"Bearer {jwt}"},
+    )
+
 
 def create_artifact(jwt, workspace_id, metadata):
     return http_json(
@@ -130,6 +137,20 @@ def main():
         ws_id = ws_by_name.get(item["workspace_name"])
         if not ws_id:
             print(f"SKIP: workspace not found: {item['workspace_name']}", file=sys.stderr)
+            continue
+
+        # Idempotency: skip if this arXiv id already exists in workspace.
+        try:
+            existing = get_workspace_artifacts(jwt, ws_id).get("artifacts", [])
+        except Exception:
+            existing = []
+        if any(
+            (a.get("type") == "pdf")
+            and isinstance(a.get("metadata"), dict)
+            and (a["metadata"].get("arxiv_id") == item["arxiv_id"])
+            for a in existing
+        ):
+            print(f"SKIP: already seeded arXiv {item['arxiv_id']} in workspace {item['workspace_name']}", file=sys.stderr)
             continue
 
         metadata = {

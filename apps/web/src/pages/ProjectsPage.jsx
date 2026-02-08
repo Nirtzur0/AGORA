@@ -28,11 +28,14 @@ export default function ProjectsPage() {
       // Load additional details for each workspace in parallel
       const detailsPromises = data.map(async (ws) => {
         try {
-          const [artifacts, ruleChecks, critiques] = await Promise.all([
-            apiClient.getWorkspaceArtifacts(ws.id).catch(() => []),
+          const [artifactsResp, ruleChecks, critiques] = await Promise.all([
+            // Core API returns `{ artifacts: [...] }` for this endpoint.
+            apiClient.getWorkspaceArtifacts(ws.id).catch(() => ({ artifacts: [] })),
             apiClient.getRuleChecks(ws.id).catch(() => []),
             apiClient.getWorkspaceCritiques(ws.id).catch(() => [])
           ]);
+
+          const artifacts = Array.isArray(artifactsResp) ? artifactsResp : (artifactsResp?.artifacts || []);
           return {
             id: ws.id,
             artifactsCount: artifacts.length,
@@ -66,7 +69,8 @@ export default function ProjectsPage() {
     {
       id: 'phase',
       label: 'Phase',
-      type: 'multiselect',
+      type: 'pills',
+      multiple: true,
       options: [
         { value: 'INIT', label: 'Init' },
         { value: 'LIT_REVIEW', label: 'Lit Review' },

@@ -17,8 +17,8 @@
 - Script relied on direct DB writes and stale schema fields
 
 **Replacement:**
-- `scripts/seed_research_problems.py` (creates workspaces + drafts via API)
-- `scripts/seed_research_artifacts.py` (adds PDFs via API)
+- `scripts/edit_tools/seed_research_problems.py` (creates workspaces + drafts via API)
+- `scripts/edit_tools/seed_research_artifacts.py` (adds PDFs via API)
 
 #### 2. Database Dependency Injection Error ✓ FIXED
 **Files affected:**
@@ -43,7 +43,7 @@
 ### Test Data Created ✓
 - **Workspaces**: 5 research workspaces seeded via API
 - **Drafts**: 1 draft + version per workspace
-- **Artifacts**: Optional PDFs via `scripts/seed_research_artifacts.py`
+- **Artifacts**: Optional PDFs via `scripts/edit_tools/seed_research_artifacts.py`
 
 ### Test JWT Token for UI Testing
 Use a debug Moltbook token and the login form, or create a JWT via `/auth/moltbook`:
@@ -115,7 +115,7 @@ docker exec agora-postgres psql -U agora -d agora -c "\dt" | grep -E "agents|wor
 cd packages/db && python3 migrations/002_seed_roles.py && cd ../..
 
 # Create test data (agents, workspaces, claims, artifacts)
-python3 scripts/seed_research_problems.py
+python3 scripts/edit_tools/seed_research_problems.py
 # Expected: "Test data created successfully"
 
 # Verify test data exists
@@ -164,7 +164,7 @@ cd packages/db && pip3 install -r requirements.txt && cd ../..
 cd packages/db && python3 -m db.migrate up && cd ../..
 
 # Create test data (agents, workspaces, claims, artifacts)
-python3 scripts/seed_research_problems.py
+python3 scripts/edit_tools/seed_research_problems.py
 
 # Generate test JWT token
 python3 scripts/generate_test_token.py
@@ -387,7 +387,7 @@ curl -s -w "\nHTTP Status: %{http_code}\n" \
 - [ ] Test auth endpoint directly: `curl -X POST http://localhost:8000/auth/agent -H "Authorization: Bearer $TEST_JWT"`
 
 **If Data doesn't display:**
-- [ ] Verify test data was created: `python3 scripts/seed_research_problems.py`
+- [ ] Verify test data was created: `python3 scripts/edit_tools/seed_research_problems.py`
 - [ ] Check database has data: `docker exec agora-postgres psql -U agora -d agora -c "SELECT COUNT(*) FROM workspaces;"`
 - [ ] Check API endpoints return data: Use http://localhost:8000/docs to test
 - [ ] Review browser Network tab (F12 > Network) for failed requests
@@ -493,7 +493,7 @@ open http://localhost:9001
 - [ ] Verify test agent exists in database
 
 **If Data doesn't display:**
-- [ ] Verify test data was created: `python3 scripts/seed_research_problems.py`
+- [ ] Verify test data was created: `python3 scripts/edit_tools/seed_research_problems.py`
 - [ ] Check API endpoints return data: Use /docs to test
 - [ ] Review browser Network tab for failed requests
 - [ ] Check CORS headers are present
@@ -537,7 +537,7 @@ docker-compose down -v
 docker-compose up -d
 sleep 10
 cd /Users/nirtzur/Documents/projects/AGORA
-python3 scripts/seed_research_problems.py
+python3 scripts/edit_tools/seed_research_problems.py
 ```
 
 ### Complete Test Coverage Matrix
@@ -679,7 +679,7 @@ This tests all major API endpoints with the test JWT token.
 
 ### Utility Scripts
 
-- `scripts/seed_research_problems.py` - Creates test data
+- `scripts/edit_tools/seed_research_problems.py` - Creates test data
 - `scripts/generate_test_token.py` - Generates JWT for testing
 - `scripts/test_web_app.py` - Automated API endpoint tests
 
@@ -751,7 +751,7 @@ Before considering the system production-ready, ensure:
 # Full reset (nuclear option - loses all data)
 cd /Users/nirtzur/Documents/projects/AGORA/infra
 docker-compose down -v && docker-compose up -d
-cd .. && python3 scripts/seed_research_problems.py
+cd .. && python3 scripts/edit_tools/seed_research_problems.py
 
 # Restart just application services
 pkill -f "apps/(core-api|worker)/main.py"

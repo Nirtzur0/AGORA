@@ -73,7 +73,7 @@ clean: down ## Clean up all volumes and data
 	@echo "Cleanup complete."
 
 dev-core-api: ## Run core API locally (for development)
-	cd apps/core-api && python main.py
+	cd apps/core-api && $(PYTHON) main.py
 
 install-core-api: ## Install core-api dependencies
 	cd apps/core-api && pip install -r requirements.txt -r requirements-dev.txt
@@ -94,16 +94,16 @@ build-moltbook: ## Build Moltbook adapter
 
 migrate-up: ## Run database migrations
 	@echo "Running migrations..."
-	cd packages/db && python -m db.migrate up
+	cd packages/db && $(PYTHON) -m db.migrate up
 	@echo "Seeding roles..."
-	cd packages/db && python -m db.migrate seed_roles
+	cd packages/db && $(PYTHON) -m db.migrate seed_roles
 
 seed-roles: ## Seed roles with canonical permissions
 	@echo "Seeding roles..."
-	cd packages/db && python migrations/002_seed_roles.py
+	cd packages/db && $(PYTHON) migrations/002_seed_roles.py
 
 migrate-create: ## Create a new migration (usage: make migrate-create NAME=description)
 	@echo "Creating migration: $(NAME)"
-	cd packages/db && python -m db.migrate create "$(NAME)"
+	cd packages/db && $(PYTHON) -m db.migrate create "$(NAME)"
 
 .PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles

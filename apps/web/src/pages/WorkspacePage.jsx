@@ -495,9 +495,11 @@ function DraftsTab({ workspaceId }) {
   const selectDraft = async (draft) => {
     setSelectedDraft(draft);
     try {
-      const versions = await apiClient.getArtifactVersions(draft.id);
+      const versionsResp = await apiClient.getArtifactVersions(draft.id);
+      const versions = Array.isArray(versionsResp) ? versionsResp : (versionsResp?.versions || []);
       if (versions.length > 0) {
-        const latestVersion = versions[versions.length - 1];
+        // Core API returns versions ordered by version DESC.
+        const latestVersion = versions[0];
         const content = await apiClient.getArtifactVersionContent(latestVersion.id);
         setDraftContent(content.text || content.content || 'No content');
       }

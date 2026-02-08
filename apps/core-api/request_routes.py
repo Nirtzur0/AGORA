@@ -21,6 +21,7 @@ import json
 from database import DBWrapper, get_db_session
 from auth_middleware import require_agent_token, require_system_token, AgentContext, SystemContext
 from idempotency import check_idempotency, store_idempotency_result
+from rbac import require_permission
 
 
 router = APIRouter()
@@ -41,6 +42,36 @@ def _agent_id(current_agent: AgentContext) -> str:
     if isinstance(current_agent, dict):
         return str(current_agent.get("agent_id"))
     return str(current_agent.agent_id)
+
+def _allocate_short_id(workspace_id: str, db: DBWrapper) -> str:
+    """
+    Allocate next artifact short_id for a workspace (A1, A2, ...).
+
+    Note: This is intentionally consistent with `apps/core-api/artifact_routes.py`.
+    """
+    row = db.execute(
+        """
+        SELECT short_id
+        FROM artifacts
+        WHERE workspace_id = :workspace_id
+          AND short_id LIKE 'A%%'
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        {"workspace_id": workspace_id},
+    ).fetchone()
+
+    if not row:
+        return "A1"
+
+    last = row[0] or ""
+    if not str(last).startswith("A"):
+        return "A1"
+    try:
+        n = int(str(last)[1:])
+        return f"A{n + 1}"
+    except Exception:
+        return "A1"
 
 
 # Request/Response Models
@@ -164,6 +195,9 @@ async def request_ingest_pdf(
             status_code=400,
             detail=f"Artifact {request.artifact_id} is not a PDF (type={artifact_row[1]})"
         )
+
+    # RBAC: request actions must be permission-gated (Docs/04 §4.15)
+    require_permission(db, _agent_id(current_agent), workspace_id_str, "artifact.request.ingest_pdf")
     
     # Idempotency on agent writes (schema-backed). This dedupes the *request* to ingest,
     # not the existence of versions in storage.
@@ -229,7 +263,8 @@ async def request_ingest_repo(
     workspace_id: uuid.UUID,
     request: IngestRepoRequest,
     current_agent: AgentContext = Depends(require_agent_token),
-    db: DBWrapper = Depends(get_db_session)
+    db: DBWrapper = Depends(get_db_session),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
     """
     Start repo ingestion activity.
@@ -241,6 +276,11 @@ async def request_ingest_repo(
     - Returns artifact_id and activity_run_id for tracking
     """
     workspace_id_str = str(workspace_id)
+
+    # When calling route functions directly (tests), FastAPI Header defaults are not resolved and
+    # we receive the Header() sentinel object. Treat it as "not provided".
+    if isinstance(idempotency_key, HeaderParam):
+        idempotency_key = None
     
     # Verify workspace exists
     ws_row = db.execute(
@@ -250,6 +290,30 @@ async def request_ingest_repo(
     
     if not ws_row:
         raise HTTPException(status_code=404, detail=f"Workspace {workspace_id_str} not found")
+
+    # RBAC: request actions must be permission-gated (Docs/04 §4.15)
+    agent_id = _agent_id(current_agent)
+    if not agent_id:
+        raise HTTPException(status_code=401, detail="Missing agent context")
+    require_permission(db, agent_id, workspace_id_str, "artifact.request.ingest_repo")
+
+    # Idempotency on agent writes (schema-backed). For repo ingestion, we store
+    # the created artifact_id so clients can safely retry.
+    if idempotency_key and agent_id:
+        existing = await check_idempotency(
+            idempotency_key=idempotency_key,
+            agent_id=agent_id,
+            request_name="request.ingest_repo",
+            db=db,
+            workspace_id=workspace_id_str,
+        )
+        if existing:
+            return IngestRepoResponse(
+                request_id=str(existing["result_id"]),
+                activity_run_id="idempotent",
+                artifact_id=str(existing["result_id"]),
+                message="Repo ingestion request already processed (idempotent).",
+            )
     
     # Check if repo already ingested (idempotency by repo_url + commit_hash)
     existing_artifact = None
@@ -275,7 +339,6 @@ async def request_ingest_repo(
         )
     
     # Create code artifact
-    import json
     artifact_id = str(uuid.uuid4())
     
     db.execute(
@@ -286,11 +349,11 @@ async def request_ingest_repo(
         {
             "id": artifact_id,
             "workspace_id": workspace_id_str,
-            "short_id": f"C{abs(hash(artifact_id)) % 10000}",
+            "short_id": _allocate_short_id(workspace_id_str, db),
             "type": "code",
-            "metadata": json.dumps({"repo_url": request.repo_url}),
+            "metadata": {"repo_url": request.repo_url, "branch": request.branch, "commit_hash": request.commit_hash},
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{artifact_id}/",
-            "created_by": _agent_id(current_agent)
+            "created_by": agent_id
         }
     )
     
@@ -342,7 +405,7 @@ async def request_ingest_repo(
             artifact_id=artifact_id,
             workspace_id=workspace_id_str,
             repo_url=request.repo_url,
-            created_by=_agent_id(current_agent),
+            created_by=agent_id,
             branch=request.branch,
             commit_hash=request.commit_hash,
             activity_run_id=activity_run_id
@@ -372,6 +435,17 @@ async def request_ingest_repo(
             }
         )
         db.commit()
+
+        if idempotency_key and agent_id:
+            await store_idempotency_result(
+                idempotency_key=idempotency_key,
+                workspace_id=workspace_id_str,
+                agent_id=agent_id,
+                request_name="request.ingest_repo",
+                result_type="artifact",
+                result_id=artifact_id,
+                db=db,
+            )
         
         return IngestRepoResponse(
             request_id=str(uuid.uuid4()),
