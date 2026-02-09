@@ -1,8 +1,8 @@
 # Checklist: Improvement Bets
 
 Date: 2026-02-09
-Prompt packet: `prompt-11-docs-diataxis-release`
-Triggering delta: `DIR-18` remained the only open risk after `AR-C11` remote-evidence closure; external sink ownership/escalation/fallback policy had to be defined before implementation.
+Prompt packet: `prompt-02-app-development-playbook`
+Triggering delta: `DIR-18` policy-shaping was complete, so the non-redundant next slice was implementation + first remote sink evidence for `AR-C12`.
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 Checked boxes imply acceptance signals were met and verification evidence was recorded in `Docs/implementation/00_status.md` and `Docs/implementation/03_worklog.md`.
@@ -20,13 +20,13 @@ Checked boxes imply acceptance signals were met and verification evidence was re
   - Acceptance signal: `AR-C12` implementation can proceed without ambiguity about incident ownership and fallback behavior.
   - Suggested prompt chain: `prompt-11` -> `prompt-02` -> `prompt-03`
 
-- [ ] Route objective/observability CI outputs to an external dashboard/paging surface.
+- [x] Route objective/observability CI outputs to an external dashboard/paging surface.
   - Owner type: maintainer
   - Effort: L
-  - Target files/areas: `.github/workflows/ci.yml`, `scripts/check_observability_snapshot.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`
+  - Target files/areas: `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `Makefile`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
   - AC: one external sink receives and exposes key CI observability outputs.
-  - Verify: integration dry-run evidence + docs references.
-  - Acceptance signal: CI artifacts are not only in-repo; at least one external operational surface is active.
+  - Verify: `make PYTHON=python3 check-observability-sink-dry-run` (PASS, 2026-02-09), `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09), `rg -n "publish_observability_sink.py|observability_sink_mode|observability_sink_url|cmd-13-nightly-observability-sink-report|release-tag-observability-sink-report|check-observability-sink-dry-run" .github/workflows/ci.yml scripts/publish_observability_sink.py Makefile Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md` (PASS, 2026-02-09), and workflow dispatch run `21813367976` job `62929945541` PASS with sink publish step pass (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`).
+  - Acceptance signal: external sink publish path is active with first remote evidence and artifacted sink report payload.
   - Suggested prompt chain: `prompt-02` -> `prompt-03`
 
 ## Completed Bets (Recent)
@@ -138,4 +138,4 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 - [x] Completed packet (`small` appetite): DIR-15.
 - [x] Completed packet (`medium` appetite): DIR-16.
 - [x] Completed packet (`medium` appetite): DIR-17.
-- [ ] Now packet (`large` appetite): DIR-18.
+- [x] Completed packet (`large` appetite): DIR-18.

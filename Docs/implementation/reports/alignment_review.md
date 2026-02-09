@@ -6,7 +6,7 @@ Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-17` (`AR-C11`) by publishing runtime/flake trend artifacts for heavy nightly/release gates, and remote evidence for those artifacts is now captured. Residual risk is concentrated on external observability routing (`DIR-18` / `AR-C12`).
+AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-18` (`AR-C12`) by adding external sink publish paths for observability outputs and capturing first remote active-mode evidence. The next non-redundant step is a fresh alignment rerank (`prompt-03`) after this closure.
 
 ## Required Question Answers
 
@@ -38,24 +38,25 @@ AGORA remains aligned with the core objective. The latest implementation follow-
   - `Docs/implementation/checklists/06_release_readiness.md`
 - Milestone/bet routing advanced:
   - `AR-C11` is now closed.
-  - Active open direction is `DIR-18` (`AR-C12`).
+  - `AR-C12` is now closed with first remote sink evidence.
+  - Remaining risk evaluation should be refreshed by a new `prompt-03` checkpoint.
 
 ## Top 3 Corrective Actions
 
-1. Scope and implement `DIR-18` / `AR-C12`: external observability sink/pager integration.
-2. Capture first remote evidence run once `AR-C12` implementation is in place.
-3. Run a fresh `prompt-03` checkpoint after `AR-C12` evidence capture to re-rank residual risk.
+1. Run a fresh `prompt-03` checkpoint after `AR-C12` closure to re-rank residual risks.
+2. Decide whether sink-delivery failures should remain fail-open or move selected paths to fail-closed.
+3. Capture objective-metrics-gate (`CMD-29`/`CMD-32`) sink publish evidence once a qualifying non-dispatch run executes with sink configured.
 
 ## Milestone Mapping
 
 - `AR-C10` and `AR-C11` are closed in `Docs/implementation/checklists/02_milestones.md`.
-- Next scheduled work is `AR-C12` (`DIR-18`) under `M9 - CI Operability Policy and Trend Hardening`.
-- `AR-C12` (`DIR-18`) remains open under the same milestone as the active now-packet (large appetite).
+- `AR-C12` (`DIR-18`) is now closed under `M9 - CI Operability Policy and Trend Hardening`.
+- Next scheduled work is a post-closure alignment rerank (`prompt-03`).
 
 ## Residual Risks
 
-- `ALIGNED_WITH_RISKS` remains appropriate because external dashboard/paging integration is still absent.
-- External sink/paging ownership and fallback are now documented, but delivery is still manual, so response workflows remain dependent on in-repo artifacts.
+- `ALIGNED_WITH_RISKS` remains appropriate pending fresh rerank, with current known residual:
+- sink routing is intentionally fail-open; fail-closed behavior is deferred until destination reliability and pager workflows are proven.
 
 ## Latest Checkpoint
 
@@ -67,5 +68,6 @@ AGORA remains aligned with the core objective. The latest implementation follow-
 - 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS.
 - 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS.
 - 2026-02-09 `prompt-11` follow-through documented `AR-C12` ownership/escalation/fallback policy in `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, and `Docs/implementation/checklists/06_release_readiness.md`.
+- 2026-02-09 workflow dispatch run `21813367976` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`) with sink publish step PASS (`active`, host `httpbin.org`, response `200`).
 - 2026-02-09 `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS.
-- Next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-18` (`AR-C12`) implementation and first remote evidence capture.
+- Next non-redundant packet: `prompt-03-alignment-review-gate` for post-`AR-C12` residual-risk rerank.

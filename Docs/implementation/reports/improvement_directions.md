@@ -1,8 +1,8 @@
 # Improvement Directions Report
 
 Date: 2026-02-09
-Prompt packet: `prompt-11-docs-diataxis-release` (policy-shaping follow-through for `DIR-18` / `AR-C12`)
-Triggering delta: `DIR-18` remained the only open residual-risk direction after `AR-C11` remote evidence closure; ownership/escalation/fallback policy had to be explicit before implementation.
+Prompt packet: `prompt-02-app-development-playbook` (implementation follow-through for `DIR-18` / `AR-C12`)
+Triggering delta: policy-shaping for `DIR-18` was complete; implementation and first remote sink evidence had to be captured.
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 ## Current-State Snapshot (Evidence-Backed)
@@ -16,8 +16,8 @@ AGORA remains aligned to the core objective. The next highest-value work is oper
 | CI posture | Release/nightly/Dash/UI-smoke gates are implemented and have passing remote evidence (`21811670648`, `21811670116`, `21812201997`) | `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/implementation/03_worklog.md` |
 | Runtime/flake governance | Runtime/flake policy is codified for heavy jobs (`AR-C10`) with explicit timeout/retry/target rules and release-blocking enforcement | `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md` |
 | Operability telemetry | Runtime/flake trend telemetry is now published per heavy run (`AR-C11`) as dashboard + JSON/JSONL artifacts for nightly/release gates | `.github/workflows/ci.yml`, `scripts/build_ci_runtime_trend.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md` |
-| External routing | Ownership/escalation/fallback policy is now documented, but external sink delivery remains unimplemented | `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md` |
-| Planning hygiene | Trigger-aware `prompt-03` loop and docs guardrail are active; next packet should be `DIR-18` implementation in `prompt-02`, then a fresh `prompt-03` checkpoint | `.github/workflows/ci.yml`, `Docs/implementation/checklists/07_alignment_review.md` |
+| External routing | External sink publish path is implemented with fail-open controls; first remote active-mode evidence is captured | `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `Docs/manifest/11_ci.md` |
+| Planning hygiene | Trigger-aware `prompt-03` loop and docs guardrail are active; next packet should be fresh alignment rerank after `DIR-18` closure | `.github/workflows/ci.yml`, `Docs/implementation/checklists/07_alignment_review.md` |
 
 ## Opportunity Inventory
 
@@ -25,7 +25,7 @@ AGORA remains aligned to the core objective. The next highest-value work is oper
 |---|---|---|---|---|---|---|---|---|---|
 | DIR-16 | Codify runtime/flake budget policy for `cmd-13-nightly-full-suite` and `release-tag-gate` | Operability | `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md` | Closed (2026-02-09): policy codified via `AR-C10` | H | H | M | L | `prompt-02` -> `prompt-11` -> `prompt-03` |
 | DIR-17 | Add CI runtime+flake trend artifact for nightly/release jobs | Observability | `.github/workflows/ci.yml`, `scripts/build_ci_runtime_trend.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md` | Closed (2026-02-09): trend bundle artifact (`latest.json`, `history.jsonl`, `dashboard.md`) is published for heavy nightly/release jobs via `AR-C11` | M | M | M | M | `prompt-02` -> `prompt-10` -> `prompt-03` |
-| DIR-18 | Route CI/objective observability to external dashboard/paging surface | Operability | `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md` | Policy shaping is complete (`prompt-11`), but sink delivery + remote publish evidence are still missing | M | M | L | M | `prompt-11` -> `prompt-02` -> `prompt-03` |
+| DIR-18 | Route CI/objective observability to external dashboard/paging surface | Operability | `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md` | Closed (2026-02-09): sink delivery implemented with first remote active-mode evidence (`run 21813367976`) | M | M | L | M | `prompt-11` -> `prompt-02` -> `prompt-03` |
 
 ## Selected Directions (Top 3)
 
@@ -77,17 +77,17 @@ AGORA remains aligned to the core objective. The next highest-value work is oper
     - `Docs/manifest/11_ci.md`
     - `Docs/reference/release_workflow.md`
     - `Docs/implementation/checklists/06_release_readiness.md`
-- Remaining done signal: one external sink receives CI signals and is referenced by remote run evidence in release-readiness docs.
+- Done signal: one external sink receives CI signals and is referenced by remote run evidence in release-readiness docs. (Met on 2026-02-09 via run `21813367976`.)
 
 ## Packeting Plan
 
-### Now (appetite: large)
+### Now (appetite: small)
 
-1. DIR-18 implementation: external observability sink/paging (`AR-C12`) in `prompt-02`.
+1. Fresh `prompt-03` checkpoint to rerank residual risk after `DIR-18` closure.
 
-### Next (appetite: small)
+### Next (appetite: medium)
 
-1. Fresh `prompt-03` checkpoint after `AR-C12` implementation evidence capture.
+1. None (await `prompt-03` rerank output).
 
 ### Not now (appetite: medium)
 
@@ -95,12 +95,12 @@ AGORA remains aligned to the core objective. The next highest-value work is oper
 
 Execution update (2026-02-09):
 
-- `prompt-11` follow-through completed the `AR-C12` prep policy shape:
-  - escalation ownership model
-  - severity-to-signal mapping
-  - dry-run rollout and fail-open fallback plan
-- Active remaining open direction is still `DIR-18` (`AR-C12`) because external sink delivery is not yet wired in CI/scripts.
-- Next non-redundant execution packet is now `prompt-02-app-development-playbook` for implementation, followed by `prompt-03` rerank once remote evidence is captured.
+- `prompt-02` follow-through implemented external sink publishing in:
+  - `objective-metrics-gate`
+  - `cmd-13-nightly-full-suite`
+  - `release-tag-gate`
+- first remote active-mode sink evidence is captured in run `21813367976` (`cmd-13-nightly-full-suite`, job `62929945541`) with report status `pass`.
+- next non-redundant execution packet is `prompt-03-alignment-review-gate` for post-`DIR-18` rerank.
 
 ## Assumptions and Constraints
 

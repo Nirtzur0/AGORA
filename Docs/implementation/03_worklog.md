@@ -2,6 +2,41 @@
 
 ## 2026-02-09
 
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) to close `DIR-18` / `AR-C12` external sink routing.
+- Prompt-02 `AR-C12` implementation follow-through:
+  - triggering delta: `DIR-18` policy-shaping was complete under `prompt-11`, so implementation + remote evidence was the non-redundant next slice.
+  - implemented sink publish path:
+    - added `scripts/publish_observability_sink.py`
+    - added `tests/unit/test_publish_observability_sink.py`
+    - wired `.github/workflows/ci.yml` publish steps and `workflow_dispatch` sink inputs
+    - added `make check-observability-sink-dry-run` (`CMD-40`)
+  - captured remote evidence:
+    - run `21813367976`: `https://github.com/Nirtzur0/AGORA/actions/runs/21813367976`
+    - `cmd-13-nightly-full-suite` job `62929945541` PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`
+    - sink publish step PASS (`active`, host `httpbin.org`, response `200`)
+    - artifact contains `cmd-13-nightly-observability-sink-report.json` and `cmd-13-nightly-observability-sink-summary.md`
+  - synced docs/checklists:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/09_runbook.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/reports/alignment_review.md`
+    - `Docs/INDEX.md`
+    - `CHANGELOG.md`
+  - next non-redundant packet: `prompt-03-alignment-review-gate` for post-`AR-C12` rerank.
+- Verification evidence for this packet:
+  - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` -> PASS
+  - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+  - `make PYTHON=python3 check-observability-sink-dry-run` -> PASS
+  - `gh run view 21813367976 --json status,conclusion,jobs,headSha,headBranch,event,url` -> PASS
+  - `gh api 'repos/Nirtzur0/AGORA/actions/runs/21813367976/artifacts' --jq '.artifacts[] | {name,size_in_bytes}'` -> PASS (`cmd-13-nightly-runtime-trend`)
+  - `rg -n "publish_observability_sink.py|observability_sink_mode|observability_sink_url|cmd-13-nightly-observability-sink-report|check-observability-sink-dry-run|AR-C12|DIR-18|prompt-03-alignment-review-gate" .github/workflows/ci.yml scripts/publish_observability_sink.py Makefile Docs/manifest/07_observability.md Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md Docs/implementation/reports/alignment_review.md` -> PASS
+
 - Manually selected and executed `prompt-11-docs-diataxis-release` follow-through (without `.py` router scripts) to shape `DIR-18` (`AR-C12`) ownership/escalation/fallback policy before implementation.
 - Prompt-11 `AR-C12` policy-shaping follow-through:
   - triggering delta: `AR-C11` remote evidence closure left `DIR-18` as the sole open residual risk and ownership/escalation policy was still implicit.

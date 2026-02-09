@@ -281,9 +281,8 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
   - Files: `.github/workflows/ci.yml`, `scripts/*`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
   - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-10` -> `prompt-03`
 
-- [ ] AR-C12: Route observability outputs to an external dashboard/pager.
+- [x] AR-C12: Route observability outputs to an external dashboard/pager.
   - AC: one external operational sink receives objective/observability CI outputs with documented escalation ownership.
-  - Verify: integration dry-run evidence and docs references in `Docs/manifest/07_observability.md` + `Docs/manifest/11_ci.md` + release/readiness notes.
-  - Prep status: ownership/severity/fallback policy is now documented (`Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`); implementation evidence remains open.
-  - Files: `.github/workflows/ci.yml`, observability publish scripts, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
-  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-11` -> `prompt-03`
+  - Verify: `make PYTHON=python3 check-observability-sink-dry-run` (PASS, 2026-02-09), `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09), `rg -n "publish_observability_sink.py|observability_sink_mode|observability_sink_url|cmd-13-nightly-observability-sink-report|release-tag-observability-sink-report|check-observability-sink-dry-run" .github/workflows/ci.yml scripts/publish_observability_sink.py Makefile Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md` (PASS, 2026-02-09), and workflow dispatch run `21813367976` job `62929945541` PASS with sink publish step pass (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`).
+  - Files: `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `tests/unit/test_publish_observability_sink.py`, `Makefile`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
+  - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`

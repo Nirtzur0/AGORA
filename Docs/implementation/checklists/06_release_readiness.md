@@ -1,7 +1,7 @@
 # Checklist: Release Readiness
 
 Date: 2026-02-09
-Packet: `prompt-11-docs-diataxis-release` follow-through (`AR-C12` ownership/escalation/fallback shaping)
+Packet: `prompt-02-app-development-playbook` follow-through (`AR-C12` external sink implementation + evidence)
 
 ## Versioning and changelog
 
@@ -90,9 +90,8 @@ Packet: `prompt-11-docs-diataxis-release` follow-through (`AR-C12` ownership/esc
   - Evidence: `Docs/manifest/07_observability.md` now includes owner roles + severity mapping in `External Sink Ownership and Escalation Policy`.
 - [x] Dry-run rollout and fallback behavior are explicitly documented.
   - Evidence: `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, and `Docs/reference/release_workflow.md` all define dry-run/fail-open rollout and in-repo fallback signals (`CMD-29`, `CMD-32`, `CMD-39`).
-- [ ] First external-sink publish evidence is captured from a remote CI run.
-  - Verify: one run references successful external delivery attempt and links to the sink-targeted payload summary.
-  - Target packet: `prompt-02-app-development-playbook` implementation follow-through.
+- [x] First external-sink publish evidence is captured from a remote CI run.
+  - Evidence: workflow dispatch run `21813367976`, job `cmd-13-nightly-full-suite` (`62929945541`) includes sink publish step pass (`active`, host `httpbin.org`, response `200`) and artifacted sink report files (`cmd-13-nightly-observability-sink-report.json`, `cmd-13-nightly-observability-sink-summary.md`).
 
 ## Documentation completeness
 

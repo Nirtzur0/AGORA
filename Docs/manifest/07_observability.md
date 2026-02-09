@@ -11,6 +11,7 @@ This page is the observability and reliability gate for AGORA runtime workflows.
 5. External artifact registry freshness and provenance coverage.
 6. Objective metrics automation for citation integrity and authority-boundary regressions.
 7. Heavy CI runtime/flake trend monitoring for nightly and release gates.
+8. External sink publishing for CI observability payloads.
 
 ## Telemetry Surfaces
 
@@ -62,6 +63,7 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
 - [x] Artifact provenance/freshness SLO checks are auto-enforced in CI (`CMD-26`).
 - [x] Objective success metrics (citation integrity + authority-boundary trends) are auto-generated in report output and CI gate checks (`CMD-29`).
 - [x] Consolidated observability snapshot synthesis is auto-generated and CI-published (`CMD-32`).
+- [x] External sink publish pipeline is implemented with fail-open rollout controls (`CMD-40` + CI publish steps in heavy/objective jobs).
 
 ## Artifact Freshness Monitoring (AF-O03)
 
@@ -71,13 +73,14 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
 - Objective metrics dashboard and history reports: `CMD-29` also regenerates `Docs/implementation/reports/objective_metrics_dashboard.md`, `Docs/implementation/reports/objective_metrics_history.jsonl`, and `Docs/implementation/reports/objective_metrics_timeline.md`; CI publishes all as `objective-metrics-report` artifact output.
 - Observability snapshot synthesis: run `CMD-32` to regenerate `Docs/implementation/reports/observability_snapshot_latest.json` and `Docs/implementation/reports/observability_snapshot_dashboard.md`; CI publishes both as `observability-snapshot-report` artifact output.
 - Heavy CI runtime trend synthesis: run `python3 scripts/build_ci_runtime_trend.py --summary-file /tmp/cmd-13-nightly-runtime-policy.txt --latest /tmp/cmd-13-nightly-runtime-trend-latest.json --history /tmp/cmd-13-nightly-runtime-trend-history.jsonl --dashboard /tmp/cmd-13-nightly-runtime-trend-dashboard.md`; CI runs this automatically for nightly and release heavy gates.
+- External sink payload dry-run: run `CMD-40` to regenerate `Docs/implementation/reports/observability_sink_publish_latest.json` and `Docs/implementation/reports/observability_sink_publish_dashboard.md`.
 - Incident handling:
   - Any `FRESHNESS_STALE`, `MISSING_PROVENANCE`, or `INVALID_RETRIEVED_AT` result is treated as SEV-2 if unresolved for >24h.
   - Any `FRESHNESS_WARN` result (75-90 days) is tracked as SEV-3 and scheduled in the next working cycle.
 
-## External Sink Ownership and Escalation Policy (`AR-C12` Prep)
+## External Sink Ownership and Escalation Policy (`AR-C12`)
 
-Status: policy defined; sink wiring not yet implemented.
+Status: implemented with fail-open rollout.
 
 ### Ownership Model
 
@@ -99,17 +102,24 @@ Status: policy defined; sink wiring not yet implemented.
 
 ### Rollout and Fallback Policy
 
-1. External sink routing is introduced as dry-run first (payload generation + delivery attempt logs), while existing CI artifacts remain the system of record.
-2. During dry-run and early rollout, sink-delivery failures are fail-open for CI promotion; triage continues from in-repo artifacts and job summaries.
+1. CI supports `disabled`, `dry_run`, and `active` sink modes (`workflow_dispatch` input `observability_sink_mode`; URL from input override or `OBSERVABILITY_SINK_URL` secret).
+2. Current default rollout is fail-open: sink-delivery failures do not block CI promotion and triage continues from in-repo artifacts and job summaries.
 3. If sink delivery fails, responders must use in-repo fallback signals:
    - `CMD-29` outputs (`objective_metrics_*`)
    - `CMD-32` outputs (`observability_snapshot_*`)
    - `CMD-39` heavy-job trend artifacts
-4. Pager-backed fail-closed behavior is deferred until `prompt-02` implementation closes `AR-C12` with first remote evidence.
+4. Pager-backed fail-closed behavior remains deferred until a later tightening packet explicitly flips fail-open policy.
+
+### Current CI Publish Paths
+
+1. `objective-metrics-gate` publishes objective + observability snapshot payloads using `scripts/publish_observability_sink.py`.
+2. `cmd-13-nightly-full-suite` publishes runtime trend payloads and includes sink report artifacts.
+3. `release-tag-gate` publishes release runtime trend payloads and includes sink report artifacts.
+4. First remote active-mode evidence exists in run `21813367976` (job `62929945541`) with sink report status `pass` and response `200`.
 
 ## Known Gaps
 
-- External sink/pager delivery remains unimplemented; only ownership/escalation/fallback policy is now defined.
 - Structured external dashboards are not yet provisioned; runbook triage now includes generated in-repo snapshot dashboard outputs (`CMD-32`) and heavy-gate runtime trend artifacts plus CLI checks.
 - Objective metrics history is persisted in-repo (`objective_metrics_history.jsonl`) and per-run CI artifacts, but no external TSDB/pager automation exists yet.
+- External sink routing is fail-open by policy; fail-closed escalation gating is deferred.
 - Full e2e gating (`CMD-13`) is release-time; per-PR path currently enforces deterministic subset (`CMD-27`) with warning-budget guardrails.

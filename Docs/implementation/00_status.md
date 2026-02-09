@@ -5,13 +5,56 @@ Last updated: 2026-02-09
 Entry mode: Existing Repo
 Cycle stage: Build (legacy `phase_3`)
 Intensity mode: Standard
-Primary prompt: `prompt-11-docs-diataxis-release` (policy-shaping follow-through for `DIR-18` / `AR-C12`)
+Primary prompt: `prompt-02-app-development-playbook` (implementation follow-through for `DIR-18` / `AR-C12`)
 
 Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
-This step advances objective by: finalizing the external-sink ownership/escalation/fallback contract for `AR-C12`, so implementation can proceed without ambiguity in incident routing and rollback behavior.
-Risks of misalignment: external sink delivery is still unimplemented (`DIR-18` / `AR-C12`), so observability remains artifact-only until `prompt-02` follow-through lands.
+This step advances objective by: implementing external sink publish paths for observability payloads and capturing first remote active-mode evidence for `AR-C12`.
+Risks of misalignment: fail-open sink policy may mask delivery failures until fail-closed posture is explicitly decided in a follow-up rerank.
 
 ## Done (This Packet)
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router loop) to close `DIR-18` / `AR-C12` external sink routing:
+  - triggering delta: `DIR-18` policy-shaping was complete under `prompt-11`; non-redundant next work was implementation + first remote evidence.
+  - implemented sink publish command and CI wiring:
+    - added `scripts/publish_observability_sink.py`
+    - added `tests/unit/test_publish_observability_sink.py`
+    - wired `.github/workflows/ci.yml` publish steps in:
+      - `objective-metrics-gate`
+      - `cmd-13-nightly-full-suite`
+      - `release-tag-gate`
+    - added `workflow_dispatch` inputs:
+      - `observability_sink_mode`
+      - `observability_sink_url`
+    - added local dry-run command:
+      - `make check-observability-sink-dry-run` (`CMD-40`)
+  - remote evidence captured:
+    - workflow dispatch run `21813367976`: `https://github.com/Nirtzur0/AGORA/actions/runs/21813367976`
+    - job `cmd-13-nightly-full-suite` (`62929945541`) PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`
+    - sink publish step PASS (`active`, host `httpbin.org`, response `200`)
+    - artifact `cmd-13-nightly-runtime-trend` includes:
+      - `cmd-13-nightly-observability-sink-report.json`
+      - `cmd-13-nightly-observability-sink-summary.md`
+  - synced docs/checklists for closure + reroute:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/09_runbook.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C12` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-18` checked)
+    - `Docs/implementation/checklists/06_release_readiness.md` (`AR-C12` evidence checked)
+    - `Docs/implementation/checklists/07_alignment_review.md` (correction 2 checked)
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/reports/alignment_review.md`
+    - `Docs/INDEX.md`
+    - `CHANGELOG.md`
+  - verification evidence (2026-02-09):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` -> PASS
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+    - `make PYTHON=python3 check-observability-sink-dry-run` -> PASS
+    - `gh run view 21813367976 --json status,conclusion,jobs,headSha,headBranch,event,url` -> PASS (`completed`, `success`)
+    - `gh api 'repos/Nirtzur0/AGORA/actions/runs/21813367976/artifacts' --jq '.artifacts[] | {name,size_in_bytes}'` -> PASS (`cmd-13-nightly-runtime-trend`)
+    - `rg -n "publish_observability_sink.py|observability_sink_mode|observability_sink_url|cmd-13-nightly-observability-sink-report|check-observability-sink-dry-run|AR-C12|DIR-18|prompt-03-alignment-review-gate" .github/workflows/ci.yml scripts/publish_observability_sink.py Makefile Docs/manifest/07_observability.md Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md Docs/implementation/reports/alignment_review.md` -> PASS
+  - next non-redundant packet: `prompt-03-alignment-review-gate` for post-`AR-C12` residual-risk rerank.
 
 - Manually selected and executed `prompt-11-docs-diataxis-release` follow-through (without `.py` router loop) to shape `DIR-18` (`AR-C12`) ownership/escalation/fallback policy before implementation:
   - triggering delta: `AR-C11` remote evidence is already closed and `DIR-18` remained the only open residual risk, so policy shaping had to be finalized before implementation.

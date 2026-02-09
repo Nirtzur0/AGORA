@@ -8,7 +8,7 @@ Quick Links: [Getting Started](./getting_started/quickstart.md) | [Tutorials](./
 
 - Appetite: `medium`
 - Not now:
-  - External sink delivery implementation and first remote evidence capture for `AR-C12`
+  - Tightening sink routing from fail-open to selective fail-closed after reliability bake-in
   - Expanded tutorial set beyond one end-to-end path
 
 ## Navigation Tree
@@ -110,5 +110,6 @@ These pages are internal engineering control-plane docs and should not be duplic
 
 ## Remaining Improvements
 
-- Implement external observability sink delivery (`AR-C12`) and capture first remote publish evidence.
+- Capture objective-metrics-gate sink publish evidence in a qualifying non-dispatch run.
+- Decide and document fail-open versus fail-closed sink policy by severity class.
 - Expand troubleshooting matrix with concrete error signatures from future incidents.
