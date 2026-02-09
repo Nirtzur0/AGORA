@@ -54,7 +54,7 @@ test-e2e-critical: ## Run deterministic e2e critical-flow gate (requires local i
 
 check-observability-slos: ## Validate observability SLO guardrails (artifact provenance + freshness)
 	@echo "Running observability SLO guardrails..."
-	@$(PYTHON) packages/project-prompts/scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate
+	@$(PYTHON) scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate
 	@$(PYTHON) scripts/check_artifact_freshness.py --index Docs/artifacts/index.json --warn-age-days 75 --max-age-days 90
 	@echo "Observability SLO guardrails passed ✓"
 
