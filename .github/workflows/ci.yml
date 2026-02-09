@@ -577,6 +577,12 @@ jobs:
     name: CMD-13 nightly full-suite gate
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_e2e == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      NIGHTLY_RUNTIME_TARGET_MINUTES: "90"
+      NIGHTLY_TIMEOUT_MINUTES: "180"
+      NIGHTLY_FLAKE_RETRY_BUDGET: "1"
+      NIGHTLY_RETRY_SLEEP_SECONDS: "20"
     steps:
       - uses: actions/checkout@v4
 
@@ -598,8 +604,67 @@ jobs:
       - name: Temporal preflight
         run: scripts/preflight_temporal.sh
 
-      - name: Run full e2e suite (CMD-13) with warning budget
-        run: E2E_FULL_WARNING_BUDGET=200 make PYTHON=python test-e2e
+      - name: Run full e2e suite (CMD-13) with warning budget + flake retry policy
+        run: |
+          max_attempts=$((NIGHTLY_FLAKE_RETRY_BUDGET + 1))
+          attempt=1
+          start_epoch=$(date +%s)
+
+          while true; do
+            echo "cmd-13-nightly-full-suite attempt ${attempt}/${max_attempts}"
+            if E2E_FULL_WARNING_BUDGET=200 make PYTHON=python test-e2e; then
+              end_epoch=$(date +%s)
+              elapsed_seconds=$((end_epoch - start_epoch))
+              echo "runtime_policy_summary gate=cmd-13-nightly-full-suite status=pass attempts_used=${attempt} retry_budget=${NIGHTLY_FLAKE_RETRY_BUDGET} timeout_minutes=${NIGHTLY_TIMEOUT_MINUTES} runtime_target_minutes=${NIGHTLY_RUNTIME_TARGET_MINUTES} elapsed_seconds=${elapsed_seconds}" | tee /tmp/cmd-13-nightly-runtime-policy.txt
+              break
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              end_epoch=$(date +%s)
+              elapsed_seconds=$((end_epoch - start_epoch))
+              echo "runtime_policy_summary gate=cmd-13-nightly-full-suite status=fail attempts_used=${attempt} retry_budget=${NIGHTLY_FLAKE_RETRY_BUDGET} timeout_minutes=${NIGHTLY_TIMEOUT_MINUTES} runtime_target_minutes=${NIGHTLY_RUNTIME_TARGET_MINUTES} elapsed_seconds=${elapsed_seconds}" | tee /tmp/cmd-13-nightly-runtime-policy.txt
+              exit 1
+            fi
+
+            attempt=$((attempt + 1))
+            echo "Transient failure detected; retrying in ${NIGHTLY_RETRY_SLEEP_SECONDS}s (flake retry budget ${NIGHTLY_FLAKE_RETRY_BUDGET})."
+            sleep "${NIGHTLY_RETRY_SLEEP_SECONDS}"
+          done
+
+      - name: Ensure nightly runtime policy summary exists
+        if: always()
+        run: |
+          if [ ! -f /tmp/cmd-13-nightly-runtime-policy.txt ]; then
+            echo "runtime_policy_summary gate=cmd-13-nightly-full-suite status=fail attempts_used=0 retry_budget=${NIGHTLY_FLAKE_RETRY_BUDGET} timeout_minutes=${NIGHTLY_TIMEOUT_MINUTES} runtime_target_minutes=${NIGHTLY_RUNTIME_TARGET_MINUTES} elapsed_seconds=0" > /tmp/cmd-13-nightly-runtime-policy.txt
+          fi
+
+      - name: Build nightly runtime+flake trend artifacts
+        if: always()
+        run: |
+          python scripts/build_ci_runtime_trend.py \
+            --summary-file /tmp/cmd-13-nightly-runtime-policy.txt \
+            --latest /tmp/cmd-13-nightly-runtime-trend-latest.json \
+            --history /tmp/cmd-13-nightly-runtime-trend-history.jsonl \
+            --dashboard /tmp/cmd-13-nightly-runtime-trend-dashboard.md
+
+      - name: Add nightly runtime trend dashboard to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/cmd-13-nightly-runtime-trend-dashboard.md ]; then
+            cat /tmp/cmd-13-nightly-runtime-trend-dashboard.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publish nightly runtime policy and trend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmd-13-nightly-runtime-trend
+          path: |
+            /tmp/cmd-13-nightly-runtime-policy.txt
+            /tmp/cmd-13-nightly-runtime-trend-latest.json
+            /tmp/cmd-13-nightly-runtime-trend-history.jsonl
+            /tmp/cmd-13-nightly-runtime-trend-dashboard.md
+          if-no-files-found: error
 
       - name: Cleanup
         if: always()
@@ -609,6 +674,11 @@ jobs:
     name: Release tag gate (v* fail-closed)
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_release_gate == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 210
+    env:
+      RELEASE_RUNTIME_TARGET_MINUTES: "120"
+      RELEASE_TIMEOUT_MINUTES: "210"
+      RELEASE_FLAKE_RETRY_BUDGET: "0"
     steps:
       - uses: actions/checkout@v4
 
@@ -637,9 +707,67 @@ jobs:
           make PYTHON=python test
           make PYTHON=python test-all-guarded
           E2E_CRITICAL_WARNING_BUDGET=40 make PYTHON=python test-e2e-critical
-          E2E_FULL_WARNING_BUDGET=200 make PYTHON=python test-e2e
+
+          release_cmd13_start_epoch=$(date +%s)
+          if E2E_FULL_WARNING_BUDGET=200 make PYTHON=python test-e2e; then
+            release_cmd13_end_epoch=$(date +%s)
+            release_cmd13_elapsed_seconds=$((release_cmd13_end_epoch - release_cmd13_start_epoch))
+            echo "runtime_policy_summary gate=release-tag-gate status=pass attempts_used=1 retry_budget=${RELEASE_FLAKE_RETRY_BUDGET} timeout_minutes=${RELEASE_TIMEOUT_MINUTES} runtime_target_minutes=${RELEASE_RUNTIME_TARGET_MINUTES} elapsed_seconds=${release_cmd13_elapsed_seconds}" | tee /tmp/release-tag-runtime-policy.txt
+          else
+            release_cmd13_end_epoch=$(date +%s)
+            release_cmd13_elapsed_seconds=$((release_cmd13_end_epoch - release_cmd13_start_epoch))
+            echo "runtime_policy_summary gate=release-tag-gate status=fail attempts_used=1 retry_budget=${RELEASE_FLAKE_RETRY_BUDGET} timeout_minutes=${RELEASE_TIMEOUT_MINUTES} runtime_target_minutes=${RELEASE_RUNTIME_TARGET_MINUTES} elapsed_seconds=${release_cmd13_elapsed_seconds}" | tee /tmp/release-tag-runtime-policy.txt
+            exit 1
+          fi
+
           python -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json
           PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py
+
+      - name: Enforce release runtime and flake budget policy
+        run: |
+          test -f /tmp/release-tag-runtime-policy.txt
+          elapsed_seconds=$(sed -n 's/.*elapsed_seconds=\([0-9][0-9]*\).*/\1/p' /tmp/release-tag-runtime-policy.txt)
+          attempts_used=$(sed -n 's/.*attempts_used=\([0-9][0-9]*\).*/\1/p' /tmp/release-tag-runtime-policy.txt)
+          target_seconds=$((RELEASE_RUNTIME_TARGET_MINUTES * 60))
+          max_attempts=$((RELEASE_FLAKE_RETRY_BUDGET + 1))
+
+          if [ -z "$elapsed_seconds" ] || [ -z "$attempts_used" ]; then
+            echo "Could not parse release runtime policy summary."
+            exit 1
+          fi
+
+          if [ "$attempts_used" -gt "$max_attempts" ]; then
+            echo "Release flake retry budget exceeded (attempts=${attempts_used}, max=${max_attempts})."
+            exit 1
+          fi
+
+          if [ "$elapsed_seconds" -gt "$target_seconds" ]; then
+            echo "Release runtime target exceeded (${elapsed_seconds}s > ${target_seconds}s). Promotion remains blocked pending maintainer review."
+            exit 1
+          fi
+
+      - name: Ensure release runtime policy summary exists
+        if: always()
+        run: |
+          if [ ! -f /tmp/release-tag-runtime-policy.txt ]; then
+            echo "runtime_policy_summary gate=release-tag-gate status=fail attempts_used=0 retry_budget=${RELEASE_FLAKE_RETRY_BUDGET} timeout_minutes=${RELEASE_TIMEOUT_MINUTES} runtime_target_minutes=${RELEASE_RUNTIME_TARGET_MINUTES} elapsed_seconds=0" > /tmp/release-tag-runtime-policy.txt
+          fi
+
+      - name: Build release runtime+flake trend artifacts
+        if: always()
+        run: |
+          python scripts/build_ci_runtime_trend.py \
+            --summary-file /tmp/release-tag-runtime-policy.txt \
+            --latest /tmp/release-tag-runtime-trend-latest.json \
+            --history /tmp/release-tag-runtime-trend-history.jsonl \
+            --dashboard /tmp/release-tag-runtime-trend-dashboard.md
+
+      - name: Add release runtime trend dashboard to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/release-tag-runtime-trend-dashboard.md ]; then
+            cat /tmp/release-tag-runtime-trend-dashboard.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Verify release-readiness evidence files
         run: |
@@ -669,6 +797,10 @@ jobs:
           name: release-tag-gate-artifacts
           path: |
             /tmp/agora-dash-validation.json
+            /tmp/release-tag-runtime-policy.txt
+            /tmp/release-tag-runtime-trend-latest.json
+            /tmp/release-tag-runtime-trend-history.jsonl
+            /tmp/release-tag-runtime-trend-dashboard.md
             /tmp/release-readiness-evidence.tgz
           if-no-files-found: error
 

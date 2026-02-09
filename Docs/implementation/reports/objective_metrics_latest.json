@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-09T02:37:13.662608+00:00",
+  "generated_at": "2026-02-09T04:57:34.809324+00:00",
   "objective": "Docs/manifest/00_overview.md#Core Objective",
   "metrics": [
     {
@@ -20,8 +20,8 @@
       },
       "executed_tests": 16,
       "pass_rate": 1.0,
-      "duration_seconds": 6.963,
-      "summary_line": "16 passed, 260 warnings in 5.29s",
+      "duration_seconds": 1.794,
+      "summary_line": "16 passed, 260 warnings in 1.42s",
       "failure_excerpt": [],
       "trend": "steady"
     },
@@ -43,8 +43,8 @@
       },
       "executed_tests": 21,
       "pass_rate": 1.0,
-      "duration_seconds": 2.97,
-      "summary_line": "21 passed, 70 warnings in 1.91s",
+      "duration_seconds": 1.424,
+      "summary_line": "21 passed, 70 warnings in 1.07s",
       "failure_excerpt": [],
       "trend": "steady"
     }

@@ -1,6 +1,6 @@
 # Objective Metrics Dashboard
 
-Generated at: `2026-02-09T02:37:13.662608+00:00`
+Generated at: `2026-02-09T04:57:34.809324+00:00`
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 Overall status: `pass` (2/2 metrics passing)
@@ -9,8 +9,8 @@ Overall status: `pass` (2/2 metrics passing)
 
 | Metric | Status | Trend | Pass rate | Executed tests | Summary |
 |---|---|---|---|---:|---|
-| `citation_integrity` | `pass` | `steady` | `1.0000` | 16 | 16 passed, 260 warnings in 5.29s |
-| `authority_boundary` | `pass` | `steady` | `1.0000` | 21 | 21 passed, 70 warnings in 1.91s |
+| `citation_integrity` | `pass` | `steady` | `1.0000` | 16 | 16 passed, 260 warnings in 1.42s |
+| `authority_boundary` | `pass` | `steady` | `1.0000` | 21 | 21 passed, 70 warnings in 1.07s |
 
 ## Commands
 

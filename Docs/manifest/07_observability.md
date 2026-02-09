@@ -10,6 +10,7 @@ This page is the observability and reliability gate for AGORA runtime workflows.
 4. Draft finalization and rule-check gating.
 5. External artifact registry freshness and provenance coverage.
 6. Objective metrics automation for citation integrity and authority-boundary regressions.
+7. Heavy CI runtime/flake trend monitoring for nightly and release gates.
 
 ## Telemetry Surfaces
 
@@ -38,6 +39,7 @@ This page is the observability and reliability gate for AGORA runtime workflows.
 | Artifact registry | Freshness | share of external artifacts with `retrieved_at` age <= 90 days (warning >= 75 days) | 100% <= 90 days; page on sustained breach (>24h) | `Docs/artifacts/index.json`, `CMD-20` |
 | Objective metrics | Citation integrity regression | targeted citation suites in `CMD-29` pass with `pass_rate=1.0` | 100% metric pass per run | `scripts/check_objective_metrics.py`, `tests/integration/worker/test_citation_checks.py`, `tests/integration/core_api/test_evidence_resolver.py` |
 | Objective metrics | Authority boundary regression | targeted authority suites in `CMD-29` pass with `pass_rate=1.0` | 100% metric pass per run | `scripts/check_objective_metrics.py`, `tests/integration/worker/test_phase_machine.py`, `tests/integration/core_api/test_drafts.py` |
+| Heavy CI gates | Runtime/flake trend | per-run runtime trend bundle exists for `cmd-13-nightly-full-suite` and `release-tag-gate` with elapsed/runtime-target/retry data | 100% heavy runs publish trend bundle; treat 2 consecutive runtime-target misses or retry usage in 3 of latest 5 runs as SEV-2 | `.github/workflows/ci.yml`, `scripts/build_ci_runtime_trend.py`, `cmd-13-nightly-runtime-trend`, `release-tag-gate-artifacts` |
 
 ## Severity Routing
 
@@ -68,6 +70,7 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
 - Objective metrics regression report: run `CMD-29` to regenerate `Docs/implementation/reports/objective_metrics_latest.json` and fail on citation/authority metric regressions.
 - Objective metrics dashboard and history reports: `CMD-29` also regenerates `Docs/implementation/reports/objective_metrics_dashboard.md`, `Docs/implementation/reports/objective_metrics_history.jsonl`, and `Docs/implementation/reports/objective_metrics_timeline.md`; CI publishes all as `objective-metrics-report` artifact output.
 - Observability snapshot synthesis: run `CMD-32` to regenerate `Docs/implementation/reports/observability_snapshot_latest.json` and `Docs/implementation/reports/observability_snapshot_dashboard.md`; CI publishes both as `observability-snapshot-report` artifact output.
+- Heavy CI runtime trend synthesis: run `python3 scripts/build_ci_runtime_trend.py --summary-file /tmp/cmd-13-nightly-runtime-policy.txt --latest /tmp/cmd-13-nightly-runtime-trend-latest.json --history /tmp/cmd-13-nightly-runtime-trend-history.jsonl --dashboard /tmp/cmd-13-nightly-runtime-trend-dashboard.md`; CI runs this automatically for nightly and release heavy gates.
 - Incident handling:
   - Any `FRESHNESS_STALE`, `MISSING_PROVENANCE`, or `INVALID_RETRIEVED_AT` result is treated as SEV-2 if unresolved for >24h.
   - Any `FRESHNESS_WARN` result (75-90 days) is tracked as SEV-3 and scheduled in the next working cycle.
@@ -75,6 +78,6 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
 ## Known Gaps
 
 - Alert paging automation is manual (no pager integration in MVP).
-- Structured external dashboards are not yet provisioned; runbook triage now includes generated in-repo snapshot dashboard outputs (`CMD-32`) plus CLI checks.
+- Structured external dashboards are not yet provisioned; runbook triage now includes generated in-repo snapshot dashboard outputs (`CMD-32`) and heavy-gate runtime trend artifacts plus CLI checks.
 - Objective metrics history is persisted in-repo (`objective_metrics_history.jsonl`) and per-run CI artifacts, but no external TSDB/pager automation exists yet.
 - Full e2e gating (`CMD-13`) is release-time; per-PR path currently enforces deterministic subset (`CMD-27`) with warning-budget guardrails.

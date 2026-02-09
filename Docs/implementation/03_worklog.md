@@ -2,6 +2,113 @@
 
 ## 2026-02-09
 
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after `DIR-17` (`AR-C11`) closure.
+- Prompt-03 checkpoint refresh (post-`AR-C11`):
+  - updated alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - reranked residual risks:
+    - `DIR-17` implementation is complete; first remote trend-artifact evidence is pending as small follow-through
+    - `DIR-18` (`AR-C12`) remains the primary open large-scope risk
+  - synced packet routing:
+    - updated `Docs/implementation/reports/improvement_directions.md` execution update to post-checkpoint routing
+  - next non-redundant packet: `prompt-02-app-development-playbook` (capture first remote `AR-C11` runtime-trend artifact evidence).
+- Verification evidence for this packet:
+  - `make up` -> PASS
+  - `scripts/preflight_temporal.sh` -> PASS
+  - `make PYTHON=python3 check-objective-metrics` -> PASS
+  - `make PYTHON=python3 check-observability-snapshot` -> PASS
+  - `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18|Recommended next non-redundant packet:" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS
+  - `make down` -> PASS
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) to close `DIR-17` (`AR-C11`) runtime/flake trend telemetry.
+- Prompt-02 `AR-C11` implementation:
+  - added trend synthesis helper:
+    - `scripts/build_ci_runtime_trend.py` (parses `runtime_policy_summary`, writes latest JSON + deduped history JSONL + dashboard markdown)
+  - added regression tests:
+    - `tests/unit/test_ci_runtime_trend.py`
+  - wired heavy CI gate publication:
+    - `.github/workflows/ci.yml`
+    - `cmd-13-nightly-full-suite` now builds and uploads `cmd-13-nightly-runtime-trend` artifact bundle
+    - `release-tag-gate` now builds and uploads `release-tag-runtime-trend-*` files inside `release-tag-gate-artifacts`
+    - both heavy jobs append dashboard markdown into `$GITHUB_STEP_SUMMARY`
+  - synced observability/release/docs/checklists:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C11` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-17` completed)
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/checklists/07_alignment_review.md` (correction 1 checked; next packet set to `prompt-03`)
+- Verification evidence for this packet:
+  - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` -> PASS
+  - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+  - `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime_policy_summary|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS
+  - next non-redundant packet: `prompt-03-alignment-review-gate`.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after `DIR-16` (`AR-C10`) closure.
+- Prompt-03 checkpoint refresh (post-`AR-C10`):
+  - updated alignment gate artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - re-ranked residual risks:
+    - objective remains aligned (`ALIGNED_WITH_RISKS`)
+    - active `Now` risk moved to `DIR-17` (`AR-C11`) runtime/flake trend telemetry
+    - `DIR-18` (`AR-C12`) remains external-operability not-now scope
+  - resolved metrics-gate environment artifact during checkpoint:
+    - first `make PYTHON=python3 check-objective-metrics` failed because local infra was down
+    - after `make up` + `scripts/preflight_temporal.sh`, objective/observability gates passed
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-17` (`AR-C11`).
+- Verification evidence for this packet:
+  - `make up` -> PASS
+  - `scripts/preflight_temporal.sh` -> PASS
+  - `make PYTHON=python3 check-objective-metrics` -> PASS
+  - `make PYTHON=python3 check-observability-snapshot` -> PASS
+  - `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) to close `DIR-16` (`AR-C10`) runtime/flake policy codification.
+- Prompt-02 `AR-C10` implementation:
+  - updated `.github/workflows/ci.yml` heavy gates with explicit runtime/flake policy:
+    - `cmd-13-nightly-full-suite`: `timeout-minutes=180`, runtime target `90` minutes, retry budget `1`, runtime policy summary artifact (`cmd-13-nightly-runtime-policy`)
+    - `release-tag-gate`: `timeout-minutes=210`, runtime target `120` minutes, retry budget `0`, fail-closed `Enforce release runtime and flake budget policy` step
+    - release artifacts now include `/tmp/release-tag-runtime-policy.txt`
+  - synced policy docs + checklist evidence:
+    - `Docs/reference/release_workflow.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+  - updated planning and routing state after closure:
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C10` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-16` checked, `Now=DIR-17`)
+    - `Docs/implementation/reports/improvement_directions.md` (`Now=DIR-17`, `Next` held for post-`prompt-03` checkpoint)
+    - `Docs/implementation/checklists/07_alignment_review.md` (correction 3 checked; next packet set to `prompt-03-alignment-review-gate`)
+- Verification evidence for this packet:
+  - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+  - `rg -n "cmd-13-nightly-full-suite|release-tag-gate|timeout-minutes|NIGHTLY_FLAKE_RETRY_BUDGET|RELEASE_FLAKE_RETRY_BUDGET|runtime_policy_summary|cmd-13-nightly-runtime-policy|release-tag-runtime-policy" .github/workflows/ci.yml Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` -> PASS
+  - `rg -n 'AR-C10|DIR-16|Now packet .*DIR-17|prompt-03-alignment-review-gate' Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS
+  - next non-redundant packet: `prompt-03-alignment-review-gate`.
+
+- Manually selected and executed `prompt-14-improvement-direction-bet-loop` rerank (without `.py` router scripts) after the post-`prompt-10` stabilization checkpoint.
+- Prompt-14 rerank refresh (post-closure state):
+  - updated improvement-direction report to remove stale active ranking of closed `DIR-14`/`DIR-15`:
+    - `Docs/implementation/reports/improvement_directions.md`
+    - active packets now: `Now=DIR-16`, `Next=DIR-17`, `Not now=DIR-18`
+  - updated actionable bet checklist for the same rerank:
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - active/open bets now: `DIR-16`, `DIR-17`, `DIR-18`
+  - appended new milestone scheduling section:
+    - `Docs/implementation/checklists/02_milestones.md`
+    - added `M9 - CI Operability Policy and Trend Hardening` with `AR-C10`..`AR-C12`
+  - synced alignment routing metadata:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - marked correction 4 complete and updated next non-redundant packet to `prompt-02-app-development-playbook` for `AR-C10`
+- Verification evidence for this packet:
+  - `rg -n "^\\| ID \\| Direction \\| Type \\| Evidence \\| Gap \\| Impact \\| Confidence \\| Effort \\| Deferral Risk \\| Suggested Prompt Chain \\|" Docs/implementation/reports/improvement_directions.md` -> PASS
+  - `rg -n "DIR-16|DIR-17|DIR-18|Now packet|Next packet|Not now" Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
+  - `rg -n "M9 - CI Operability Policy and Trend Hardening|AR-C10|AR-C11|AR-C12" Docs/implementation/checklists/02_milestones.md` -> PASS
+  - `rg -n 'Recommended next non-redundant packet: `prompt-02-app-development-playbook`|Correction 4: re-rank improvement directions' Docs/implementation/checklists/07_alignment_review.md` -> PASS
+  - next non-redundant packet: `prompt-02-app-development-playbook` (implement `DIR-16` runtime/flake policy).
+
 - Manually selected and executed `prompt-02-app-development-playbook` follow-through to close `DIR-14` remote CI evidence capture (without `.py` router scripts).
 - Prompt-02 DIR-14 closure:
   - fixed CI portability/dependency blockers discovered in remote runs:

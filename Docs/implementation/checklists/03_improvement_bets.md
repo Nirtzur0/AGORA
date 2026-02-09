@@ -1,13 +1,48 @@
 # Checklist: Improvement Bets
 
 Date: 2026-02-09
-Prompt packet: `prompt-14-improvement-direction-bet-loop`
-Triggering delta: post-M7 closure (`AR-C01`..`AR-C05` implemented) moved primary risk to remote CI evidence freshness and warning-signal quality.
+Prompt packet: `prompt-02-app-development-playbook`
+Triggering delta: `AR-C11` implementation added runtime/flake trend telemetry artifacts for heavy nightly/release jobs; next residual risk is now external sink routing (`DIR-18`).
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 Checked boxes imply acceptance signals were met and verification evidence was recorded in `Docs/implementation/00_status.md` and `Docs/implementation/03_worklog.md`.
 
-## Active Bets (Post-M7 Refresh)
+## Active Bets (Post-DIR-17 Closure)
+
+## Bet DIR-18: External observability sink/pager integration
+
+- [ ] Route objective/observability CI outputs to an external dashboard/paging surface.
+  - Owner type: maintainer
+  - Effort: L
+  - Target files/areas: `.github/workflows/ci.yml`, `scripts/check_observability_snapshot.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`
+  - AC: one external sink receives and exposes key CI observability outputs.
+  - Verify: integration dry-run evidence + docs references.
+  - Acceptance signal: CI artifacts are not only in-repo; at least one external operational surface is active.
+  - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
+
+## Completed Bets (Recent)
+
+## Bet DIR-17: Runtime+flake trend telemetry for heavy CI jobs
+
+- [x] Publish runtime+flake trend artifact for `release-tag-gate` and `cmd-13-nightly-full-suite`.
+  - Owner type: maintainer
+  - Effort: M
+  - Target files/areas: `.github/workflows/ci.yml`, `scripts/*`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - AC: one artifact/report captures runtime duration and retry/flake trend for heavy jobs and is linked in docs.
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09) and `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09).
+  - Acceptance signal: operational drift in heavy CI paths is measurable over time, not only per-run.
+  - Suggested prompt chain: `prompt-02` -> `prompt-10` -> `prompt-03`
+
+## Bet DIR-16: Runtime/flake policy for nightly + release jobs
+
+- [x] Codify runtime/flake budget policy and fallback path for `cmd-13-nightly-full-suite` and `release-tag-gate`.
+  - Owner type: maintainer
+  - Effort: M
+  - Target files/areas: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - AC: explicit policy states runtime targets, timeout/retry budget, flake thresholds, and promotion-blocking behavior.
+  - Verify: `rg -n "cmd-13-nightly-full-suite|release-tag-gate|timeout-minutes|NIGHTLY_FLAKE_RETRY_BUDGET|RELEASE_FLAKE_RETRY_BUDGET|runtime_policy_summary|Runtime and Flake Budget Policy|M9 Release Operability Follow-Through" .github/workflows/ci.yml Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09).
+  - Acceptance signal: nightly/release job reliability expectations are explicit, auditable, and referenced in release-readiness sign-off.
+  - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
 
 ## Bet DIR-14: Remote CI evidence closure for newly added jobs
 
@@ -30,30 +65,6 @@ Checked boxes imply acceptance signals were met and verification evidence was re
   - Verify: `E2E_FULL_WARNING_BUDGET=200 make PYTHON=python3 test-e2e` (PASS, 2026-02-09), `E2E_FULL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e` (expected FAIL, 2026-02-09), and `rg -n "E2E_FULL_WARNING_BUDGET|check_full_e2e_warning_budget.py|CMD-13" Makefile .github/workflows/ci.yml Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/manifest/09_runbook.md` (PASS, 2026-02-09).
   - Acceptance signal: full e2e warning noise is now bounded by policy with explicit budget ownership.
   - Suggested prompt chain: `prompt-10` -> `prompt-02` -> `prompt-03`
-
-## Bet DIR-16: Runtime/flake policy for nightly + release jobs
-
-- [ ] Codify runtime/flake budget policy and fallback path for `cmd-13-nightly-full-suite` and `release-tag-gate`.
-  - Owner type: maintainer
-  - Effort: M
-  - Target files/areas: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
-  - AC: explicit policy states runtime expectations, retry/flake handling, and promotion blocking behavior.
-  - Verify: `rg -n "runtime|timeout|retry|flake|promotion" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md`
-  - Acceptance signal: nightly/release job reliability expectations are explicit and auditable.
-  - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
-
-## Bet DIR-17: External observability sink/pager integration
-
-- [ ] Route objective/observability CI outputs to an external dashboard/paging surface.
-  - Owner type: maintainer
-  - Effort: L
-  - Target files/areas: `.github/workflows/ci.yml`, `scripts/check_observability_snapshot.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`
-  - AC: one external sink receives and exposes key CI observability outputs.
-  - Verify: integration dry-run evidence + docs references.
-  - Acceptance signal: CI artifacts are not only in-repo; at least one external operational surface is active.
-  - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
-
-## Completed Bets (Recent)
 
 ## Bet DIR-08: CI automation for Dash data-quality gates
 
@@ -116,5 +127,6 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 - [x] Completed packet (`medium` appetite): DIR-11 + DIR-13.
 - [x] Completed packet (`small` appetite): DIR-14.
 - [x] Completed packet (`small` appetite): DIR-15.
-- [ ] Now packet (`medium` appetite): DIR-16.
-- [ ] Not now (`large` appetite): DIR-17.
+- [x] Completed packet (`medium` appetite): DIR-16.
+- [x] Completed packet (`medium` appetite): DIR-17.
+- [ ] Not now (`large` appetite): DIR-18.

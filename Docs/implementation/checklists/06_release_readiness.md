@@ -1,7 +1,7 @@
 # Checklist: Release Readiness
 
 Date: 2026-02-09
-Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` CI automation)
+Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` + `AR-C10`/`AR-C11` CI operability policy + trend telemetry)
 
 ## Versioning and changelog
 
@@ -62,12 +62,32 @@ Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` CI automation
 - [x] Nightly full `CMD-13` job has one passing remote GitHub Actions evidence run.
   - Evidence: workflow dispatch run `21811670648`, job `cmd-13-nightly-full-suite` (ID `62924827118`) passed (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`).
 
+## M9 Release Operability Follow-Through (`AR-C10`)
+
+- [x] Runtime and retry/flake budgets are explicitly documented for heavy nightly/release jobs.
+  - Evidence: `Docs/reference/release_workflow.md` `Runtime and Flake Budget Policy (AR-C10)` section defines runtime targets, hard timeouts, and retry budgets for `cmd-13-nightly-full-suite` and `release-tag-gate`.
+- [x] Runtime/flake policy is encoded in CI workflow job configuration.
+  - Evidence: `.github/workflows/ci.yml` now sets `timeout-minutes` + policy env vars (`NIGHTLY_FLAKE_RETRY_BUDGET`, `RELEASE_FLAKE_RETRY_BUDGET`) and emits `runtime_policy_summary` output for heavy gates.
+- [x] Release promotion is fail-closed on runtime/flake policy breaches.
+  - Evidence: `.github/workflows/ci.yml` `Enforce release runtime and flake budget policy` step blocks release when runtime target is exceeded or retry policy is violated.
+- [x] Runtime policy evidence is retained as release artifacts.
+  - Evidence: `release-tag-gate-artifacts` now includes `/tmp/release-tag-runtime-policy.txt`; nightly publishes the same policy file inside `cmd-13-nightly-runtime-trend`.
+
+## M9 Runtime Trend Telemetry Follow-Through (`AR-C11`)
+
+- [x] Heavy nightly/release jobs publish runtime+flake trend artifact bundle.
+  - Evidence: `.github/workflows/ci.yml` now runs `scripts/build_ci_runtime_trend.py` in both `cmd-13-nightly-full-suite` and `release-tag-gate`, producing `*-runtime-trend-latest.json`, `*-runtime-trend-history.jsonl`, and `*-runtime-trend-dashboard.md`.
+- [x] Trend artifacts include runtime duration plus retry/flake usage signals.
+  - Evidence: script output schema includes `elapsed_seconds`, `runtime_target_minutes`, `attempts_used`, `retry_budget`, `retries_used`, and derived delta/target flags.
+- [x] Runtime trend dashboards are retained in CI evidence artifacts and job summaries.
+  - Evidence: `cmd-13-nightly-runtime-trend` artifact upload path includes dashboard markdown; `release-tag-gate-artifacts` includes release dashboard markdown and both jobs append dashboard content to `$GITHUB_STEP_SUMMARY`.
+
 ## Documentation completeness
 
 - [x] `Docs/INDEX.md` links all release-relevant docs.
 - [x] `Docs/reference/versioning_policy.md` reviewed for current release.
 - [x] Troubleshooting and upgrade guidance updated if behavior changed.
-  - Result: behavior unchanged for runtime features; release workflow and upgrade-note linkage refreshed.
+  - Result: release-operability behavior changed (runtime/flake policy codified); release workflow docs and checklist evidence were updated accordingly.
 - [x] Release readiness references the active literature-backed risk context.
   - Verify: `rg -n "20_literature_review|literature" Docs/INDEX.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/20_literature_review.md`
   - Evidence: `Docs/INDEX.md` links `Docs/manifest/20_literature_review.md` and this checklist is now referenced by `Docs/manifest/20_literature_review.md` validation item 7 (`PASS`, 2026-02-09).

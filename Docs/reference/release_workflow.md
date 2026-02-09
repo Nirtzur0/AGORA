@@ -7,6 +7,8 @@ This page defines AGORA release policy and how local release actions map to CI g
 - Push/PR CI gates enforce `CMD-11`, `CMD-25`, `CMD-27`, `CMD-30`, `CMD-31`, `CMD-37`, and `CMD-38`.
 - Nightly full-suite promotion job is implemented as `cmd-13-nightly-full-suite` (`AR-C05`).
 - Tag-triggered release validation path is implemented as `release-tag-gate` (`AR-C04`).
+- Runtime/flake policy is now codified for nightly and release heavy gates (`AR-C10`).
+- Runtime/flake trend artifacts are now emitted for nightly and release heavy gates (`AR-C11`).
 - First remote run evidence is captured:
   - dispatch run `21811670648`: `release-tag-gate` pass (`62924827121`) and `cmd-13-nightly-full-suite` pass (`62924827118`)
   - PR run `21811670116`: `cmd-37-38-dash-data-quality` pass (`62924847427`)
@@ -42,6 +44,38 @@ Promotion from critical-only coverage to release approval requires:
 3. Completed release-readiness checklist + changelog and upgrade notes.
 4. `CMD-13` warning budget is respected (`E2E_FULL_WARNING_BUDGET`, default `200`).
 
+## Runtime and Flake Budget Policy (`AR-C10`)
+
+| Gate | Runtime target | Hard timeout | Flake retry budget | Promotion behavior |
+|---|---|---|---|---|
+| `cmd-13-nightly-full-suite` | 90 minutes (`NIGHTLY_RUNTIME_TARGET_MINUTES`) | 180 minutes (`timeout-minutes`) | 1 retry for transient failures (`NIGHTLY_FLAKE_RETRY_BUDGET=1`) | If retries are exhausted or timeout is hit, nightly stays red and release promotion is blocked until a fresh green nightly run exists |
+| `release-tag-gate` (`CMD-13` segment) | 120 minutes (`RELEASE_RUNTIME_TARGET_MINUTES`) | 210 minutes (`timeout-minutes`) | 0 retries (`RELEASE_FLAKE_RETRY_BUDGET=0`) | Any failure, runtime-target breach, or timeout blocks release publication (fail-closed) |
+
+Operational notes:
+
+1. Both gates emit `runtime_policy_summary ...` lines and persist summary artifacts for auditability.
+2. Release job enforces parsed runtime/attempt policy before release evidence bundling.
+3. Exceeding release runtime target or retry budget is treated as a promotion blocker, not a warning.
+
+## Runtime and Flake Trend Artifacts (`AR-C11`)
+
+- `cmd-13-nightly-full-suite` now publishes `cmd-13-nightly-runtime-trend` artifact containing:
+  - `/tmp/cmd-13-nightly-runtime-policy.txt`
+  - `/tmp/cmd-13-nightly-runtime-trend-latest.json`
+  - `/tmp/cmd-13-nightly-runtime-trend-history.jsonl`
+  - `/tmp/cmd-13-nightly-runtime-trend-dashboard.md`
+- `release-tag-gate` now publishes equivalent trend files in `release-tag-gate-artifacts`:
+  - `/tmp/release-tag-runtime-policy.txt`
+  - `/tmp/release-tag-runtime-trend-latest.json`
+  - `/tmp/release-tag-runtime-trend-history.jsonl`
+  - `/tmp/release-tag-runtime-trend-dashboard.md`
+- Trend synthesis source:
+  - `python scripts/build_ci_runtime_trend.py ...`
+- Operational interpretation:
+  1. Runtime-target misses across two consecutive heavy runs are treated as release-operability drift.
+  2. Retry usage in 3 of the latest 5 heavy runs is treated as flake-signal degradation requiring maintainer triage.
+  3. Artifacts are retained as release evidence and mirrored into GitHub job summaries for quick review.
+
 ## Tag-Triggered Release Path (AR-C04 Implemented Trigger Spec)
 
 Implemented workflow trigger in `.github/workflows/ci.yml`:
@@ -74,6 +108,7 @@ Implemented release job sequence:
 Fail-closed policy:
 
 - Any failed required gate blocks release publication.
+- Runtime/flake policy violations in `release-tag-gate` block release publication.
 - Missing release-readiness evidence blocks release publication.
 - Missing artifact-feature alignment references blocks release publication.
 
@@ -85,10 +120,12 @@ Current mapping (implemented):
 - `cmd-12-integration` -> `CMD-25`
 - `cmd-13-e2e-critical-flow` -> `CMD-27`
 - `cmd-13-nightly-full-suite` -> `CMD-13`
+- `cmd-13-nightly-full-suite` runtime trend synthesis -> `CMD-39`
 - `cmd-30-ui-smoke-cross-browser` -> `CMD-30`
 - `cmd-31-ui-smoke-mobile` -> `CMD-31`
 - `cmd-37-38-dash-data-quality` -> `CMD-37` + `CMD-38`
 - `release-tag-gate` -> `CMD-11`, `CMD-25`, `CMD-27`, `CMD-13`, `CMD-37`, `CMD-38`
+- `release-tag-gate` runtime trend synthesis -> `CMD-39`
 - `smoke-test` -> `CMD-01` + `CMD-02` + `CMD-04`
 
 ## Release Candidate Verification Snapshot (2026-02-08)
@@ -100,4 +137,6 @@ Current mapping (implemented):
 ## Implementation Handoff
 
 - CI implementation completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
-- Next non-redundant packet: `prompt-03-alignment-review-gate` to refresh residual-risk ranking after remote-evidence closure (`DIR-14`) and PR-only UI smoke failures (`CMD-30`/`CMD-31`).
+- Runtime/flake policy codification (`AR-C10`) completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
+- Runtime/flake trend telemetry (`AR-C11`) completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
+- Next non-redundant packet: `prompt-03-alignment-review-gate` to refresh residual-risk ranking after `DIR-17` closure and route `AR-C12`.

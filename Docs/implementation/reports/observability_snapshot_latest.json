@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-09T02:37:03.713784+00:00",
+  "generated_at": "2026-02-09T04:57:38.936363+00:00",
   "objective": "Docs/manifest/00_overview.md#Core Objective",
   "overall_status": "pass",
   "artifact_snapshot": {
@@ -18,7 +18,7 @@
     "status": "pass",
     "latest_path": "Docs/implementation/reports/objective_metrics_latest.json",
     "history_path": "Docs/implementation/reports/objective_metrics_history.jsonl",
-    "generated_at": "2026-02-09T01:40:45.190659+00:00",
+    "generated_at": "2026-02-09T04:57:34.809324+00:00",
     "required_metrics": 2,
     "passed_metrics": 2,
     "pass_rate": 1.0,
@@ -26,13 +26,17 @@
       "citation_integrity",
       "authority_boundary"
     ],
-    "history_runs": 4,
+    "history_runs": 8,
     "recent_statuses": [
       "pass",
       "pass",
       "pass",
+      "pass",
+      "pass",
+      "fail",
+      "pass",
       "pass"
     ],
-    "pass_streak": 4
+    "pass_streak": 2
   }
 }

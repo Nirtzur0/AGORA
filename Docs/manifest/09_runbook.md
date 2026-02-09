@@ -44,6 +44,7 @@ This runbook is the canonical command map for AGORA.
 | CMD-36 | `python3 dash_app/app.py` | Run Dash data explorer app locally | `dash_app/app.py`, `dash_app/pages/*`, `dash_app/components/*` |
 | CMD-37 | `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` | Run headless Dash data-quality validation checks | `dash_app/data/validation.py`, `dash_app/data/loaders.py`, `dash_app/data/catalog.py` |
 | CMD-38 | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` | Run Dash data loader/validation regression tests | `tests/test_data_validation.py`, `tests/test_loaders_smoke.py` |
+| CMD-39 | `python3 scripts/build_ci_runtime_trend.py --summary-file /tmp/cmd-13-nightly-runtime-policy.txt --latest /tmp/cmd-13-nightly-runtime-trend-latest.json --history /tmp/cmd-13-nightly-runtime-trend-history.jsonl --dashboard /tmp/cmd-13-nightly-runtime-trend-dashboard.md` | Build heavy CI runtime/flake trend artifact bundle from runtime policy summary output | `scripts/build_ci_runtime_trend.py`, `.github/workflows/ci.yml` |
 
 ## Required Environment Variables
 
@@ -74,6 +75,7 @@ This runbook is the canonical command map for AGORA.
 5. For architecture drift checks, run `CMD-28`.
 6. For paper/code drift or invariant-model regressions, run `CMD-33` and `CMD-34`.
 7. For Dash explorer regressions, run `CMD-37` and `CMD-38` (and `CMD-36` for manual UI checks).
+8. For heavy nightly/release runtime+flake drift, inspect trend outputs from `CMD-39`.
 
 ### Observability and Incident Routing
 

@@ -1,68 +1,69 @@
 # Alignment Review
 
-Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-14` remote-evidence closure)
+Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-17` runtime-trend closure)
 Prompt packet: `prompt-03-alignment-review-gate`
 Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. M7 and M8 evidence-closure items (`AR-C01`..`AR-C09`) now have recorded local/remote evidence. Residual risk has shifted to operational policy clarity for heavy/nightly release gates (`DIR-16`).
+AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-17` (`AR-C11`) by publishing runtime/flake trend artifacts for heavy nightly/release gates. Residual risk is now concentrated in two areas: remote evidence capture for the new trend artifacts and external observability routing (`DIR-18` / `AR-C12`).
 
 ## Required Question Answers
 
 1. Are we still building the same thing?
-- Yes. Authority boundaries, evidence pinning, and auditability invariants are unchanged.
+- Yes. Authority boundaries and evidence immutability contracts are unchanged.
 
 2. Is the main user journey usable end-to-end right now?
-- Yes. Critical e2e flow passes with budgeted warning guard, and Dash data-quality checks/regression tests pass.
+- Yes. Critical flow remains green in recent local evidence, and latest remote UI smoke matrix/mobile evidence remains green (`run 21812201997`).
 
 3. Are we measuring the right success metrics?
-- Yes for objective-critical signals: `CMD-29`, `CMD-32`, `CMD-37`, and `CMD-38` pass; CI mapping now includes Dash data-quality and warning-budget enforcement.
+- Yes, with current checkpoint evidence:
+  - `make PYTHON=python3 check-objective-metrics` -> PASS (`2/2` objective metrics passing, 2026-02-09).
+  - `make PYTHON=python3 check-observability-snapshot` -> PASS (`overall_status=pass`, 2026-02-09).
 
 4. Are we spending effort on explicit non-goals?
-- Low risk. Work stayed in reliability/process hardening without changing product boundaries.
+- No material drift detected. Work stayed in CI/release-operability hardening and documentation alignment, not feature-scope expansion.
 
 ## What Changed Since Previous Alignment Run
 
-- Added CI Dash data-quality job: `cmd-37-38-dash-data-quality`.
-- Added warning-budget enforcement for `CMD-27` via `scripts/check_critical_e2e_warning_budget.py` and CI `E2E_CRITICAL_WARNING_BUDGET=40`.
-- Added docs-guardrail enforcement for alignment rerun metadata (`Triggering delta:` + next packet).
-- Added tag-triggered release validation job: `release-tag-gate`.
-- Added nightly full-suite `CMD-13` job: `cmd-13-nightly-full-suite`.
-- Captured first remote evidence for:
-  - `release-tag-gate` PASS (`run 21811670648`, job `62924827121`)
-  - `cmd-13-nightly-full-suite` PASS (`run 21811670648`, job `62924827118`)
-  - `cmd-37-38-dash-data-quality` PASS (`run 21811670116`, job `62924847427`)
-- Closed UI smoke instability:
-  - PR run `21812201997` passes `cmd-30-ui-smoke-cross-browser` (`chromium`, `firefox`, `webkit`) and `cmd-31-ui-smoke-mobile` after smoke-flow hardening and CI migration-path fixes.
+- Implemented `DIR-17` / `AR-C11` trend telemetry publication:
+  - `.github/workflows/ci.yml` now runs `scripts/build_ci_runtime_trend.py` in `cmd-13-nightly-full-suite` and `release-tag-gate`.
+  - runtime trend artifacts are emitted and artifacted:
+    - nightly: `cmd-13-nightly-runtime-trend` (policy summary + latest JSON + history JSONL + dashboard)
+    - release: `release-tag-gate-artifacts` now includes `release-tag-runtime-trend-*` files.
+- Updated observability/release/CI docs and release-readiness checklist for runtime/flake trend interpretation:
+  - `Docs/manifest/07_observability.md`
+  - `Docs/reference/release_workflow.md`
+  - `Docs/manifest/11_ci.md`
+  - `Docs/implementation/checklists/06_release_readiness.md`
+- Milestone/bet routing advanced:
+  - `AR-C11` is now closed.
+  - Active open direction is `DIR-18` (`AR-C12`).
 
 ## Top 3 Corrective Actions
 
-1. Codify runtime/flake budget policy for heavy nightly/release paths (`DIR-16`).
-2. Re-rank improvement directions post-`DIR-14` + UI-smoke closure (`prompt-14` refresh).
-3. Decide whether to keep the newly stabilized UI smoke gates as strict required checks for all PRs or scope by path/label.
+1. Capture first remote evidence run proving `AR-C11` trend artifacts (`cmd-13-nightly-runtime-trend`, `release-tag-runtime-trend-*`) are published.
+2. Scope and implement `DIR-18` / `AR-C12`: external observability sink/pager integration.
+3. Define external-sink escalation ownership and dry-run fallback path before enabling pager-backed routing.
 
 ## Milestone Mapping
 
-`AR-C01`..`AR-C09` are now closed in `Docs/implementation/checklists/02_milestones.md`; remaining follow-through is explicit runtime/flake policy refinement and backlog re-ranking.
+- `AR-C10` and `AR-C11` are closed in `Docs/implementation/checklists/02_milestones.md`.
+- Next scheduled work is `AR-C12` (`DIR-18`) under `M9 - CI Operability Policy and Trend Hardening`.
+- `AR-C12` (`DIR-18`) remains open under the same milestone as not-now/large appetite.
 
 ## Residual Risks
 
-- `ALIGNED_WITH_RISKS` remains appropriate while runtime/flake expectations for nightly/release heavyweight jobs are still implicit.
-- Release automation, full-suite evidence, and UI smoke stability are now present; remaining risk is policy clarity + operational ownership boundaries.
+- `ALIGNED_WITH_RISKS` remains appropriate because external dashboard/paging integration is still absent.
+- External sink/paging is still manual, so response workflows remain partially dependent on in-repo artifacts.
 
 ## Latest Checkpoint
 
-- 2026-02-09 `make PYTHON=python3 test-e2e-critical` -> PASS (`warning_budget_summary status=pass warnings=37 max_warnings=40`).
-- 2026-02-09 `E2E_CRITICAL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e-critical` -> expected FAIL.
-- 2026-02-09 `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` -> PASS.
-- 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` -> PASS (`10 passed`).
-- 2026-02-09 CI/docs mapping verification grep for Dash job + warning budget + alignment-trigger guard -> PASS.
-- 2026-02-09 `make PYTHON=python3 test` -> PASS.
-- 2026-02-09 `make PYTHON=python3 test-all-guarded` -> PASS.
-- 2026-02-09 `make PYTHON=python3 test-e2e` -> PASS.
-- 2026-02-09 `.github/workflows/ci.yml` now includes `push.tags: ['v*']`, `workflow_dispatch` release/nightly inputs, `release-tag-gate`, and `cmd-13-nightly-full-suite`.
-- 2026-02-09 workflow dispatch run `21811670648` -> `release-tag-gate` PASS and `cmd-13-nightly-full-suite` PASS.
-- 2026-02-09 PR run `21811670116` -> `cmd-37-38-dash-data-quality`, `cmd-12-integration`, `observability-gate` PASS; overall run FAIL due UI smoke (`CMD-30`/`CMD-31`).
-- 2026-02-09 PR run `21812201997` -> full run PASS, including `CMD-30` cross-browser and `CMD-31` mobile smoke gates.
-- 2026-02-09 this checkpoint now re-routes the next non-redundant packet to `prompt-14-improvement-direction-bet-loop` for post-closure re-ranking and `DIR-16` packetization.
+- 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` -> PASS.
+- 2026-02-09 `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime_policy_summary" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/11_ci.md Docs/reference/release_workflow.md` -> PASS.
+- 2026-02-09 `make up` -> PASS.
+- 2026-02-09 `scripts/preflight_temporal.sh` -> PASS.
+- 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS.
+- 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS.
+- 2026-02-09 `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS.
+- Next non-redundant packet: `prompt-02-app-development-playbook` (capture first remote `AR-C11` runtime-trend artifact evidence), then route `DIR-18` shaping.

@@ -266,3 +266,23 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
   - Verify: `E2E_FULL_WARNING_BUDGET=200 make PYTHON=python3 test-e2e` (PASS, 2026-02-09), `E2E_FULL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e` (expected FAIL, 2026-02-09), and `rg -n "E2E_FULL_WARNING_BUDGET|check_full_e2e_warning_budget.py|CMD-13" Makefile .github/workflows/ci.yml Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/manifest/09_runbook.md` (PASS, 2026-02-09).
   - Files: `Makefile`, `.github/workflows/ci.yml`, `Docs/manifest/10_testing.md`, `Docs/manifest/11_ci.md`
   - Prompt chain: `prompt-10` -> `prompt-02` -> `prompt-03`
+
+## M9 - CI Operability Policy and Trend Hardening
+
+- [x] AR-C10: Codify runtime/flake policy for nightly + release jobs.
+  - AC: explicit runtime target, timeout/retry budget, and promotion-blocking fallback path are documented and cross-linked in CI + release-readiness docs.
+  - Verify: `rg -n "cmd-13-nightly-full-suite|release-tag-gate|timeout-minutes|NIGHTLY_FLAKE_RETRY_BUDGET|RELEASE_FLAKE_RETRY_BUDGET|runtime_policy_summary|Runtime and Flake Budget Policy|M9 Release Operability Follow-Through" .github/workflows/ci.yml Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09).
+  - Files: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-11` -> `prompt-03`
+
+- [x] AR-C11: Publish runtime+flake trend artifact for heavy CI jobs.
+  - AC: nightly/release runs produce a durable trend artifact/dashboard summarizing job duration and retry/flake signals.
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09) and `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09).
+  - Files: `.github/workflows/ci.yml`, `scripts/*`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-10` -> `prompt-03`
+
+- [ ] AR-C12: Route observability outputs to an external dashboard/pager.
+  - AC: one external operational sink receives objective/observability CI outputs with documented escalation ownership.
+  - Verify: integration dry-run evidence and docs references in `Docs/manifest/07_observability.md` + `Docs/manifest/11_ci.md` + release/readiness notes.
+  - Files: `.github/workflows/ci.yml`, observability publish scripts, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
+  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-11` -> `prompt-03`
