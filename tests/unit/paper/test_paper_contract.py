@@ -47,17 +47,22 @@ def _parse_map_rows() -> list[dict[str, str]]:
 
 def _pattern_matches_file(pattern: str, code_path: Path) -> tuple[bool, str]:
     """Prefer rg for speed; fall back to Python regex in CI environments."""
-    result = subprocess.run(
-        ["rg", "-n", pattern, str(code_path)],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode == 0:
-        return True, result.stdout
-    if result.returncode != 127 and "No such file or directory" not in result.stderr:
-        return False, f"stdout={result.stdout}\nstderr={result.stderr}"
+    try:
+        result = subprocess.run(
+            ["rg", "-n", pattern, str(code_path)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        result = None
+
+    if result is not None:
+        if result.returncode == 0:
+            return True, result.stdout
+        if result.returncode != 127 and "No such file or directory" not in result.stderr:
+            return False, f"stdout={result.stdout}\nstderr={result.stderr}"
 
     text = code_path.read_text(encoding="utf-8")
     try:
