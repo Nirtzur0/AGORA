@@ -38,6 +38,97 @@ def workspace_with_agent(db_session):
     return ws, agent
 
 
+def _seed_skeptic_membership(db_session, workspace_id: str) -> str:
+    """Finalization gate requires an active Skeptic role assignment."""
+    skeptic_id = str(uuid.uuid4())
+    db_session.execute(
+        text(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+            """
+        ),
+        {
+            "id": skeptic_id,
+            "moltbook_id": f"moltbook-{skeptic_id}",
+            "name": "Skeptic Agent",
+            "reputation": 100,
+        },
+    )
+    skeptic_role_id = db_session.execute(
+        text("SELECT id FROM roles WHERE name = 'Skeptic'")
+    ).fetchone()[0]
+    db_session.execute(
+        text(
+            """
+            INSERT INTO workspace_agents (workspace_id, agent_id, role_id, status, joined_at)
+            VALUES (:workspace_id, :agent_id, :role_id, 'active', NOW())
+            """
+        ),
+        {
+            "workspace_id": str(workspace_id),
+            "agent_id": skeptic_id,
+            "role_id": str(skeptic_role_id),
+        },
+    )
+    return skeptic_id
+
+
+def _insert_rule_check(
+    db_session,
+    workspace_id: str,
+    version_id: str,
+    rule_name: str,
+    status: str,
+    details: dict,
+) -> None:
+    db_session.execute(
+        text(
+            """
+            INSERT INTO rule_checks (
+                id, workspace_id, target_type, target_id, rule_name, status, details, created_at
+            )
+            VALUES (
+                :id, :workspace_id, 'artifact_version', :target_id, :rule_name, :status, :details, NOW()
+            )
+            """
+        ),
+        {
+            "id": str(uuid.uuid4()),
+            "workspace_id": str(workspace_id),
+            "target_id": str(version_id),
+            "rule_name": rule_name,
+            "status": status,
+            "details": details,
+        },
+    )
+
+
+def _seed_finalization_gate_pass(db_session, workspace_id: str, draft_version_id: str) -> None:
+    db_session.execute(
+        text("UPDATE workspaces SET phase = 'FINALIZED' WHERE id = :workspace_id"),
+        {"workspace_id": str(workspace_id)},
+    )
+    _seed_skeptic_membership(db_session, str(workspace_id))
+    _insert_rule_check(
+        db_session,
+        workspace_id=str(workspace_id),
+        version_id=str(draft_version_id),
+        rule_name="citation_check",
+        status="pass",
+        details={"all_citations_resolve": True},
+    )
+    _insert_rule_check(
+        db_session,
+        workspace_id=str(workspace_id),
+        version_id=str(draft_version_id),
+        rule_name="critique_sufficiency",
+        status="pass",
+        details={},
+    )
+    db_session.commit()
+
+
 def test_draft_create__empty_workspace__allocates_short_id_and_persists_metadata(db_session, workspace_with_agent):
     """Test basic draft creation."""
     from draft_routes import create_draft, CreateDraftRequest
@@ -282,6 +373,12 @@ def test_draft_version_create__after_finalization__returns_409(db_session, works
         current_agent=mock_agent,
         db=db_wrapper
     )
+
+    _seed_finalization_gate_pass(
+        db_session=db_session,
+        workspace_id=str(ws.id),
+        draft_version_id=version.id,
+    )
     
     # Finalize draft
     finalize_draft(
@@ -367,6 +464,12 @@ def test_draft_finalize__valid_version__emits_draft_finalized_event(db_session, 
         current_agent=mock_agent,
         db=db_wrapper
     )
+
+    _seed_finalization_gate_pass(
+        db_session=db_session,
+        workspace_id=str(ws.id),
+        draft_version_id=version.id,
+    )
     
     # Finalize draft
     finalize_draft(
@@ -393,3 +496,119 @@ def test_draft_finalize__valid_version__emits_draft_finalized_event(db_session, 
     payload = event[2] if isinstance(event[2], dict) else json.loads(event[2])
     assert payload["draft_id"] == draft.id
     assert payload["final_version_id"] == version.id
+
+
+def test_draft_finalize__gate_failure__persists_rule_check_and_log(db_session, workspace_with_agent):
+    """Failed finalization attempts must persist explicit gate outcomes."""
+    from draft_routes import (
+        create_draft,
+        create_draft_version,
+        finalize_draft,
+        CreateDraftRequest,
+        CreateDraftVersionRequest,
+        FinalizeDraftRequest,
+    )
+    from fastapi import HTTPException
+
+    ws, agent = workspace_with_agent
+    mock_agent = {"agent_id": agent.id}
+    mock_system = {"token_type": "system"}
+
+    draft = create_draft(
+        workspace_id=uuid.UUID(str(ws.id)),
+        request=CreateDraftRequest(title="Gate Failure Test"),
+        current_agent=mock_agent,
+        db=db_session,
+    )
+    version = create_draft_version(
+        draft_id=uuid.UUID(str(draft.id)),
+        request=CreateDraftVersionRequest(content="Version content"),
+        current_agent=mock_agent,
+        db=db_session,
+    )
+
+    _seed_skeptic_membership(db_session, str(ws.id))
+    db_session.execute(
+        text("UPDATE workspaces SET phase = 'FINALIZED' WHERE id = :workspace_id"),
+        {"workspace_id": str(ws.id)},
+    )
+    _insert_rule_check(
+        db_session,
+        workspace_id=str(ws.id),
+        version_id=version.id,
+        rule_name="citation_check",
+        status="fail",
+        details={"all_citations_resolve": True},
+    )
+    _insert_rule_check(
+        db_session,
+        workspace_id=str(ws.id),
+        version_id=version.id,
+        rule_name="critique_sufficiency",
+        status="pass",
+        details={},
+    )
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc_info:
+        finalize_draft(
+            draft_id=uuid.UUID(str(draft.id)),
+            request=FinalizeDraftRequest(draft_artifact_version_id=version.id),
+            system_token=mock_system,
+            db=db_session,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["error"] == "FINALIZATION_GATE_BLOCKED"
+    assert "Citation coverage check failed" in exc_info.value.detail["reasons"]
+
+    gate_row = db_session.execute(
+        text(
+            """
+            SELECT status, details
+            FROM rule_checks
+            WHERE workspace_id = :workspace_id
+              AND target_type = 'artifact_version'
+              AND target_id = :target_id
+              AND rule_name = 'finalization_gate'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        ),
+        {"workspace_id": str(ws.id), "target_id": version.id},
+    ).fetchone()
+
+    assert gate_row is not None
+    assert gate_row[0] == "fail"
+    gate_details = gate_row[1] if isinstance(gate_row[1], dict) else json.loads(gate_row[1])
+    assert "Citation coverage check failed" in gate_details["reasons"]
+
+    log_row = db_session.execute(
+        text(
+            """
+            SELECT action, payload
+            FROM logs
+            WHERE workspace_id = :workspace_id
+              AND action = 'draft.finalization_gate_evaluated'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        ),
+        {"workspace_id": str(ws.id)},
+    ).fetchone()
+
+    assert log_row is not None
+    assert log_row[0] == "draft.finalization_gate_evaluated"
+    log_payload = log_row[1] if isinstance(log_row[1], dict) else json.loads(log_row[1])
+    assert log_payload["status"] == "FAIL"
+    assert "Citation coverage check failed" in log_payload["reasons"]
+
+
+def test_draft_finalize_endpoint__agent_token__returns_403(test_client, mock_agent_token):
+    """Finalize endpoint is system-only and must reject agent tokens."""
+    response = test_client.post(
+        f"/drafts/{uuid.uuid4()}/finalize",
+        json={"draft_artifact_version_id": str(uuid.uuid4())},
+        headers={"Authorization": f"Bearer {mock_agent_token}"},
+    )
+    assert response.status_code == 403

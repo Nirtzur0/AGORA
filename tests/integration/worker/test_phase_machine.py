@@ -15,7 +15,6 @@ import pytest
 import uuid
 from database import get_raw_db
 
-TEST_AGENT_ID = "00000000-0000-0000-0000-000000000001"
 import json
 
 
@@ -180,9 +179,8 @@ def test_phase_advancement_activity__invalid_transition__returns_409(test_db):
 
 
 def test_phase_routes__agent_cannot_change_phase__returns_403(test_client, test_db, mock_agent_token):
-    """Test that agents cannot directly modify workspace.phase."""
+    """Test that agent tokens are rejected on system-only phase advancement."""
     workspace_id = str(uuid.uuid4())
-    agent_id = TEST_AGENT_ID
     
     with get_raw_db() as conn:
         cursor = conn.cursor()
@@ -195,20 +193,29 @@ def test_phase_routes__agent_cannot_change_phase__returns_403(test_client, test_
         )
         conn.commit()
     
-    # Agent tries to directly update phase (this should fail)
-    # Note: There is no PATCH /workspaces/{id} endpoint that allows phase updates
-    # Only orchestrator via advance_phase workflow can change phase
-    
-    # Verify phase endpoint is read-only for agents
-    response = test_client.get(
-        f"/workspaces/{workspace_id}/phase",
-        headers={"Authorization": f"Bearer {mock_agent_token}"}
+    response = test_client.post(
+        f"/workspaces/{workspace_id}/advance-phase",
+        json={"target_phase": "LIT_REVIEW", "reason": "agent_attempt"},
+        headers={"Authorization": f"Bearer {mock_agent_token}"},
     )
-    
-    assert response.status_code == 200
-    data = response.json()
-    assert data["current_phase"] == "INIT"
-    assert "LIT_REVIEW" in data["allowed_next_phases"]
+
+    assert response.status_code == 403
+
+    # Verify phase did not change.
+    row = test_db.execute(
+        "SELECT phase FROM workspaces WHERE id = :id",
+        {"id": workspace_id},
+    ).fetchone()
+    assert row[0] == "INIT"
+
+
+def test_phase_routes__missing_token_on_advance_phase__returns_401(test_client):
+    """System-only endpoint requires auth; missing token should return 401."""
+    response = test_client.post(
+        f"/workspaces/{uuid.uuid4()}/advance-phase",
+        json={"target_phase": "LIT_REVIEW", "reason": "missing_auth"},
+    )
+    assert response.status_code == 401
 
 
 def test_exit_gate_lit_review__required_artifacts_present__returns_pass(test_db):

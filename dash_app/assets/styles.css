@@ -1,0 +1,153 @@
+:root {
+  --agora-brand: #0b5d5d;
+  --agora-brand-alt: #1f7a8c;
+  --agora-bg: #f5f7f8;
+  --agora-surface: #ffffff;
+  --agora-text: #1e2933;
+  --agora-border: #d9e2ec;
+  --agora-accent: #f59e0b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: linear-gradient(180deg, #f5f7f8 0%, #edf2f4 100%);
+  color: var(--agora-text);
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--agora-brand) 0%, var(--agora-brand-alt) 100%);
+  color: #ffffff;
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 3px solid var(--agora-accent);
+}
+
+.title-block {
+  margin-bottom: 0.75rem;
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.7rem;
+  letter-spacing: 0.02em;
+}
+
+.app-subtitle {
+  margin: 0.45rem 0 0;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.top-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  color: #ffffff;
+  text-decoration: none;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.17);
+}
+
+.app-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.panel {
+  background: var(--agora-surface);
+  border: 1px solid var(--agora-border);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card {
+  background: #ffffff;
+  border: 1px solid var(--agora-border);
+  border-top: 5px solid var(--agora-brand);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.metric-label {
+  font-size: 0.82rem;
+  color: #52667a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.metric-value {
+  margin-top: 0.3rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.filter-group {
+  margin-top: 0.75rem;
+}
+
+.filter-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.filter-input {
+  max-width: 420px;
+}
+
+.status-filter {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.json-viewer {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 0.8rem;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    padding: 1rem;
+  }
+
+  .app-title {
+    font-size: 1.4rem;
+  }
+
+  .app-content {
+    padding: 0.75rem;
+  }
+}

@@ -8,6 +8,7 @@ Per spec §5.2, §12.3:
 - Demonstrates code execution + evidence capture + citation flow
 """
 from typing import Dict, Any, Optional
+import logging
 import uuid
 import json
 
@@ -15,6 +16,8 @@ from workflow_client import WorkflowClient, create_activity_run, update_activity
 from database import DBWrapper
 from agent_tasks import TaskPayload, TaskInput, RoleName, TaskStatus, TaskPriority
 from queries.agent_tasks import insert_agent_task
+
+logger = logging.getLogger(__name__)
 
 
 async def code_replication_workflow(
@@ -67,7 +70,8 @@ async def code_replication_workflow(
         db=db,
         workspace_id=workspace_id
     )
-    
+
+    active_activity_run_id: Optional[str] = None
     try:
         # Step 1: Execute repo_ingest activity
         from repo_ingest import RepoIngestActivity
@@ -106,6 +110,7 @@ async def code_replication_workflow(
                 "commit_hash": commit_hash
             }
         )
+        active_activity_run_id = activity_run_id
         
         # Run repo_ingest
         storage = create_storage_from_env()
@@ -127,6 +132,7 @@ async def code_replication_workflow(
             status="completed",
             output=ingest_result
         )
+        active_activity_run_id = None
         
         # Step 2: Execute sandbox_run activity
         from sandbox_run import SandboxRunActivity
@@ -228,6 +234,7 @@ async def code_replication_workflow(
                 "parameters": sandbox_parameters
             }
         )
+        active_activity_run_id = sandbox_run_id
         
         # Run sandbox_run
         sandbox_activity = SandboxRunActivity(storage, db)
@@ -247,6 +254,7 @@ async def code_replication_workflow(
             status="completed",
             output=sandbox_result
         )
+        active_activity_run_id = None
         
         # Step 3: Create agent_task for result summarization
         task_id = str(uuid.uuid4())
@@ -329,6 +337,21 @@ async def code_replication_workflow(
         }
     
     except Exception as e:
+        if active_activity_run_id:
+            try:
+                update_activity_run(
+                    db=db,
+                    activity_run_id=active_activity_run_id,
+                    status="failed",
+                    error=str(e)
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to persist failed status for code activity_run_id=%s workflow_run_id=%s",
+                    active_activity_run_id,
+                    workflow_run_id,
+                )
+
         # Update workflow to failed
         await client.update_workflow_status(
             workflow_run_id=workflow_run_id,

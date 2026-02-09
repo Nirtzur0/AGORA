@@ -17,9 +17,11 @@ from uuid import UUID
 import uuid
 import hashlib
 import json
+from pathlib import Path as FilePath
+import sys
 
 from auth_middleware import get_current_agent, require_system_token, AgentContext
-from database import get_db_session, SessionLocal
+from database import get_db_session
 from storage import create_storage_from_env
 
 
@@ -33,6 +35,108 @@ def _agent_id(current_agent: AgentContext) -> str:
     """Support both AgentContext objects and dicts used in tests."""
     value = getattr(current_agent, "agent_id", None) or current_agent["agent_id"]
     return str(value)
+
+
+def _ensure_worker_path() -> None:
+    """Allow Core API routes to reuse orchestrator gate evaluation logic."""
+    worker_path = FilePath(__file__).resolve().parents[2] / "apps" / "worker"
+    worker_path_str = str(worker_path)
+    if worker_path_str not in sys.path:
+        sys.path.insert(0, worker_path_str)
+
+
+def _evaluate_finalization_gate(
+    db,
+    workspace_id: str,
+    draft_artifact_id: str,
+    draft_artifact_version_id: str,
+) -> Dict[str, Any]:
+    """Evaluate finalization gate from persisted state (single source of truth)."""
+    _ensure_worker_path()
+    from gates import GateEvaluationActivity, GateEvaluator
+
+    snapshot = GateEvaluationActivity(db).gather_finalization_gate_snapshot(
+        workspace_id=workspace_id,
+        draft_artifact_id=draft_artifact_id,
+        draft_artifact_version_id=draft_artifact_version_id,
+    )
+    return GateEvaluator.evaluate_finalization_gate(snapshot)
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert nested structures into JSON-serializable values."""
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, tuple):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _persist_finalization_gate_result(
+    db,
+    workspace_id: str,
+    draft_artifact_id: str,
+    draft_artifact_version_id: str,
+    gate_response: Dict[str, Any],
+) -> None:
+    """
+    Persist gate outcome so failures are never silent.
+
+    We record both:
+    - rule_checks row (machine-evaluable)
+    - logs row (human-auditable timeline)
+    """
+    safe_gate_response = _json_safe(gate_response)
+    normalized_status = str(safe_gate_response.get("status", "FAIL")).lower()
+
+    db.execute(
+        """
+        INSERT INTO rule_checks (
+            id, workspace_id, target_type, target_id, rule_name, status, details, created_at
+        )
+        VALUES (
+            :id, :workspace_id, :target_type, :target_id, :rule_name, :status, :details, NOW()
+        )
+        """,
+        {
+            "id": str(uuid.uuid4()),
+            "workspace_id": workspace_id,
+            "target_type": "artifact_version",
+            "target_id": draft_artifact_version_id,
+            "rule_name": "finalization_gate",
+            "status": normalized_status,
+            "details": {
+                "gate_name": safe_gate_response.get("gate_name"),
+                "status": safe_gate_response.get("status"),
+                "reasons": safe_gate_response.get("reasons", []),
+                "required_actions": safe_gate_response.get("required_actions", []),
+                "snapshot": safe_gate_response.get("snapshot", {}),
+                "draft_artifact_id": draft_artifact_id,
+            },
+        },
+    )
+
+    db.execute(
+        """
+        INSERT INTO logs (id, workspace_id, agent_id, action, payload, created_at)
+        VALUES (:id, :workspace_id, NULL, :action, :payload, NOW())
+        """,
+        {
+            "id": str(uuid.uuid4()),
+            "workspace_id": workspace_id,
+            "action": "draft.finalization_gate_evaluated",
+            "payload": {
+                "draft_artifact_id": draft_artifact_id,
+                "draft_artifact_version_id": draft_artifact_version_id,
+                "status": safe_gate_response.get("status"),
+                "reasons": safe_gate_response.get("reasons", []),
+            },
+        },
+    )
 
 
 # Request/Response Models
@@ -170,7 +274,7 @@ def create_draft(
     
     - Stores Markdown content with content_hash
     - Creates immutable artifact_version
-    - Triggers citation_check (async, not implemented in this component)
+    - Triggers citation_check immediately for the new version
     - Rejects if draft is already finalized (status=final)
     - Rejects if workspace phase is FINALIZED
     """
@@ -203,7 +307,7 @@ def create_draft_version(
     
     if artifact_type != "draft":
         raise HTTPException(status_code=400, detail=f"Artifact {draft_id} is not a draft")
-    
+
     # Check if draft is already finalized
     if metadata_json:
         metadata = metadata_json if isinstance(metadata_json, dict) else json.loads(metadata_json)
@@ -266,8 +370,10 @@ def create_draft_version(
         )
     )
     
-    # TODO: Trigger citation_check activity (async)
-    # This will be implemented in Component 13
+    # Run citation_check immediately so failures surface without waiting for finalization.
+    _ensure_worker_path()
+    from citation_check import citation_check_activity
+    citation_check_activity(version_id, db)
     
     return DraftVersionResponse(
         id=version_id,
@@ -336,7 +442,7 @@ def list_draft_versions(
     
     return {
         "draft_id": str(draft_id),
-        "versions": [v.dict() for v in versions_data],
+        "versions": [v.model_dump() for v in versions_data],
         "total": len(versions_data)
     }
 
@@ -383,6 +489,18 @@ def finalize_draft(
     
     if artifact_type != "draft":
         raise HTTPException(status_code=400, detail=f"Artifact {draft_id} is not a draft")
+
+    workspace_row = db.execute(
+        "SELECT phase FROM workspaces WHERE id = :id",
+        {"id": str(workspace_id)},
+    ).fetchone()
+    if not workspace_row:
+        raise HTTPException(status_code=404, detail=f"Workspace {workspace_id} not found")
+    if workspace_row[0] != "FINALIZED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot finalize draft: workspace phase is {workspace_row[0]}, must be FINALIZED",
+        )
     
     # Check if already finalized
     if metadata_json:
@@ -407,9 +525,36 @@ def finalize_draft(
             detail=f"Version {request.draft_artifact_version_id} does not belong to draft {draft_id}"
         )
     
-    # TODO: Check rule_checks for failures
-    # If any rule_checks exist with status=failure for this draft, reject finalization
-    # This will be implemented in Component 13
+    try:
+        gate_response = _evaluate_finalization_gate(
+            db=db,
+            workspace_id=str(workspace_id),
+            draft_artifact_id=str(draft_id),
+            draft_artifact_version_id=request.draft_artifact_version_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    _persist_finalization_gate_result(
+        db=db,
+        workspace_id=str(workspace_id),
+        draft_artifact_id=str(draft_id),
+        draft_artifact_version_id=request.draft_artifact_version_id,
+        gate_response=gate_response,
+    )
+
+    gate_status = str(gate_response.get("status", "FAIL")).upper()
+    if gate_status != "PASS":
+        db.commit()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "FINALIZATION_GATE_BLOCKED",
+                "gate_status": gate_status,
+                "reasons": gate_response.get("reasons", []),
+                "required_actions": gate_response.get("required_actions", []),
+            },
+        )
     
     # Update metadata to mark as finalized
     metadata["status"] = "final"
@@ -443,6 +588,26 @@ def finalize_draft(
             })
         )
     )
+
+    db.execute(
+        """
+        INSERT INTO logs (id, workspace_id, agent_id, action, payload, created_at)
+        VALUES (%s, %s, %s, %s, %s, NOW())
+        """,
+        (
+            str(uuid.uuid4()),
+            str(workspace_id),
+            None,
+            "draft.finalized",
+            json.dumps({
+                "draft_id": str(draft_id),
+                "final_version_id": request.draft_artifact_version_id,
+                "event_id": event_id,
+            }),
+        ),
+    )
+
+    db.commit()
     
     return {
         "draft_id": str(draft_id),

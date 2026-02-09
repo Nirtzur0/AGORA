@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
 import pytest
@@ -58,7 +58,7 @@ def test_verify_agent_token__system_token__raises():
 
 
 def test_verify_agent_token__expired_token__raises_expired_signature_error():
-    past_time = datetime.utcnow() - timedelta(hours=25)
+    past_time = datetime.now(timezone.utc) - timedelta(hours=25)
     payload = {
         "sub": "agent-123",
         "type": "agent",
@@ -105,4 +105,3 @@ def test_compute_payload_hash__different_payload__different_hash():
     payload2 = {"claim_text": "Different claim", "artifact_id": "123"}
 
     assert compute_payload_hash(payload1) != compute_payload_hash(payload2)
-

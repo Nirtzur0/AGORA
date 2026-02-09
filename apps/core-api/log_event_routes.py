@@ -15,7 +15,7 @@ Authority model:
 """
 from typing import Optional, List
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -112,7 +112,7 @@ async def create_log(
     
     # Create log entry
     log_id = uuid4()
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     
     db.execute(
         """
@@ -237,7 +237,7 @@ async def create_event(
     
     # Create event entry
     event_id = uuid4()
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     actor_id_uuid = _coerce_event_actor_id(req.actor_type, req.actor_id)
     
     db.execute(

@@ -381,6 +381,7 @@ function ClaimsTab({ workspaceId }) {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [evidenceDrawer, setEvidenceDrawer] = useState(null);
+  const [provenanceViewer, setProvenanceViewer] = useState(null);
   const [critiqueTarget, setCritiqueTarget] = useState(null);
 
   useEffect(() => {
@@ -399,6 +400,10 @@ function ClaimsTab({ workspaceId }) {
 
   const openEvidence = (artifactVersionId, location) => {
     setEvidenceDrawer({ artifactVersionId, location });
+  };
+
+  const openArtifactVersion = ({ artifactId, versionId }) => {
+    setProvenanceViewer({ artifactId, versionId });
   };
 
   if (loading) return <div className="loading">Loading claims...</div>;
@@ -430,8 +435,9 @@ function ClaimsTab({ workspaceId }) {
                         key={idx}
                         className="evidence-button"
                         onClick={() => openEvidence(ev.artifact_version_id, ev.location)}
+                        title={`${ev.artifact_version_id}: ${ev.location}`}
                       >
-                        Evidence {idx + 1}
+                        Evidence {idx + 1} ({ev.location})
                       </button>
                     ))}
                   </div>
@@ -441,6 +447,18 @@ function ClaimsTab({ workspaceId }) {
           </div>
         )}
       </Card>
+
+      {provenanceViewer && (
+        <Card title={`Evidence Provenance: ${provenanceViewer.versionId}`}>
+          <div className="provenance-drilldown">
+            <ArtifactViewer
+              artifactId={provenanceViewer.artifactId}
+              versionId={provenanceViewer.versionId}
+              onClose={() => setProvenanceViewer(null)}
+            />
+          </div>
+        </Card>
+      )}
       
       {(evidenceDrawer || critiqueTarget) && (
         <>
@@ -449,6 +467,10 @@ function ClaimsTab({ workspaceId }) {
               artifactVersionId={evidenceDrawer.artifactVersionId}
               location={evidenceDrawer.location}
               onClose={() => setEvidenceDrawer(null)}
+              onOpenArtifactVersion={(target) => {
+                setEvidenceDrawer(null);
+                openArtifactVersion(target);
+              }}
             />
           )}
           {critiqueTarget && (
@@ -473,6 +495,7 @@ function DraftsTab({ workspaceId }) {
   const [draftContent, setDraftContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [evidenceDrawer, setEvidenceDrawer] = useState(null);
+  const [provenanceViewer, setProvenanceViewer] = useState(null);
 
   useEffect(() => {
     const loadDrafts = async () => {
@@ -601,7 +624,23 @@ function DraftsTab({ workspaceId }) {
           artifactVersionId={evidenceDrawer.artifactVersionId}
           location={evidenceDrawer.location}
           onClose={() => setEvidenceDrawer(null)}
+          onOpenArtifactVersion={(target) => {
+            setEvidenceDrawer(null);
+            setProvenanceViewer(target);
+          }}
         />
+      )}
+
+      {provenanceViewer && (
+        <Card title={`Citation Source: ${provenanceViewer.versionId}`}>
+          <div className="provenance-drilldown">
+            <ArtifactViewer
+              artifactId={provenanceViewer.artifactId}
+              versionId={provenanceViewer.versionId}
+              onClose={() => setProvenanceViewer(null)}
+            />
+          </div>
+        </Card>
       )}
     </>
   );

@@ -1,0 +1,3 @@
+[submodule "packages/project-prompts"]
+	path = packages/project-prompts
+	url = https://github.com/Nirtzur0/project-prompts.git

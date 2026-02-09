@@ -8,6 +8,7 @@ Per spec §5.2, §12.2:
 - Demonstrates full end-to-end collaboration flow
 """
 from typing import Dict, Any
+import logging
 import uuid
 
 from workflow_client import WorkflowClient, create_activity_run, update_activity_run
@@ -16,6 +17,8 @@ from agent_tasks import TaskPayload, TaskInput, RoleName, TaskStatus, TaskPriori
 from queries.agent_tasks import insert_agent_task
 from storage import create_storage_from_env
 from pdf_ingest import PDFIngestActivity
+
+logger = logging.getLogger(__name__)
 
 
 async def literature_grounding_workflow(
@@ -53,7 +56,8 @@ async def literature_grounding_workflow(
         db=db,
         workspace_id=workspace_id
     )
-    
+
+    activity_run_id = None
     try:
         # Step 1: Execute pdf_ingest activity (synchronously for MVP)
         activity_id = f"pdf_ingest_{artifact_id}"
@@ -102,6 +106,7 @@ async def literature_grounding_workflow(
                 "pages_parsed": ingest_result.get("page_count")
             }
         )
+        activity_run_id = None
         
         artifact_version_id = ingest_result["artifact_version_id"]
         
@@ -167,6 +172,21 @@ async def literature_grounding_workflow(
         }
     
     except Exception as e:
+        if activity_run_id:
+            try:
+                update_activity_run(
+                    db=db,
+                    activity_run_id=activity_run_id,
+                    status="failed",
+                    error=str(e)
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to persist failed status for literature activity_run_id=%s workflow_run_id=%s",
+                    activity_run_id,
+                    workflow_run_id,
+                )
+
         # Update workflow to failed
         await client.update_workflow_status(
             workflow_run_id=workflow_run_id,

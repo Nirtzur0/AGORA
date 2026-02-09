@@ -18,7 +18,7 @@ import tempfile
 import shutil
 import subprocess
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -262,7 +262,7 @@ class SandboxRunActivity:
         logger.info(f"Executing Docker command: {' '.join(docker_cmd)}")
         
         # Execute with timeout
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         try:
             result = subprocess.run(
                 docker_cmd,
@@ -272,7 +272,7 @@ class SandboxRunActivity:
                 check=False  # Don't raise on non-zero exit
             )
             
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             execution_time = (end_time - start_time).total_seconds()
             
             return {
@@ -400,7 +400,7 @@ class SandboxRunActivity:
             "timeout_seconds": timeout_seconds,
             "memory_limit": memory_limit,
             "cpu_limit": cpu_limit,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         
         config_json = json.dumps(config, indent=2)

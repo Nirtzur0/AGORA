@@ -334,6 +334,6 @@ def list_claims(
     
     return {
         "workspace_id": str(workspace_id),
-        "claims": [claim.dict() for claim in claims_data],
+        "claims": [claim.model_dump() for claim in claims_data],
         "total": len(claims_data)
     }

@@ -1,0 +1,139 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\title{Verified Invariants for Auditable Evidence Workflows in AGORA}
+\author{AGORA Engineering}
+\date{2026-02-09}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+AGORA is a research collaboration platform whose correctness depends on evidence traceability and orchestrator-controlled workflow transitions. This paper specifies a compact mathematical model of four load-bearing invariants and links each equation to concrete implementation paths and deterministic tests. The result is a reproducible contract between literature-backed assumptions, code behavior, and verification evidence.
+\end{abstract}
+
+\section{Introduction}
+AGORA targets reproducible, auditable research execution where every finalized claim is tied to version-pinned evidence and workflow phase transitions are controlled by system authority. The system objective and invariants are defined in \texttt{Docs/manifest/00\_overview.md} and \texttt{Docs/04-system-implementation-spec.md}.
+
+\section{Assumptions and Regime}\label{sec:assumptions_regime}
+\subsection*{Assumptions verified by tests}
+\begin{itemize}
+  \item Citation coverage in draft markdown is paragraph-local and deterministic.
+  \item Citation materialization count equals the paragraph-wise claim-citation cross product.
+  \item Phase transition validity is exactly the directed adjacency relation encoded in the phase machine.
+  \item Terminal phase detection is equivalent to zero out-degree in the transition graph.
+\end{itemize}
+
+\subsection*{Assumptions accepted from literature}
+\begin{itemize}
+  \item Persistent identifiers and citation specificity are required for reproducible evidence reuse \cite{wilkinson2016fair,datacite2014principles,smith2016software}.
+  \item Workflow reproducibility requires explicit process lineage and bounded failure handling \cite{simmhan2005provenance,deelman2015pegasus}.
+\end{itemize}
+
+\subsection*{Speculative/TODO assumptions}
+\begin{itemize}
+  \item Full alert-routing automation (pager policy integration) is not yet encoded as a tested invariant.
+  \item Cross-environment portability limits for all workflow classes need broader empirical characterization.
+\end{itemize}
+
+\section{Model and Method}\label{sec:model_method}
+Let $P$ be the set of draft paragraphs, $C_p$ the set of claim markers in paragraph $p$, and $Z_p$ the set of citation markers in paragraph $p$.
+
+\subsection{Citation coverage ratio}
+\begin{equation}
+\operatorname{Cov}(C, Z) =
+\begin{cases}
+1, & \text{if } |C| = 0\\
+\frac{1}{|C|}\sum\limits_{p \in P} \sum\limits_{c \in C_p} \mathbf{1}(|Z_p| \ge 1), & \text{if } |C| > 0
+\end{cases}
+\label{eq:coverage_ratio}
+\end{equation}
+where $|C| = \sum_{p \in P}|C_p|$. The coverage gate passes iff $\operatorname{Cov}(C, Z) = 1$.
+
+\subsection{Citation materialization count}
+\begin{equation}
+M(C, Z) = \sum_{p \in P} |C_p| \cdot |Z_p|
+\label{eq:materialization_count}
+\end{equation}
+The implementation materializes one citation row for each claim-cite pair in the same paragraph, so the inserted count should equal $M(C,Z)$ after idempotent dedupe.
+
+\subsection{Phase transition validity relation}
+Let $\mathcal{T}(u)$ be the allowed next-phase set for current phase $u$.
+\begin{equation}
+\operatorname{Valid}(u, v) = \mathbf{1}(v \in \mathcal{T}(u))
+\label{eq:phase_transition_validity}
+\end{equation}
+
+\subsection{Terminal phase condition}
+\begin{equation}
+\operatorname{Terminal}(u) = \mathbf{1}(|\mathcal{T}(u)| = 0)
+\label{eq:terminal_phase}
+\end{equation}
+
+\section{Implementation Mapping}\label{sec:implementation}
+The paper-to-code mapping is defined in \texttt{paper/implementation\_map.md}. Core implementation entrypoints:
+\begin{itemize}
+  \item Citation parsing and coverage checks: \texttt{apps/worker/citation\_check.py}
+  \item Citation materialization (claim $\times$ cite cross product): \texttt{apps/worker/citation\_check.py}
+  \item Phase transition graph and validity checks: \texttt{apps/worker/phase\_machine.py}
+\end{itemize}
+
+\section{Verification}\label{sec:verification}
+\subsection*{What is verified by tests}
+\begin{itemize}
+  \item Limiting/sanity checks:
+  \begin{itemize}
+    \item \texttt{test\_limiting\_empty\_markdown\_produces\_no\_markers}
+    \item \texttt{test\_limiting\_coverage\_with\_no\_claims\_passes\_by\_convention}
+    \item \texttt{test\_limiting\_archived\_is\_terminal\_phase}
+  \end{itemize}
+  \item Property/invariant checks:
+  \begin{itemize}
+    \item \texttt{test\_property\_materialization\_count\_matches\_cross\_product\_equation}
+    \item \texttt{test\_property\_phase\_validity\_matches\_adjacency\_relation}
+  \end{itemize}
+  \item Regression/golden checks:
+  \begin{itemize}
+    \item \texttt{test\_golden\_marker\_extraction\_snapshot}
+    \item \texttt{test\_golden\_allowed\_transitions\_snapshot}
+  \end{itemize}
+  \item Compatibility contract checks:
+  \begin{itemize}
+    \item \texttt{test\_implementation\_map\_rows\_reference\_real\_labels\_files\_and\_find\_patterns}
+  \end{itemize}
+\end{itemize}
+
+\subsection*{What is not verified in this packet}
+\begin{itemize}
+  \item End-to-end empirical throughput/latency envelopes under large distributed load.
+  \item Complete policy automation for external alert routing.
+\end{itemize}
+
+\section{Experiments and Results}\label{sec:results}
+A deterministic artifact is generated by:
+\begin{verbatim}
+python3 scripts/generate_paper_verification_snapshot.py \
+  --output paper/artifacts/verification_snapshot.json
+\end{verbatim}
+This produces a machine-readable snapshot of sample coverage/materialization and transition-graph summary values used in this paper.
+
+\section{Reproducibility}\label{sec:reproducibility}
+Use repo-native commands documented in \texttt{paper/README.md}. The main verification command is:
+\begin{verbatim}
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest \
+  -p pytest_asyncio.plugin -q tests/unit/paper
+\end{verbatim}
+
+\section{Limitations}
+This paper models a correctness slice focused on citation and phase-machine invariants. It does not claim full-system validation for all operational failure modes.
+
+\section{Conclusion}
+AGORA's evidence and phase-control core can be represented by a compact set of equations, mapped to concrete code, and continuously checked with deterministic tests. This closes literature-to-implementation drift for the selected invariant set.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

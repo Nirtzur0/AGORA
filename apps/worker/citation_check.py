@@ -286,6 +286,30 @@ def materialize_citations(
         # Create citation for each claim × cite pair
         for claim in para_claims:
             for cite in para_cites:
+                existing = db.execute(
+                    """
+                    SELECT id
+                    FROM citations
+                    WHERE workspace_id = :workspace_id
+                      AND draft_artifact_version_id = :draft_version_id
+                      AND claim_id = :claim_id
+                      AND source_artifact_version_id = :source_version_id
+                      AND source_location = :source_location
+                    LIMIT 1
+                    """,
+                    {
+                        "workspace_id": workspace_id,
+                        "draft_version_id": draft_artifact_version_id,
+                        "claim_id": claim.claim_id,
+                        "source_version_id": cite.artifact_version_id,
+                        "source_location": cite.location,
+                    },
+                ).fetchone()
+                if existing:
+                    # citation_check can run multiple times for the same draft version;
+                    # keep materialization idempotent.
+                    continue
+
                 citation_id = str(uuid.uuid4())
                 db.execute(
                     """

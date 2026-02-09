@@ -431,3 +431,73 @@ Claim [[claim:{claim.id}]] with citation [[cite:{pdf_version_id}|pdf:p=1#char=0-
         )
     assert e.value.status_code == 400
     assert "must be FINALIZED" in str(e.value.detail)
+
+
+def test_literature_grounding_workflow__missing_pdf_version__marks_workflow_and_activity_failed(
+    db_session, integration_setup
+):
+    import asyncio
+    from fastapi import HTTPException
+
+    from request_routes import request_ingest_pdf, IngestPdfRequest
+
+    ws, agent = integration_setup
+    mock_agent = {"agent_id": str(agent.id)}
+
+    pdf_artifact_id = str(uuid.uuid4())
+    db_session.add(
+        Artifact(
+            id=pdf_artifact_id,
+            workspace_id=str(ws.id),
+            type="pdf",
+            short_id="P1",
+            metadata={"title": "Missing Version PDF"},
+            created_by=str(agent.id),
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(
+            request_ingest_pdf(
+                workspace_id=uuid.UUID(str(ws.id)),
+                request=IngestPdfRequest(artifact_id=pdf_artifact_id),
+                current_agent=mock_agent,
+                db=db_session,
+            )
+        )
+
+    assert e.value.status_code == 500
+    assert "No artifact_versions found for PDF artifact" in str(e.value.detail)
+
+    workflow_row = db_session.execute(
+        text(
+            """
+            SELECT id, status
+            FROM workflow_runs
+            WHERE workspace_id = :workspace_id
+              AND workflow_type = 'literature_grounding'
+            ORDER BY started_at DESC
+            LIMIT 1
+            """
+        ),
+        {"workspace_id": str(ws.id)},
+    ).fetchone()
+    assert workflow_row is not None
+    workflow_run_id = str(workflow_row[0])
+    assert workflow_row[1] == "failed"
+
+    activity_rows = db_session.execute(
+        text(
+            """
+            SELECT activity_type, status
+            FROM activity_runs
+            WHERE workflow_run_id = :workflow_run_id
+            ORDER BY started_at
+            """
+        ),
+        {"workflow_run_id": workflow_run_id},
+    ).fetchall()
+    assert len(activity_rows) == 1
+    assert activity_rows[0][0] == "pdf_ingest"
+    assert activity_rows[0][1] == "failed"

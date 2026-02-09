@@ -1,0 +1,295 @@
+{
+  "artifacts": [
+    {
+      "id": "EXT-FASTAPI-001",
+      "kind": "web_page",
+      "notes": "Primary reference for Core API route contracts, request validation, and HTTP error semantics.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "http-api",
+        "validation",
+        "framework"
+      ],
+      "title": "FastAPI Documentation",
+      "url": "https://fastapi.tiangolo.com/"
+    },
+    {
+      "id": "EXT-TEMPORAL-001",
+      "kind": "web_page",
+      "notes": "Reference for worker/workflow boundaries and activity execution model used in AGORA worker lifecycle design.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "workflow",
+        "worker",
+        "orchestration"
+      ],
+      "title": "Temporal Python SDK Core Application",
+      "url": "https://docs.temporal.io/develop/python/core-application"
+    },
+    {
+      "id": "EXT-POSTGRES-001",
+      "kind": "web_page",
+      "notes": "Primary database behavior reference for uniqueness, transactions, and deterministic persistence checks.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "database",
+        "constraints",
+        "sql"
+      ],
+      "title": "PostgreSQL Documentation (Current)",
+      "url": "https://www.postgresql.org/docs/current/"
+    },
+    {
+      "id": "EXT-MINIO-001",
+      "kind": "web_page",
+      "notes": "Reference for object storage client behavior used by artifact version persistence and overwrite-prevention checks.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "object-storage",
+        "s3",
+        "immutability"
+      ],
+      "title": "MinIO Python SDK Developer Guide",
+      "url": "https://docs.min.io/community/minio-object-store/developers/python/minio-py.html"
+    },
+    {
+      "id": "EXT-PYMUPDF-001",
+      "kind": "web_page",
+      "notes": "Reference for PDF parsing and extracted-text evidence behavior used in ingestion and evidence resolution.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "pdf",
+        "text-extraction",
+        "evidence"
+      ],
+      "title": "PyMuPDF Documentation",
+      "url": "https://pymupdf.readthedocs.io/en/latest/"
+    },
+    {
+      "id": "EXT-JSONPATH-NG-001",
+      "kind": "web_page",
+      "notes": "Reference for JSONPath behavior used in log evidence resolver for deterministic pointer evaluation.",
+      "retrieved_at": "2026-02-08T22:57:07Z",
+      "tags": [
+        "jsonpath",
+        "logs",
+        "resolver"
+      ],
+      "title": "jsonpath-ng Package",
+      "url": "https://pypi.org/project/jsonpath-ng/"
+    },
+    {
+      "id": "EXT-LIT-FAIR-001",
+      "kind": "paper",
+      "notes": "Foundational FAIR principles for machine-actionable, reusable research objects.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1038/sdata.2016.18"
+      },
+      "tags": [
+        "literature",
+        "provenance",
+        "reproducibility"
+      ],
+      "title": "The FAIR Guiding Principles for scientific data management and stewardship",
+      "url": "https://doi.org/10.1038/sdata.2016.18"
+    },
+    {
+      "id": "EXT-LIT-DATACITE-001",
+      "kind": "paper",
+      "notes": "Data citation principles used to justify version-pinned evidence requirements.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.25490/a97f-egyk"
+      },
+      "tags": [
+        "literature",
+        "citation",
+        "provenance"
+      ],
+      "title": "Joint Declaration of Data Citation Principles",
+      "url": "https://doi.org/10.25490/a97f-egyk"
+    },
+    {
+      "id": "EXT-LIT-SOFTWARECITE-001",
+      "kind": "paper",
+      "notes": "Software citation principles for version-specific, persistent citations.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.7717/peerj-cs.86"
+      },
+      "tags": [
+        "literature",
+        "citation",
+        "software"
+      ],
+      "title": "Software citation principles",
+      "url": "https://doi.org/10.7717/peerj-cs.86"
+    },
+    {
+      "id": "EXT-LIT-PENG-2011-001",
+      "kind": "paper",
+      "notes": "Defines reproducibility as a minimum standard for computational claims.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1126/science.1213847"
+      },
+      "tags": [
+        "literature",
+        "reproducibility"
+      ],
+      "title": "Reproducible Research in Computational Science",
+      "url": "https://doi.org/10.1126/science.1213847"
+    },
+    {
+      "id": "EXT-LIT-SANDVE-2013-001",
+      "kind": "paper",
+      "notes": "Operational rules for computational reproducibility and workflow traceability.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1371/journal.pcbi.1003285"
+      },
+      "tags": [
+        "literature",
+        "reproducibility",
+        "workflow"
+      ],
+      "title": "Ten Simple Rules for Reproducible Computational Research",
+      "url": "https://doi.org/10.1371/journal.pcbi.1003285"
+    },
+    {
+      "id": "EXT-LIT-SIMMHAN-2005-001",
+      "kind": "paper",
+      "notes": "Taxonomy of provenance capture goals and representations in scientific workflows.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1145/1084805.1084812"
+      },
+      "tags": [
+        "literature",
+        "provenance",
+        "workflow"
+      ],
+      "title": "A Survey of Data Provenance in e-Science",
+      "url": "https://doi.org/10.1145/1084805.1084812"
+    },
+    {
+      "id": "EXT-LIT-PEGASUS-2015-001",
+      "kind": "paper",
+      "notes": "Reliable/scalable workflow orchestration across heterogeneous compute environments.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1016/j.future.2014.10.008"
+      },
+      "tags": [
+        "literature",
+        "workflow",
+        "orchestration"
+      ],
+      "title": "Pegasus, a workflow management system for science automation",
+      "url": "https://doi.org/10.1016/j.future.2014.10.008"
+    },
+    {
+      "id": "EXT-LIT-GALAXY-2010-001",
+      "kind": "paper",
+      "notes": "Interactive workflow system emphasizing accessibility, transparency, and reproducibility.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1186/gb-2010-11-8-r86"
+      },
+      "tags": [
+        "literature",
+        "workflow",
+        "reproducibility"
+      ],
+      "title": "Galaxy: a comprehensive approach for supporting accessible, reproducible, and transparent computational research in the life sciences",
+      "url": "https://doi.org/10.1186/gb-2010-11-8-r86"
+    },
+    {
+      "id": "EXT-LIT-SNAKEMAKE-2012-001",
+      "kind": "paper",
+      "notes": "Declarative workflow engine with portable execution semantics.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1093/bioinformatics/bts480"
+      },
+      "tags": [
+        "literature",
+        "workflow",
+        "automation"
+      ],
+      "title": "Snakemake--a scalable bioinformatics workflow engine",
+      "url": "https://doi.org/10.1093/bioinformatics/bts480"
+    },
+    {
+      "id": "EXT-LIT-NEXTFLOW-2017-001",
+      "kind": "paper",
+      "notes": "Container-friendly workflow orchestration for reproducible multi-platform execution.",
+      "retrieved_at": "2026-02-09T01:46:08+00:00",
+      "source": {
+        "doi": "10.1038/nbt.3820"
+      },
+      "tags": [
+        "literature",
+        "workflow",
+        "reproducibility",
+        "containers"
+      ],
+      "title": "Nextflow enables reproducible computational workflows",
+      "url": "https://doi.org/10.1038/nbt.3820"
+    },
+    {
+      "id": "EXT-DASH-001",
+      "kind": "web_page",
+      "notes": "Primary API reference for Dash multi-page app structure, callbacks, and layout patterns.",
+      "retrieved_at": "2026-02-09T02:29:00Z",
+      "tags": [
+        "dash",
+        "ui",
+        "pages"
+      ],
+      "title": "Dash Documentation",
+      "url": "https://dash.plotly.com/"
+    },
+    {
+      "id": "EXT-DASH-DATATABLE-001",
+      "kind": "web_page",
+      "notes": "Reference for DataTable pagination, filtering, and sorting behavior used in dataset and quality pages.",
+      "retrieved_at": "2026-02-09T02:29:00Z",
+      "tags": [
+        "dash",
+        "datatable",
+        "ux"
+      ],
+      "title": "Dash DataTable User Guide",
+      "url": "https://dash.plotly.com/datatable"
+    },
+    {
+      "id": "EXT-PLOTLY-001",
+      "kind": "web_page",
+      "notes": "Primary charting API reference for Plotly figures embedded in Dash explorer pages.",
+      "retrieved_at": "2026-02-09T02:29:00Z",
+      "tags": [
+        "plotly",
+        "charts",
+        "visualization"
+      ],
+      "title": "Plotly Python Figure Reference",
+      "url": "https://plotly.com/python/"
+    },
+    {
+      "id": "EXT-FLASK-CACHING-001",
+      "kind": "web_page",
+      "notes": "Future-state reference for caching strategy on larger datasets in the Dash explorer.",
+      "retrieved_at": "2026-02-09T02:29:00Z",
+      "tags": [
+        "caching",
+        "dash",
+        "performance"
+      ],
+      "title": "Flask-Caching Documentation",
+      "url": "https://flask-caching.readthedocs.io/"
+    }
+  ],
+  "version": 1
+}

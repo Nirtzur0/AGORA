@@ -20,7 +20,7 @@ import shutil
 import subprocess
 from typing import Dict, Any, Optional, List, Tuple
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import logging
 
@@ -134,7 +134,7 @@ class RepoIngestActivity:
                 "branch": branch,
                 "file_count": len(file_list),
                 "files": file_list,  # List of {path, size, lines} dicts
-                "cloned_at": datetime.utcnow().isoformat()
+                "cloned_at": datetime.now(timezone.utc).isoformat()
             }
             metadata_uri = f"s3://agora/{workspace_id}/artifacts/{artifact_id}/v{next_version}/metadata.json"
             self.storage.put_object(metadata_uri, json.dumps(metadata, indent=2).encode('utf-8'))
@@ -153,7 +153,7 @@ class RepoIngestActivity:
                     "storage_uri": metadata_uri,  # Primary URI points to metadata
                     "content_hash": clone_commit,  # Use commit hash as content hash
                     "created_by": created_by,
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.now(timezone.utc)
                 }
             )
             
@@ -557,7 +557,7 @@ class RepoIngestActivity:
                     "agent_id": agent_id,
                     "action": action,
                     "payload": json.dumps(payload),
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.now(timezone.utc)
                 }
             )
         except Exception as e:

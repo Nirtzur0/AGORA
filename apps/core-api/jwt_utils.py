@@ -9,7 +9,7 @@ Supports two token types:
 import os
 import jwt
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from enum import Enum
 
@@ -51,7 +51,7 @@ def create_agent_token_v2(
     Returns:
         Signed JWT string
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exp = now + timedelta(hours=AGENT_TOKEN_EXPIRY_HOURS)
     
     payload = {
@@ -67,13 +67,6 @@ def create_agent_token_v2(
     
     if workspace_id:
         payload["workspace_id"] = workspace_id
-    
-    print(f"DEBUG: creating agent token. AgentID type: {type(agent_id)}")
-    print(f"DEBUG: payload: {payload}")
-    for k, v in payload.items():
-        print(f"DEBUG: key={k} value={v} type={type(v)}")
-        if "uuid" in str(type(v)).lower():
-            print(f"DEBUG: FOUND UUID IN PAYLOAD AT KEY {k}")
     
     return jwt.encode(payload, AGENT_JWT_SECRET, algorithm="HS256")
 
@@ -107,7 +100,7 @@ def create_system_token(service_name: str) -> str:
     Returns:
         Signed JWT string
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     exp = now + timedelta(hours=SYSTEM_TOKEN_EXPIRY_HOURS)
     
     payload = {

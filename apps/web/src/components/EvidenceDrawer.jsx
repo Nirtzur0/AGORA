@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
 import './EvidenceDrawer.css';
 
-function EvidenceDrawer({ artifactVersionId, location, onClose }) {
+function EvidenceDrawer({ artifactVersionId, location, onClose, onOpenArtifactVersion }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [evidence, setEvidence] = useState(null);
@@ -41,10 +41,23 @@ function EvidenceDrawer({ artifactVersionId, location, onClose }) {
   };
 
   const copyDisplayReference = () => {
-    if (evidence?.artifact_short_id) {
-      const ref = `${evidence.artifact_short_id}@v${evidence.version || '?'}: ${evidence.normalized_location || location}`;
+    if (evidence?.source?.artifact_id) {
+      const ref = `${evidence.source.artifact_id}@v${evidence.source.version || '?'}: ${evidence.normalized_location || location}`;
       navigator.clipboard.writeText(ref);
     }
+  };
+
+  const openArtifactVersion = () => {
+    if (!onOpenArtifactVersion || !evidence?.source?.artifact_id) {
+      return;
+    }
+    onOpenArtifactVersion({
+      artifactId: evidence.source.artifact_id,
+      versionId: artifactVersionId,
+      location: evidence.normalized_location || location,
+      artifactType: evidence.source.type || null,
+      artifactVersion: evidence.source.version || null,
+    });
   };
 
   return (
@@ -70,19 +83,34 @@ function EvidenceDrawer({ artifactVersionId, location, onClose }) {
               <div className="evidence-meta">
                 <div className="meta-row">
                   <span className="meta-label">Status:</span>
-                  <span className={`status-indicator ${evidence.status}`}>
-                    {evidence.status}
+                  <span className="status-indicator ok">
+                    ok
                   </span>
                 </div>
-                
-                {evidence.artifact_short_id && (
+
+                <div className="meta-row">
+                  <span className="meta-label">Artifact Version ID:</span>
+                  <code className="meta-value location-code">{artifactVersionId}</code>
+                </div>
+
+                {evidence.source?.artifact_id && (
                   <div className="meta-row">
-                    <span className="meta-label">Source:</span>
-                    <span className="meta-value">
-                      {evidence.artifact_short_id}
-                      {evidence.version && `@v${evidence.version}`}
-                      {evidence.artifact_type && ` (${evidence.artifact_type})`}
-                    </span>
+                    <span className="meta-label">Source Artifact ID:</span>
+                    <code className="meta-value location-code">{evidence.source.artifact_id}</code>
+                  </div>
+                )}
+
+                {evidence.source?.type && (
+                  <div className="meta-row">
+                    <span className="meta-label">Source Type:</span>
+                    <span className="meta-value">{evidence.source.type}</span>
+                  </div>
+                )}
+
+                {evidence.source?.version !== undefined && evidence.source?.version !== null && (
+                  <div className="meta-row">
+                    <span className="meta-label">Source Version:</span>
+                    <span className="meta-value">v{evidence.source.version}</span>
                   </div>
                 )}
 
@@ -119,9 +147,14 @@ function EvidenceDrawer({ artifactVersionId, location, onClose }) {
                 <button className="action-button" onClick={copyPointer}>
                   Copy Pointer JSON
                 </button>
-                {evidence.artifact_short_id && (
+                {evidence?.source?.artifact_id && (
                   <button className="action-button" onClick={copyDisplayReference}>
                     Copy Display Reference
+                  </button>
+                )}
+                {evidence?.source?.artifact_id && onOpenArtifactVersion && (
+                  <button className="action-button secondary" onClick={openArtifactVersion}>
+                    Open Artifact Version
                   </button>
                 )}
               </div>

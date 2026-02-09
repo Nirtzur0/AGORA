@@ -21,7 +21,7 @@ import io
 import json
 from typing import Optional, List, Any
 from uuid import UUID, uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 
 import fitz  # PyMuPDF
 
@@ -197,7 +197,7 @@ def _emit_event(workspace_id: UUID, event_type: str, actor_id: UUID, payload: di
             "actor_id": str(actor_id),
             "event_type": event_type,
             "payload": payload,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc)
         }
     )
 
@@ -250,7 +250,7 @@ async def create_artifact(
             "metadata": req.metadata,
             "storage_uri": storage_uri,
             "created_by": agent.agent_id,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc)
         }
     )
     
@@ -277,7 +277,7 @@ async def create_artifact(
         "metadata": req.metadata,
         "storage_uri": storage_uri,
         "created_by": agent.agent_id,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -361,7 +361,7 @@ async def create_artifact_version(
             "storage_uri": version_storage_uri,
             "content_hash": content_hash,
             "created_by": agent.agent_id,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc)
         }
     )
     
@@ -389,7 +389,7 @@ async def create_artifact_version(
         "storage_uri": version_storage_uri,
         "content_hash": content_hash,
         "created_by": agent.agent_id,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
 
 

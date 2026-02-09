@@ -8,7 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "smoke:artifact-viewer": "node scripts/smoke_artifact_viewer.mjs"
+    "smoke:artifact-viewer": "AGORA_SMOKE_BROWSER=chromium node scripts/smoke_artifact_viewer.mjs",
+    "smoke:artifact-viewer:chromium": "AGORA_SMOKE_BROWSER=chromium node scripts/smoke_artifact_viewer.mjs",
+    "smoke:artifact-viewer:firefox": "AGORA_SMOKE_BROWSER=firefox node scripts/smoke_artifact_viewer.mjs",
+    "smoke:artifact-viewer:webkit": "AGORA_SMOKE_BROWSER=webkit node scripts/smoke_artifact_viewer.mjs",
+    "smoke:artifact-viewer:matrix": "npm run smoke:artifact-viewer:chromium && npm run smoke:artifact-viewer:firefox && npm run smoke:artifact-viewer:webkit",
+    "smoke:artifact-viewer:mobile": "AGORA_SMOKE_BROWSER=chromium AGORA_SMOKE_VIEWPORT=mobile node scripts/smoke_artifact_viewer.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

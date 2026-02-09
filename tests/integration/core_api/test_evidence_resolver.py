@@ -170,6 +170,69 @@ def sample_log_with_version(storage, db_session):
     }
 
 
+@pytest.fixture
+def sample_repo_with_version(storage, db_session):
+    """Create a test repo artifact with metadata + one file snapshot."""
+    from database import Workspace, Artifact, ArtifactVersion
+    import hashlib
+    import uuid
+
+    ws = Workspace(
+        id=uuid.uuid4(),
+        name="Repo Evidence Workspace",
+        phase="EXPERIMENTATION",
+    )
+    db_session.add(ws)
+    db_session.flush()
+
+    art = Artifact(
+        id=uuid.uuid4(),
+        workspace_id=ws.id,
+        short_id="R1",
+        content_type="application/json",
+    )
+    db_session.add(art)
+    db_session.flush()
+
+    file_path = "src/main.py"
+    file_content = "def answer():\n    return 42\n"
+    file_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/files/{file_path}"
+    storage.put_object(file_uri, file_content.encode("utf-8"))
+
+    metadata = {
+        "version": 1,
+        "repo_url": "https://github.com/example/repo",
+        "commit_hash": "0123456789abcdef",
+        "files": [
+            {
+                "path": file_path,
+                "is_text": True,
+                "lines": 2,
+            }
+        ],
+    }
+    metadata_uri = f"s3://agora/{ws.id}/artifacts/{art.id}/v1/metadata.json"
+    metadata_bytes = json.dumps(metadata).encode("utf-8")
+    storage.put_object(metadata_uri, metadata_bytes)
+
+    version = ArtifactVersion(
+        id=uuid.uuid4(),
+        artifact_id=art.id,
+        version=1,
+        content_hash=hashlib.sha256(metadata_bytes).hexdigest(),
+        storage_uri=metadata_uri,
+    )
+    db_session.add(version)
+    db_session.commit()
+
+    return {
+        "workspace_id": str(ws.id),
+        "artifact_id": str(art.id),
+        "artifact_version_id": str(version.id),
+        "file_path": file_path,
+    }
+
+
 def test_resolve_pdf__valid_locations__returns_snippet_and_metadata(evidence_resolver, sample_pdf_with_version):
     """
     EXIT TEST 1: PDF resolution test.
@@ -439,3 +502,46 @@ def test_resolve__same_input__returns_identical_output(evidence_resolver, sample
     assert all(r.ok == results[0].ok for r in results)
     assert all(r.snippet == results[0].snippet for r in results)
     assert all(r.normalized_location == results[0].normalized_location for r in results)
+
+
+def test_resolve_repo__missing_path__returns_path_not_found(evidence_resolver, sample_repo_with_version):
+    """Missing repo file path should return deterministic PATH_NOT_FOUND."""
+    repo_data = sample_repo_with_version
+
+    result = evidence_resolver.resolve(
+        artifact_version_id=repo_data["artifact_version_id"],
+        location="repo:path=src/missing.py#L1-L1",
+    )
+
+    assert result.ok is False
+    assert result.code == "PATH_NOT_FOUND"
+
+
+def test_resolve_repo__line_out_of_range__returns_line_range_invalid(
+    evidence_resolver, sample_repo_with_version
+):
+    """Invalid repo line range should return deterministic LINE_RANGE_INVALID."""
+    repo_data = sample_repo_with_version
+
+    result = evidence_resolver.resolve(
+        artifact_version_id=repo_data["artifact_version_id"],
+        location="repo:path=src/main.py#L1-L99",
+    )
+
+    assert result.ok is False
+    assert result.code == "LINE_RANGE_INVALID"
+
+
+def test_resolve_log_char__invalid_range__returns_char_range_invalid(
+    evidence_resolver, sample_log_with_version
+):
+    """Malformed log char ranges should map to CHAR_RANGE_INVALID."""
+    log_data = sample_log_with_version
+
+    result = evidence_resolver.resolve(
+        artifact_version_id=log_data["artifact_version_id"],
+        location="log:char=abc-xyz",
+    )
+
+    assert result.ok is False
+    assert result.code == "CHAR_RANGE_INVALID"

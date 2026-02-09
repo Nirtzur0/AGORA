@@ -1,0 +1,26 @@
+{
+  "citation_sample": {
+    "cites_total": 3,
+    "claims_total": 3,
+    "coverage_failures": [],
+    "coverage_pass": true,
+    "materialization_count": 4
+  },
+  "phase_graph": {
+    "edges_total": 10,
+    "loopback_examples": [
+      [
+        "INTERNAL_REVIEW",
+        "EXPERIMENTATION"
+      ],
+      [
+        "CLAIM_VALIDATION",
+        "LIT_REVIEW"
+      ]
+    ],
+    "states_total": 9,
+    "terminal_phases": [
+      "ARCHIVED"
+    ]
+  }
+}

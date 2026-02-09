@@ -363,7 +363,7 @@ async def update_critique(
             )
     
     # Update critique
-    resolution_json = json.dumps(request.resolution.dict()) if request.resolution else None
+    resolution_json = json.dumps(request.resolution.model_dump()) if request.resolution else None
     
     db.execute(
         """

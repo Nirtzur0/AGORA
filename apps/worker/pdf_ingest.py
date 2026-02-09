@@ -15,7 +15,7 @@ import io
 import json
 from typing import Dict, Any, Optional
 from uuid import uuid4
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 try:
@@ -154,7 +154,7 @@ class PDFIngestActivity:
                     "storage_uri": binary_uri,  # Primary storage URI points to binary
                     "content_hash": self._calculate_hash(pdf_bytes),
                     "created_by": created_by,
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.now(timezone.utc)
                 }
             )
             
@@ -318,7 +318,7 @@ class PDFIngestActivity:
                     "agent_id": agent_id,
                     "action": action,
                     "payload": payload,
-                    "created_at": datetime.utcnow()
+                    "created_at": datetime.now(timezone.utc)
                 }
             )
         except Exception as e:

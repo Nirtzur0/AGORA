@@ -14,76 +14,45 @@ Tests repo ingestion end-to-end:
 import pytest
 import uuid
 import json
-import os
-import tempfile
-import shutil
-from pathlib import Path
 
 from storage import create_storage_from_env
 from database import Workspace, Agent, Artifact, ArtifactVersion, DBWrapper
+from tests.helpers.git_repo import temporary_git_repo
 
 
 @pytest.fixture
 def repo_fixture():
     """Create a minimal test repository."""
-    temp_dir = tempfile.mkdtemp(prefix="test_repo_")
-    repo_path = Path(temp_dir)
+    files = {
+        "README.md": (
+            "# Test Repository\n\n"
+            "This is a test repository.\n"
+            "Line 4\n"
+            "Line 5\n"
+        ),
+        "src/main.py": (
+            "#!/usr/bin/env python3\n"
+            "# Main module\n"
+            "\n"
+            "def hello():\n"
+            "    print('Hello, world!')\n"
+            "\n"
+            "if __name__ == '__main__':\n"
+            "    hello()\n"
+        ),
+        "src/utils.py": (
+            "# Utility functions\n"
+            "\n"
+            "def add(a, b):\n"
+            "    return a + b\n"
+            "\n"
+            "def multiply(a, b):\n"
+            "    return a * b\n"
+        ),
+    }
 
-    # Initialize git repo
-    import subprocess
-    subprocess.run(["git", "init"], cwd=temp_dir, check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=temp_dir, check=True, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test User"], cwd=temp_dir, check=True, capture_output=True)
-
-    # Create test files
-    (repo_path / "README.md").write_text(
-        "# Test Repository\n\n"
-        "This is a test repository.\n"
-        "Line 4\n"
-        "Line 5\n"
-    )
-
-    src_dir = repo_path / "src"
-    src_dir.mkdir()
-    (src_dir / "main.py").write_text(
-        "#!/usr/bin/env python3\n"
-        "# Main module\n"
-        "\n"
-        "def hello():\n"
-        "    print('Hello, world!')\n"
-        "\n"
-        "if __name__ == '__main__':\n"
-        "    hello()\n"
-    )
-
-    (src_dir / "utils.py").write_text(
-        "# Utility functions\n"
-        "\n"
-        "def add(a, b):\n"
-        "    return a + b\n"
-        "\n"
-        "def multiply(a, b):\n"
-        "    return a * b\n"
-    )
-
-    # Commit files
-    subprocess.run(["git", "add", "."], cwd=temp_dir, check=True, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=temp_dir, check=True, capture_output=True)
-
-    # Get commit hash
-    result = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=temp_dir,
-        check=True,
-        capture_output=True,
-        text=True
-    )
-    commit_hash = result.stdout.strip()
-
-    yield temp_dir, commit_hash
-
-    # Cleanup
-    shutil.rmtree(temp_dir)
+    with temporary_git_repo(files, message="Initial commit") as fixture:
+        yield fixture
 
 
 @pytest.fixture
@@ -289,14 +258,14 @@ def test_repo_evidence_resolution__repo_location__returns_expected_snippet(db_se
     result5 = resolver.resolve(artifact_version_id, location5)
 
     assert result5.ok is False
-    assert result5.code == "FILE_NOT_FOUND"
+    assert result5.code == "PATH_NOT_FOUND"
 
     # Test 6: Line out of range
     location6 = "repo:path=src/main.py#L100-L200"
     result6 = resolver.resolve(artifact_version_id, location6)
 
     assert result6.ok is False
-    assert result6.code == "LINE_OUT_OF_RANGE"
+    assert result6.code == "LINE_RANGE_INVALID"
 
 
 def test_repo_ingest_endpoint__agent_request__creates_repo_artifact(db_session, repo_setup, repo_fixture):
@@ -425,4 +394,3 @@ def test_repo_ingest_endpoint__idempotency_key__dedupes(db_session, repo_setup, 
     ).fetchone()[0]
 
     assert count == 1
-

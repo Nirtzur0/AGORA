@@ -263,10 +263,17 @@ class EvidenceResolver:
                 source=result_dict["source"]
             )
         else:
+            raw_code = result_dict.get("code")
+            code_map = {
+                "INVALID_LINE_RANGE": "LINE_RANGE_INVALID",
+                "LINE_OUT_OF_RANGE": "LINE_RANGE_INVALID",
+                "FILE_NOT_FOUND": "PATH_NOT_FOUND",
+                "NON_TEXT_FILE": "PATH_NOT_FOUND",
+            }
             return ResolverResult(
                 ok=False,
                 artifact_version_id=artifact_version_id,
-                code=result_dict["code"],
+                code=code_map.get(raw_code, raw_code),
                 message=result_dict["message"]
             )
     
@@ -412,11 +419,19 @@ class EvidenceResolver:
                 }
             )
         except ValueError as e:
+            message = str(e)
+            lower = message.lower()
+            if "char range" in lower:
+                code = "CHAR_RANGE_INVALID"
+            elif "location format" in lower:
+                code = "INVALID_LOCATION_FORMAT"
+            else:
+                code = "RESOLUTION_ERROR"
             return ResolverResult(
                 ok=False,
                 artifact_version_id=artifact_version_id,
-                code="RESOLUTION_ERROR",
-                message=str(e)
+                code=code,
+                message=message
             )
 
 

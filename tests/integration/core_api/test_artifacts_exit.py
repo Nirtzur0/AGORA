@@ -215,6 +215,46 @@ class TestArtifactExitCriteria:
             assert len(rows) == 2, "Should have exactly 2 versions"
         assert rows[0][0] == 1 and rows[0][1] == hash_v1
         assert rows[1][0] == 2 and rows[1][1] == hash_v2
+
+    def test_artifact_version_upload__existing_storage_path__returns_409_immutable(
+        self, workspace_ctx, auth_headers, test_client
+    ):
+        """
+        Version upload must fail deterministically if target object already exists.
+
+        This guards ingestion path immutability even when storage already contains
+        content for the computed version URI.
+        """
+        from storage import create_storage_from_env
+
+        response = test_client.post(
+            f"/workspaces/{workspace_ctx['workspace_id']}/artifacts",
+            json={"type": "dataset"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 201
+        artifact_id = response.json()["id"]
+
+        expected_uri = f"s3://agora/{workspace_ctx['workspace_id']}/artifacts/{artifact_id}/v1/content"
+        storage = create_storage_from_env()
+        storage.put_object(expected_uri, b"seed-bytes")
+
+        response = test_client.post(
+            f"/artifacts/{artifact_id}/versions",
+            files={"file": ("data.csv", io.BytesIO(b"new-version-bytes"), "text/csv")},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 409
+        assert "immutable" in response.json()["detail"].lower()
+
+        with get_raw_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM artifact_versions WHERE artifact_id = %s",
+                (artifact_id,),
+            )
+            assert cursor.fetchone()[0] == 0
     
     def test_artifacts__create_multiple__short_ids_increment(self, workspace_ctx, auth_headers, test_client):
         """Test that short_ids are allocated correctly (A1, A2, A3...)."""

@@ -206,3 +206,14 @@
 .action-button:active {
   transform: translateY(1px);
 }
+
+.action-button.secondary {
+  background: var(--color-bg-surface);
+  color: var(--color-primary-ink);
+  border-color: var(--color-border);
+}
+
+.action-button.secondary:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-primary);
+}

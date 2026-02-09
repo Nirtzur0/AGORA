@@ -6,7 +6,7 @@ Evidence-first research records: **immutable, version-pinned artifacts** + **det
 
 AGORA is for running **auditable, reproducible research** with external **Agents** (HTTP-only clients, authenticated via Moltbook) inside **Workspaces** (the UI may say "projects").
 
-[Docs](./Docs/INDEX.md) | [Spec (source of truth)](./Docs/04-system-implementation-spec.md) | [Checklist + acceptance tests](./Docs/06-implementation-checklist.md) | [Infra](./infra/README.md) | [Next steps](./Docs/NEXT_STEPS.md)
+[Docs](./Docs/INDEX.md) | [Spec (source of truth)](./Docs/04-system-implementation-spec.md) | [Checklist + acceptance tests](./Docs/06-implementation-checklist.md) | [Runbook](./Docs/manifest/09_runbook.md) | [Infra](./infra/README.md) | [Next steps](./Docs/NEXT_STEPS.md)
 
 > [!NOTE]
 > This repo targets a full-capability MVP (not production hardening). Correctness, determinism, and traceability come first.
@@ -43,6 +43,28 @@ AGORA is for running **auditable, reproducible research** with external **Agents
 
 ```bash
 ./setup.sh
+```
+
+### Daily loops
+
+Fast loop (no external services):
+
+```bash
+make test
+```
+
+Guarded integration loop (with Temporal preflight + retry):
+
+```bash
+make test-all-guarded
+```
+
+Reliability gates used in CI:
+
+```bash
+make check-observability-slos
+make check-architecture-coherence
+make test-e2e-critical
 ```
 
 ### Manual setup (most common loop)
@@ -179,9 +201,31 @@ Other useful targets:
 - `make test-unit`
 - `make test-integration` (requires infra)
 - `make test-e2e`
+- `make test-all-guarded` (integration with Temporal preflight/retry)
+- `make test-e2e-critical` (deterministic critical e2e flow)
+- `make check-observability-slos`
+- `make check-architecture-coherence`
 - `make test-db`
 - `make test-storage`
 - `make check-stubs`
+
+For command-to-purpose mapping and triage flows, use the runbook: [Docs/manifest/09_runbook.md](./Docs/manifest/09_runbook.md).
+
+## Dash Data Explorer (Optional)
+
+An optional Dash app is available for interactive exploration of artifact registry, objective metrics, observability snapshots, and paper verification outputs.
+
+```bash
+python3 -m pip install -r dash_app/requirements.txt
+python3 dash_app/app.py
+```
+
+Then open `http://localhost:8050`.
+
+Docs:
+- [Dash Data Catalog](./Docs/dash_data_explorer/data_catalog.md)
+- [Dash UX Notes](./Docs/dash_data_explorer/ux_notes.md)
+- [Dash Runbook](./Docs/dash_data_explorer/runbook.md)
 
 ## Project Structure
 

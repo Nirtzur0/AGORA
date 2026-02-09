@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-02-09T02:37:13.662608+00:00",
+  "objective": "Docs/manifest/00_overview.md#Core Objective",
+  "metrics": [
+    {
+      "id": "citation_integrity",
+      "description": "Citation coverage/resolution regression suite.",
+      "status": "pass",
+      "threshold": 1.0,
+      "return_code": 0,
+      "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ${PYTHON_BIN:-python3} -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_citation_checks.py tests/integration/core_api/test_evidence_resolver.py",
+      "targets": [
+        "tests/integration/worker/test_citation_checks.py",
+        "tests/integration/core_api/test_evidence_resolver.py"
+      ],
+      "counts": {
+        "passed": 16,
+        "failed": 0,
+        "errors": 0
+      },
+      "executed_tests": 16,
+      "pass_rate": 1.0,
+      "duration_seconds": 6.963,
+      "summary_line": "16 passed, 260 warnings in 5.29s",
+      "failure_excerpt": [],
+      "trend": "steady"
+    },
+    {
+      "id": "authority_boundary",
+      "description": "Orchestrator-only authority regression suite.",
+      "status": "pass",
+      "threshold": 1.0,
+      "return_code": 0,
+      "command": "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 ${PYTHON_BIN:-python3} -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_phase_machine.py tests/integration/core_api/test_drafts.py",
+      "targets": [
+        "tests/integration/worker/test_phase_machine.py",
+        "tests/integration/core_api/test_drafts.py"
+      ],
+      "counts": {
+        "passed": 21,
+        "failed": 0,
+        "errors": 0
+      },
+      "executed_tests": 21,
+      "pass_rate": 1.0,
+      "duration_seconds": 2.97,
+      "summary_line": "21 passed, 70 warnings in 1.91s",
+      "failure_excerpt": [],
+      "trend": "steady"
+    }
+  ],
+  "overall": {
+    "status": "pass",
+    "required_metrics": 2,
+    "passed_metrics": 2,
+    "pass_rate": 1.0
+  }
+}

@@ -1,34 +1,985 @@
-# Test Stabilization Status
+# Implementation Status
 
-Last updated: 2026-02-06
+Last updated: 2026-02-09
 
-## Done
+Entry mode: Existing Repo
+Cycle stage: Build (legacy `phase_3`)
+Intensity mode: Standard
+Primary prompt: `prompt-02-app-development-playbook` (post-M7 `DIR-15` implementation follow-through)
 
-- Established test command map (see `docs/manifest/10_testing.md`).
-- Confirmed pytest markers and strict marker configuration (`pytest.ini`).
-- Confirmed CI jobs currently do not run pytest (see `docs/manifest/11_ci.md`).
-- Added CI guardrail job enforcing status + checklist updates on PRs that change tests/CI/runtime (`.github/workflows/ci.yml`).
-- Wrote final stabilization report (`Docs/implementation/reports/test_stabilization_final_report.md`).
+Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
+This step advances objective by: enforcing warning-signal governance for full e2e (`CMD-13`) and narrowing the active residual risk surface to remote CI evidence freshness.
+Risks of misalignment: first remote evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality` remains pending until workflow changes are pushed and run remotely.
 
-## In Progress
+## Done (This Packet)
+
+- Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router loop) for post-M7 `Now` follow-through (`DIR-14` + `DIR-15`):
+  - implemented `AR-C09` warning-signal hardening beyond `CMD-27`:
+    - added full-e2e warning budget gate script:
+      - `scripts/check_full_e2e_warning_budget.py`
+    - wired `CMD-13` to enforce `E2E_FULL_WARNING_BUDGET` (default `200`):
+      - `Makefile` (`test-e2e`)
+    - wired CI promotion/release paths to explicit full-e2e warning budget:
+      - `.github/workflows/ci.yml` (`cmd-13-nightly-full-suite`, `release-tag-gate`)
+  - updated runbook/testing/CI/release docs and milestone/bet tracking:
+    - `Docs/manifest/09_runbook.md`
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C09` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-15` checked)
+    - `Docs/implementation/reports/improvement_directions.md` (execution update)
+  - `DIR-14` remote-evidence closure remains blocked in this local packet:
+    - remote `main` workflow content does not yet include `release-tag-gate`, `cmd-13-nightly-full-suite`, or `cmd-37-38-dash-data-quality`, so qualifying run evidence cannot yet be recorded.
+  - triggering delta (for this packet): post-`prompt-14` `Now` packet left `DIR-15` as highest-value implementable slice while `DIR-14` depended on remote workflow state.
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-14` evidence capture immediately after pushing workflow changes and running remote CI.
+  - verification evidence (2026-02-09):
+    - `E2E_FULL_WARNING_BUDGET=200 make PYTHON=python3 test-e2e` -> PASS (`10 passed`, `145 warnings`, budget gate pass)
+    - `E2E_FULL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e` -> expected FAIL (`warning_budget_summary gate=cmd-13 status=fail warnings=145 max_warnings=0`)
+    - `rg -n "E2E_FULL_WARNING_BUDGET|check_full_e2e_warning_budget.py|CMD-13" Makefile .github/workflows/ci.yml Docs/manifest/09_runbook.md Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+    - `gh api 'repos/Nirtzur0/AGORA/contents/.github/workflows/ci.yml?ref=main' --jq '.content' | base64 --decode | rg -n 'release-tag-gate|cmd-13-nightly-full-suite|cmd-37-38-dash-data-quality'` -> NO MATCH (expected; remote evidence still pending)
+- Manually selected and executed `prompt-14-improvement-direction-bet-loop` packet (without `.py` router loop) after the fresh post-M7 `prompt-03` checkpoint:
+  - refreshed improvement-direction discovery and ranking artifacts:
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+  - remapped schedulable outcomes in milestones:
+    - appended `M8 - Post-M7 Evidence and Signal Hardening` in `Docs/implementation/checklists/02_milestones.md` with `AR-C06`..`AR-C09`
+  - synced checkpoint routing to avoid looped `prompt-03` reruns:
+    - updated `Docs/implementation/checklists/07_alignment_review.md` next packet mapping
+  - triggering delta (for this packet): M7 implementation is locally complete (`AR-C01`..`AR-C05`), so planning had to shift from feature implementation to evidence-freshness and signal-quality closure.
+  - next non-redundant packet: `prompt-02-app-development-playbook` to execute refreshed `Now` packet (`DIR-14` + `DIR-15` / `AR-C06`..`AR-C09`).
+  - verification evidence (2026-02-09):
+    - `rg -n "^\\| ID \\| Direction \\| Type \\| Evidence \\| Gap \\| Impact \\| Confidence \\| Effort \\| Deferral Risk \\| Suggested Prompt Chain \\|" Docs/implementation/reports/improvement_directions.md` -> PASS
+    - `rg -n "DIR-14|DIR-15|DIR-16|DIR-17|Now packet|Next packet|Not now" Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
+    - `rg -n "M8 - Post-M7 Evidence and Signal Hardening|AR-C06|AR-C07|AR-C08|AR-C09" Docs/implementation/checklists/02_milestones.md` -> PASS
+    - `rg -n 'Recommended next non-redundant packet: `prompt-02-app-development-playbook`|prompt-14-improvement-direction-bet-loop refresh completed' Docs/implementation/checklists/07_alignment_review.md` -> PASS
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` packet (without `.py` router loop) after `AR-C04`/`AR-C05` implementation:
+  - refreshed alignment artifacts for post-implementation state:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - confirmed M7 `AR-C01`..`AR-C05` are locally implemented and shifted residual risk to remote evidence freshness:
+    - `release-tag-gate`
+    - `cmd-13-nightly-full-suite`
+    - `cmd-37-38-dash-data-quality`
+  - triggering delta (for this checkpoint): post-`prompt-02` implementation added release/nightly CI jobs and closed `AR-C04`/`AR-C05`; checkpoint rerun needed to prevent stale alignment recommendations.
+  - next non-redundant packet: `prompt-14-improvement-direction-bet-loop` to re-rank `Now`/`Next` backlog after M7 closure and avoid repeated checkpoint-only loops.
+  - verification evidence (2026-02-09):
+    - `rg -n "AR-C04|AR-C05|\\[x\\] AR-C04|\\[x\\] AR-C05|release-tag-gate|cmd-13-nightly-full-suite" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/alignment_review.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md` -> PASS
+    - `rg -n "Triggering delta:|Recommended next non-redundant packet:|prompt-14-improvement-direction-bet-loop" Docs/implementation/checklists/07_alignment_review.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md` -> PASS
+    - `rg -n "schedule|workflow_dispatch|run_release_gate|run_full_e2e|cmd-13-nightly-full-suite|release-tag-gate|tags: \\[ 'v\\*' \\]" .github/workflows/ci.yml` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router loop) as the next non-redundant follow-through after `prompt-11` policy shaping:
+  - implemented M7 `AR-C04` + `AR-C05` in CI:
+    - `.github/workflows/ci.yml` now includes:
+      - release/tag triggers: `push.tags: ['v*']`
+      - scheduled + manual full-suite triggers: `schedule` + `workflow_dispatch` inputs (`run_release_gate`, `run_full_e2e`)
+      - `release-tag-gate` job (fail-closed runbook sequence: `CMD-11`, `CMD-25`, `CMD-27`, `CMD-13`, `CMD-37`, `CMD-38` + release evidence checks)
+      - `cmd-13-nightly-full-suite` job (scheduled/manual `CMD-13`)
+      - event guards so baseline PR/push jobs skip tag/scheduled release pathways
+  - synced release/testing/CI and milestone docs:
+    - `Docs/reference/release_workflow.md`
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C04`, `AR-C05` marked complete with evidence)
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+    - `Docs/INDEX.md`, `CHANGELOG.md`
+  - triggering delta (for this packet): `prompt-11` completed release-policy shaping; next non-redundant step was concrete CI implementation for `AR-C04`/`AR-C05`.
+  - next non-redundant packet: fresh `prompt-03-alignment-review-gate` checkpoint for post-implementation risk/evidence validation.
+  - verification evidence (2026-02-09):
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+    - `rg -n "schedule|workflow_dispatch|run_release_gate|run_full_e2e|cmd-13-nightly-full-suite|release-tag-gate|tags: \\[ 'v\\*' \\]" .github/workflows/ci.yml` -> PASS
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 test` -> PASS
+    - `make PYTHON=python3 test-all-guarded` -> PASS
+    - `E2E_CRITICAL_WARNING_BUDGET=40 make PYTHON=python3 test-e2e-critical` -> PASS
+    - `make PYTHON=python3 test-e2e` -> PASS
+    - `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` -> PASS
+    - `test -f CHANGELOG.md && test -f Docs/how_to/upgrade_notes_template.md && test -f Docs/implementation/checklists/06_release_readiness.md && test -f Docs/reference/release_workflow.md` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-11-docs-diataxis-release` packet (without `.py` router loop) as the next non-redundant follow-through after fresh `prompt-03` alignment:
+  - release-policy docs now explicitly define `AR-C04`/`AR-C05` target behavior and promotion criteria:
+    - `Docs/reference/release_workflow.md`
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+  - docs navigation and milestone traceability updated:
+    - `Docs/INDEX.md`
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - triggering delta (for this packet): post-`prompt-03` residual risk concentrated on `AR-C04`/`AR-C05`; release policy had to be shaped before non-redundant CI implementation.
+  - next non-redundant packet: `prompt-02-app-development-playbook` to implement tag-triggered release automation + nightly/full-suite `CMD-13` promotion jobs in `.github/workflows/ci.yml`.
+  - verification evidence (2026-02-09):
+    - `rg -n "CMD-13|nightly|v\\*|release-tag-gate|cmd-13-nightly-full-suite" Docs/reference/release_workflow.md Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md` -> PASS
+    - `rg -n "AR-C04|AR-C05|Interim status|policy" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/alignment_review.md` -> PASS
+- Manually selected and executed `prompt-03-alignment-review-gate` packet (without `.py` router loop) as a fresh post-implementation checkpoint:
+  - refreshed alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - confirmed `AR-C01`..`AR-C03` are closed and shifted residual risk to `AR-C04` + `AR-C05`
+  - recorded new non-redundant next packet:
+    - `prompt-11-docs-diataxis-release` (shape release-policy updates for `AR-C04`/`AR-C05`), then `prompt-02-app-development-playbook` for implementation
+  - triggering delta (for this checkpoint): `prompt-02` completed M7 `AR-C01`..`AR-C03`, requiring residual-risk realignment.
+  - verification evidence (2026-02-09):
+    - `rg -n "AR-C0[1-5]" Docs/implementation/checklists/02_milestones.md` -> PASS (`AR-C01`..`AR-C03` closed; `AR-C04`/`AR-C05` open)
+    - `rg -n "cmd-37-38-dash-data-quality|E2E_CRITICAL_WARNING_BUDGET=40|Triggering delta:|Recommended next non-redundant packet:" .github/workflows/ci.yml Docs/manifest/11_ci.md Docs/implementation/checklists/07_alignment_review.md` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router loop) to implement M7 `AR-C01`..`AR-C03`:
+  - `AR-C01` Dash CI automation:
+    - added `.github/workflows/ci.yml` job `cmd-37-38-dash-data-quality` executing `CMD-37` + `CMD-38`
+    - publishes `/tmp/agora-dash-validation.json` as `dash-data-quality-report`
+    - updated CI docs mapping in `Docs/manifest/11_ci.md`
+  - `AR-C02` warning-budget enforcement for deterministic critical e2e:
+    - added `scripts/check_critical_e2e_warning_budget.py`
+    - updated `Makefile` `test-e2e-critical` to enforce `E2E_CRITICAL_WARNING_BUDGET` (default `40`)
+    - updated CI `cmd-13-e2e-critical-flow` to run with `E2E_CRITICAL_WARNING_BUDGET=40`
+    - documented policy updates in `Docs/manifest/10_testing.md`, `Docs/manifest/11_ci.md`, and `Docs/manifest/09_runbook.md` (`CMD-27`)
+  - `AR-C03` delta-based alignment freshness guard:
+    - added trigger-metadata CI enforcement in `.github/workflows/ci.yml` docs-guardrail for `Docs/implementation/checklists/07_alignment_review.md` changes
+    - required fields: `Triggering delta:` and `Recommended next non-redundant packet:`
+    - updated `Docs/implementation/checklists/07_alignment_review.md` with explicit trigger metadata and post-implementation checkpoint notes
+  - milestone and bet closure updates:
+    - marked `AR-C01`..`AR-C03` complete in `Docs/implementation/checklists/02_milestones.md`
+    - marked `DIR-08`..`DIR-10` complete in `Docs/implementation/checklists/03_improvement_bets.md`
+  - triggering delta (for this packet): post-`prompt-08` alignment and `prompt-14` planning identified open M7 corrections `AR-C01`..`AR-C03`.
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`warning_budget_summary status=pass warnings=37 max_warnings=40`)
+    - `E2E_CRITICAL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e-critical` -> expected FAIL (`warning_budget_summary status=fail warnings=37 max_warnings=0`)
+    - `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` -> PASS (`10 passed`)
+    - `rg -n "cmd-37-38-dash-data-quality|CMD-37|CMD-38|dash-data-quality-report|E2E_CRITICAL_WARNING_BUDGET=40|Triggering delta:|Recommended next non-redundant packet:" .github/workflows/ci.yml Docs/manifest/11_ci.md Docs/implementation/checklists/07_alignment_review.md` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-14-improvement-direction-bet-loop` packet (without `.py` router loop) as the best next non-redundant prompt after post-`prompt-08` alignment:
+  - refreshed improvement-direction discovery and ranking report:
+    - `Docs/implementation/reports/improvement_directions.md`
+  - refreshed active improvement bets with concrete packetization:
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - active `Now` packet: `DIR-08` + `DIR-09` + `DIR-10`
+    - active `Next` packet: `DIR-11` + `DIR-13`
+    - `Not now`: `DIR-12`
+  - mapped selected directions into schedulable milestones:
+    - updated `Docs/implementation/checklists/02_milestones.md` M7 with `AR-C04` (tag-triggered release automation) and `AR-C05` (full `CMD-13` promotion strategy), retaining `AR-C01`..`AR-C03`
+  - verification evidence (2026-02-09):
+    - `rg -n "dash-data-explorer|manual/local|CMD-37|CMD-38" Docs/manifest/11_ci.md` -> PASS
+    - `rg -n "37 warnings|warning debt" Docs/implementation/reports/alignment_review.md Docs/implementation/00_status.md` -> PASS
+    - `rg -n "triggering delta|next non-redundant packet" Docs/implementation/checklists/07_alignment_review.md Docs/implementation/03_worklog.md` -> PASS
+    - `rg -n "^\\| ID \\| Direction \\| Type \\| Evidence \\| Gap \\| Impact \\| Confidence \\| Effort \\| Deferral Risk \\| Suggested Prompt Chain \\|" Docs/implementation/reports/improvement_directions.md` -> PASS
+- Manually selected and executed `prompt-03-alignment-review-gate` packet (without `.py` router loop) as the best next non-redundant prompt after `prompt-08`:
+  - refreshed alignment gate artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - mapped remaining corrective actions into milestones:
+    - added `M7` alignment follow-through with `AR-C01`, `AR-C02`, `AR-C03` in `Docs/implementation/checklists/02_milestones.md`
+  - recorded next packet recommendation to avoid prompt-looping:
+    - `prompt-14-improvement-direction-bet-loop` (prioritize AR-C01..AR-C03), then `prompt-02-app-development-playbook` for implementation
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`1 passed`, `37 warnings`)
+    - `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` -> PASS (`10 passed`)
+- Manually selected and executed `prompt-08-dash-data-explorer` packet (without `.py` router loop) as the next non-redundant prompt:
+  - built a new Dash data explorer app over real AGORA datasets:
+    - `dash_app/app.py`
+    - `dash_app/pages/overview.py`
+    - `dash_app/pages/datasets.py`
+    - `dash_app/pages/outputs.py`
+    - `dash_app/pages/data_quality.py`
+    - `dash_app/components/layout.py`
+    - `dash_app/components/filters.py`
+    - `dash_app/components/theme.py`
+    - `dash_app/assets/styles.css`
+  - implemented data catalog/loaders/validation engine:
+    - `dash_app/data/catalog.py`
+    - `dash_app/data/loaders.py`
+    - `dash_app/data/validation.py`
+  - added Dash packet docs:
+    - `Docs/dash_data_explorer/data_catalog.md`
+    - `Docs/dash_data_explorer/ux_notes.md`
+    - `Docs/dash_data_explorer/runbook.md`
+  - added tests:
+    - `tests/test_data_validation.py`
+    - `tests/test_loaders_smoke.py`
+  - updated docs navigation/runbook/testing mappings:
+    - `Docs/INDEX.md`
+    - `Docs/manifest/09_runbook.md` (`CMD-35`..`CMD-38`)
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md` (manual/local Dash gate mapping)
+    - `README.md` (optional Dash run section)
+  - recorded load-bearing external references in artifact registry:
+    - `Docs/artifacts/index.json` entries `EXT-DASH-001`, `EXT-DASH-DATATABLE-001`, `EXT-PLOTLY-001`, `EXT-FLASK-CACHING-001`
+  - verification evidence (2026-02-09):
+    - `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` -> PASS (report written, `overall_status=pass`)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` -> PASS (`10 passed`)
+    - `python3 packages/project-prompts/scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate` -> PASS (`OK: 20 artifacts`)
+    - `python3 dash_app/app.py` + `curl -fsS http://127.0.0.1:8050/` -> PASS (app reachable, HTML returned)
+- Manually selected and executed `prompt-11-docs-diataxis-release` follow-through packet (without `.py` router loop) to operationalize literature-backed release/readiness validation:
+  - executed all six validation checks from `Docs/manifest/20_literature_review.md` section 7:
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_evidence_resolver.py tests/integration/worker/test_citation_checks.py` -> PASS (`16 passed`)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_phase_machine.py tests/integration/core_api/test_drafts.py` -> PASS (`21 passed`)
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`1 passed`)
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 check-observability-slos` -> PASS
+    - `rg -n "20_literature_review|literature" Docs/INDEX.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/20_literature_review.md` -> PASS
+  - synced literature/release docs:
+    - `Docs/manifest/20_literature_review.md` (section 7 checkboxes moved to complete with evidence)
+    - `Docs/implementation/checklists/06_release_readiness.md` (explicit literature-backed risk review item added)
+    - `Docs/implementation/checklists/20_literature_review.md` (follow-through verification section added)
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - all six section-7 commands -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-09-tests-refactor-suite` follow-through packet (without `.py` router loop) to close the remaining open test-landscape/stabilization flags:
+  - completed ordering/flakiness probes on critical workflow e2e cluster:
+    - forward order reruns (3x): `tests/e2e/workflows/test_literature_grounding.py` -> `tests/e2e/workflows/test_code_replication_workflow.py`
+    - reverse order reruns (3x): `tests/e2e/workflows/test_code_replication_workflow.py` -> `tests/e2e/workflows/test_literature_grounding.py`
+    - repeated e2e reruns (3x): `make test-e2e`
+  - completed repeated data-contract reruns (3x each):
+    - `tests/unit/data_contracts`
+    - `tests/integration/data_contracts`
+    - `tests/e2e/data_contracts`
+  - fixed guardrail regression discovered during verification:
+    - replaced bare `pass` statements in workflow exception handlers with explicit exception logging in:
+      - `apps/worker/literature_grounding_workflow.py`
+      - `apps/worker/code_replication_workflow.py`
+    - preserved behavior while restoring no-silent-fallback compliance (`make check-stubs`)
+  - synced prompt-09/test-stabilization artifacts:
+    - `Docs/implementation/reports/test_landscape.md` (ordering/flaky flags closed with command evidence)
+    - `Docs/implementation/reports/test_architecture_plan.md` (commit batch 5 + acceptance closure)
+    - `Docs/implementation/checklists/03_test_refactor.md` (follow-through bet + validation evidence)
+    - `Docs/implementation/checklists/04_test_stabilization.md` (Bucket B + Bucket D closed)
+    - `Docs/implementation/reports/test_stabilization_final_report.md` (new revalidation section)
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `make check-stubs` -> PASS
+    - `make PYTHON=python3 test-all-guarded` -> PASS (`41 unit`, `176 integration`)
+    - forward/reverse e2e workflow order reruns (3x each) -> PASS (`9 passed` per run)
+    - `for i in 1 2 3; do make test-e2e; done` -> PASS (`10 passed` per run)
+    - data-contract reruns (unit/integration/e2e, 3x each) -> PASS (`6`/`3`/`1` per run)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_literature_grounding.py::test_literature_grounding_workflow__missing_pdf_version__marks_workflow_and_activity_failed tests/e2e/workflows/test_code_replication_workflow.py::test_code_replication_workflow__invalid_repo_url__records_failed_activity_and_workflow` -> PASS (`2 passed`)
+- Manually selected and executed `prompt-10-tests-stabilization-loop` packet (without `.py` router loop) to close critical workflow failure-path persistence coverage:
+  - fixed workflow failure-state persistence behavior:
+    - updated `apps/worker/literature_grounding_workflow.py` to mark active `pdf_ingest` activity runs as `failed` on workflow exceptions before writing workflow terminal status
+    - updated `apps/worker/code_replication_workflow.py` to track active activity run ids and mark in-flight `repo_ingest`/`sandbox_run` runs as `failed` on workflow exceptions
+  - added e2e failure-path coverage:
+    - `tests/e2e/workflows/test_literature_grounding.py::test_literature_grounding_workflow__missing_pdf_version__marks_workflow_and_activity_failed`
+    - `tests/e2e/workflows/test_code_replication_workflow.py::test_code_replication_workflow__invalid_repo_url__records_failed_activity_and_workflow`
+  - synced stabilization docs/report artifacts:
+    - `Docs/implementation/checklists/04_test_stabilization.md` (Bucket C closed)
+    - `Docs/implementation/reports/test_landscape.md` (critical workflow failure-path coverage gap closed)
+    - `Docs/implementation/reports/test_stabilization_final_report.md` (new revalidation section)
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_literature_grounding.py::test_literature_grounding_workflow__missing_pdf_version__marks_workflow_and_activity_failed tests/e2e/workflows/test_code_replication_workflow.py::test_code_replication_workflow__invalid_repo_url__records_failed_activity_and_workflow` -> PASS (`2 passed`)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_literature_grounding.py tests/e2e/workflows/test_code_replication_workflow.py` -> PASS (`9 passed`)
+    - `make down` -> PASS
+- Manually selected and executed `prompt-13-research-paper-verification` packet (without `.py` router loop) as the best next unrun/relevant prompt:
+  - created required paper deliverables:
+    - `paper/main.tex`
+    - `paper/references.bib`
+    - `paper/README.md`
+    - `paper/verification_log.md`
+    - `paper/implementation_map.md`
+  - added deterministic verification harness + paper-contract checks:
+    - `tests/unit/paper/test_paper_verification_harness.py`
+    - `tests/unit/paper/test_paper_contract.py`
+  - added reproducible artifact generation scripts:
+    - `scripts/generate_paper_verification_snapshot.py`
+    - `scripts/build_paper.sh`
+  - added CI/runbook gating for paper contract integrity:
+    - `.github/workflows/ci.yml` job `paper-verification-gate`
+    - `Docs/manifest/09_runbook.md` command IDs `CMD-33`, `CMD-34`
+    - `Docs/manifest/10_testing.md`, `Docs/manifest/11_ci.md` mappings
+  - generated deterministic paper result artifact:
+    - `paper/artifacts/verification_snapshot.json`
+  - verification evidence (2026-02-09):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/paper` -> PASS (`10 passed`)
+    - `python3 scripts/generate_paper_verification_snapshot.py --output paper/artifacts/verification_snapshot.json` -> PASS
+    - `bash scripts/build_paper.sh` -> PASS
+- Manually selected and executed `prompt-12-research-literature-validation` packet (without `.py` router loop) as the best next unrun/relevant prompt:
+  - created required deliverables:
+    - `Docs/manifest/20_literature_review.md`
+    - `Docs/implementation/reports/20_literature_review_log.md`
+    - `Docs/implementation/checklists/20_literature_review.md`
+  - captured 10 DOI-backed load-bearing sources in the artifact registry:
+    - added `EXT-LIT-FAIR-001`, `EXT-LIT-DATACITE-001`, `EXT-LIT-SOFTWARECITE-001`, `EXT-LIT-PENG-2011-001`, `EXT-LIT-SANDVE-2013-001`, `EXT-LIT-SIMMHAN-2005-001`, `EXT-LIT-PEGASUS-2015-001`, `EXT-LIT-GALAXY-2010-001`, `EXT-LIT-SNAKEMAKE-2012-001`, `EXT-LIT-NEXTFLOW-2017-001` in `Docs/artifacts/index.json`
+  - integrated literature packet into docs navigation and report index:
+    - `Docs/INDEX.md`
+    - `Docs/implementation/reports/README.md`
+  - synced packet traceability docs:
+    - `Docs/implementation/03_worklog.md`
+    - `Docs/manifest/03_decisions.md`
+  - verification evidence (2026-02-09):
+    - `python3 packages/project-prompts/scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate` -> PASS (`OK: 16 artifacts`)
+    - `rg -n "^## 1\\. Problem statement|^## 2\\. Scope and regimes|^## 3\\. Canonical references|^## 4\\. Key claims|^## 5\\. Competing viewpoints / contradictions|^## 6\\. What this means for this project|^## 7\\. Proposed validation checklist" Docs/manifest/20_literature_review.md` -> PASS
+    - `rg -n "^## 3\\. Search log and inclusion/exclusion method|^## 4\\. Canonical included sources|^## 6\\. Artifact traceability map|^## 7\\. Per-source claim extraction notes" Docs/implementation/reports/20_literature_review_log.md` -> PASS
+    - `rg -n "20_literature_review" Docs/INDEX.md Docs/implementation/reports/README.md Docs/implementation/checklists/20_literature_review.md` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet (without `.py` router loop) to close observability objective-tracking automation depth (`AC-11`):
+  - added consolidated observability snapshot command:
+    - created `scripts/check_observability_snapshot.py`
+    - outputs:
+      - `Docs/implementation/reports/observability_snapshot_latest.json`
+      - `Docs/implementation/reports/observability_snapshot_dashboard.md`
+  - added local command wiring:
+    - updated `Makefile` with `check-observability-snapshot`
+    - added runbook command `CMD-32` in `Docs/manifest/09_runbook.md`
+  - added CI synthesis and durable artifact publication:
+    - updated `.github/workflows/ci.yml` `objective-metrics-gate` to run `make check-observability-snapshot`
+    - appends snapshot dashboard to `$GITHUB_STEP_SUMMARY`
+    - uploads `observability-snapshot-report` artifact bundle
+  - synced observability/alignment docs:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/01_plan.md` (`AC-11` added/completed)
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/prd.md`
+    - `Docs/implementation/reports/README.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 check-observability-slos` -> PASS
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+    - `rg -n "CMD-32|observability-snapshot-report|observability_snapshot_dashboard.md|check-observability-snapshot" .github/workflows/ci.yml Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Makefile` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-06-ui-e2e-verification-loop` follow-through packet (without `.py` router loop) to close the mobile-width workspace-tab gap:
+  - extended UI smoke script for viewport-aware validation:
+    - updated `apps/web/scripts/smoke_artifact_viewer.mjs` to support `AGORA_SMOKE_VIEWPORT` (`desktop`, `mobile`)
+    - added deterministic mobile-mode assertions that all workspace tabs are reachable (`overview`, `tasks`, `timeline`, `artifacts`, `claims`, `drafts`, `critiques`, `rule-checks`)
+    - added mobile screenshot output path (`/tmp/agora-smoke-artifact-viewer-chromium-mobile.png`)
+  - added mobile smoke run command:
+    - updated `apps/web/package.json` with `smoke:artifact-viewer:mobile`
+  - added CI mobile smoke enforcement:
+    - updated `.github/workflows/ci.yml` with `cmd-31-ui-smoke-mobile`
+    - uploads `ui-smoke-mobile` screenshot artifact
+  - synced docs/checklists/reports:
+    - `Docs/manifest/09_runbook.md` (`CMD-31`)
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/01_plan.md`
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/05_ui_verification.md`
+    - `Docs/implementation/reports/ui_verification_final_report.md`
+  - verification evidence (2026-02-09):
+    - `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:mobile` -> PASS
+    - `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS
+    - `ls -1 /tmp/agora-smoke-artifact-viewer-*.png` -> PASS (`chromium`, `firefox`, `webkit`, `chromium-mobile`)
+    - `rg -n "cmd-31-ui-smoke-mobile|AGORA_SMOKE_VIEWPORT|smoke:artifact-viewer:mobile" .github/workflows/ci.yml apps/web/scripts/smoke_artifact_viewer.mjs apps/web/package.json` -> PASS
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+- Manually selected and executed `prompt-06-ui-e2e-verification-loop` follow-through packet (without `.py` router loop) to close the cross-browser UI smoke matrix gap:
+  - extended UI smoke script for browser matrix support:
+    - updated `apps/web/scripts/smoke_artifact_viewer.mjs` to support `AGORA_SMOKE_BROWSER` (`chromium`, `firefox`, `webkit`)
+    - added browser-specific screenshot output path (`/tmp/agora-smoke-artifact-viewer-<browser>.png`)
+  - added browser matrix run commands:
+    - updated `apps/web/package.json`:
+      - `smoke:artifact-viewer:chromium`
+      - `smoke:artifact-viewer:firefox`
+      - `smoke:artifact-viewer:webkit`
+      - `smoke:artifact-viewer:matrix`
+  - added CI cross-browser enforcement:
+    - updated `.github/workflows/ci.yml` with `cmd-30-ui-smoke-cross-browser` matrix job
+    - matrix executes deterministic smoke flow across `chromium`, `firefox`, and `webkit`
+    - per-browser screenshot artifacts uploaded as `ui-smoke-<browser>`
+  - synced docs/checklists/reports:
+    - `Docs/manifest/09_runbook.md` (`CMD-30`)
+    - `Docs/manifest/10_testing.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/01_plan.md`
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/05_ui_verification.md`
+    - `Docs/implementation/reports/prd.md`
+    - `Docs/implementation/reports/ui_verification_final_report.md`
+  - verification evidence (2026-02-09):
+    - `AGORA_SMOKE_BROWSER=chromium npm --prefix apps/web run smoke:artifact-viewer` -> PASS
+    - `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS
+    - `rg -n "cmd-30-ui-smoke-cross-browser|smoke:artifact-viewer:matrix|firefox|webkit" .github/workflows/ci.yml apps/web/package.json` -> PASS
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet (without `.py` router loop) to close `AC-10` from `Docs/implementation/checklists/01_plan.md`:
+  - extended objective-metrics output to retain long-term history:
+    - updated `scripts/check_objective_metrics.py` to append `Docs/implementation/reports/objective_metrics_history.jsonl`
+    - updated `scripts/check_objective_metrics.py` to regenerate `Docs/implementation/reports/objective_metrics_timeline.md` with query examples
+  - extended durable CI artifact publication:
+    - updated `.github/workflows/ci.yml` `objective-metrics-gate` artifact bundle `objective-metrics-report` to include history + timeline outputs
+  - synced docs/contracts for AC-10 closure:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/09_runbook.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/01_plan.md` (`AC-10` checked)
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/prd.md`
+    - `Docs/implementation/reports/README.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS (latest JSON + dashboard + history + timeline generated)
+    - `rg -n "objective_metrics_history.jsonl|objective_metrics_timeline.md" scripts/check_objective_metrics.py .github/workflows/ci.yml` -> PASS
+    - `wc -l Docs/implementation/reports/objective_metrics_history.jsonl` -> PASS (`3` recorded runs)
+    - `test -f Docs/implementation/reports/objective_metrics_timeline.md` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet (without `.py` router loop) to close `AC-09` from `Docs/implementation/checklists/01_plan.md`:
+  - extended objective-metrics output to an auto-generated dashboard:
+    - updated `scripts/check_objective_metrics.py` to render `Docs/implementation/reports/objective_metrics_dashboard.md` alongside JSON report output
+  - added durable CI artifact publication for objective metrics:
+    - updated `.github/workflows/ci.yml` `objective-metrics-gate`:
+      - publishes dashboard to `$GITHUB_STEP_SUMMARY`
+      - uploads `objective_metrics_latest.json` + `objective_metrics_dashboard.md` via `actions/upload-artifact` as `objective-metrics-report`
+  - synced docs/contracts for the new gate output:
+    - `Docs/manifest/07_observability.md`
+    - `Docs/manifest/09_runbook.md` (`CMD-29` semantics)
+    - `Docs/manifest/11_ci.md`
+    - `Docs/implementation/checklists/01_plan.md` (`AC-09` checked, `AC-10` queued)
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/prd.md`
+    - `Docs/implementation/reports/README.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS (JSON + dashboard generated)
+    - `rg -n "Upload objective metrics artifacts|objective-metrics-report|objective_metrics_dashboard.md|GITHUB_STEP_SUMMARY" .github/workflows/ci.yml` -> PASS
+    - `test -f Docs/implementation/reports/objective_metrics_dashboard.md` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet (without `.py` router loop) to close `AC-08` from `Docs/implementation/checklists/01_plan.md`:
+  - implemented objective-metrics automation command:
+    - added `scripts/check_objective_metrics.py`:
+      - runs citation-integrity regression suite
+      - runs authority-boundary regression suite
+      - computes per-metric pass rates + trend status
+      - writes machine-readable report: `Docs/implementation/reports/objective_metrics_latest.json`
+  - wired command entrypoint:
+    - added `Makefile` target `check-objective-metrics`
+    - added runbook command `CMD-29` in `Docs/manifest/09_runbook.md`
+  - wired CI enforcement:
+    - added `.github/workflows/ci.yml` job `objective-metrics-gate` (infra + Temporal preflight + `make check-objective-metrics`)
+    - updated mapping docs in `Docs/manifest/11_ci.md`
+  - updated observability and planning docs:
+    - `Docs/manifest/07_observability.md` (objective-metrics SLI/SLO rows + reliability checklist update)
+    - `Docs/implementation/checklists/01_plan.md` (`AC-08` marked complete)
+    - `Docs/implementation/checklists/02_milestones.md` (M4 objective-metrics gate item)
+    - `Docs/implementation/checklists/07_alignment_review.md` (objective-metric measurement question updated)
+    - `Docs/implementation/reports/README.md` (objective metrics report indexed)
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS (`citation_integrity: 16/16`, `authority_boundary: 21/21`, report generated)
+    - `make PYTHON=python3 test` -> PASS (`31 passed`)
+    - `make PYTHON=python3 check-observability-slos` -> PASS
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-01-prd-acceptance-requirements` packet (without `.py` router loop) to create the next objective-anchored planning baseline:
+  - updated objective anchor in `Docs/manifest/00_overview.md`:
+    - added `## Target Users`
+    - added `## Key Workflows`
+  - created prompt-01 report deliverable:
+    - `Docs/implementation/reports/prd.md`
+      - problem statement
+      - in-scope / out-of-scope
+      - measurable success metrics
+      - functional + non-functional requirements
+      - risk/assumption register
+      - acceptance-criteria mapping with concrete verification commands
+      - open-question backlog
+  - rewrote acceptance-plan single source of truth:
+    - `Docs/implementation/checklists/01_plan.md`
+      - converted from shape-baseline checklist into observable pass/fail acceptance criteria with `AC`/`Verify`/`Files`/`Docs`
+      - captured open planning gaps under `Next` (`AC-08`) and `Not now` (cross-browser smoke matrix)
+  - synced reports index:
+    - added `prd.md` in `Docs/implementation/reports/README.md`
+  - verification evidence (2026-02-09):
+    - `rg -n "^## Core Objective|^## Target Users|^## Key Workflows" Docs/manifest/00_overview.md` -> PASS
+    - `rg -n "^## Problem statement|^## Users and jobs-to-be-done|^## In-scope workflows|^## Out-of-scope / non-goals|^## Success metrics|^## Requirements \\(functional \\+ non-functional\\)|^## Risks and assumptions|^## Acceptance criteria mapping|^## Open questions / TODOs" Docs/implementation/reports/prd.md` -> PASS
+    - `rg -n "AC:|Verify:|Files:|Docs:" Docs/implementation/checklists/01_plan.md` -> PASS
+- Manually selected and executed `prompt-05-readme-onboarding` packet (without `.py` router loop) to refresh contributor onboarding from current repo reality:
+  - updated `README.md` quick links to include the canonical runbook
+  - added a new "Daily loops" section with current reliability workflows:
+    - `make test`
+    - `make test-all-guarded`
+    - `make check-observability-slos`
+    - `make check-architecture-coherence`
+    - `make test-e2e-critical`
+  - expanded the tests section to explicitly include guarded integration, deterministic critical e2e, and architecture/observability gate commands
+  - verification evidence (2026-02-09):
+    - `for p in $(rg -o '\]\(\./[^)#]+' README.md | sed 's/]('//g | sort -u); do test -e "${p#./}" || echo "MISSING_LINK_TARGET $p"; done` -> PASS (`README_LINK_CHECK=PASS`)
+    - `for t in $(rg -o 'make [a-z0-9-]+' README.md | awk '{print $2}' | sort -u); do rg -q "^${t}:" Makefile || echo "MISSING_MAKE_TARGET $t"; done` -> PASS (`README_MAKE_TARGET_CHECK=PASS`)
+- Manually selected and executed `prompt-04-architecture-coherence-loop` follow-through packet (without `.py` router loop) to close the remaining worker lifecycle registration gap:
+  - extended `apps/worker/main.py` registration model:
+    - added wrapper-backed activity registration for `repo_ingest` and `sandbox_run`
+    - added bundled phase/gate/index/finalization registration via `PHASE_ACTIVITIES`
+    - kept runtime dependency lifecycle deterministic:
+      - dependencies loaded once at startup
+      - fresh DB-scoped activity instances per invocation for wrapper-backed activities
+  - expanded unit coverage:
+    - updated `tests/unit/worker/test_main_runtime_deps.py` with constructor coverage for repo/sandbox activities
+    - added activity-list composition test to assert wrapper + phase bundle registration
+  - refreshed architecture coherence docs:
+    - `Docs/implementation/checklists/00_architecture_coherence.md`
+    - `Docs/implementation/reports/architecture_coherence_report.md`
+    - `Docs/manifest/01_architecture.md`
+  - verification evidence (2026-02-09):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/worker/test_main_runtime_deps.py tests/unit/worker/test_phase_machine.py` -> PASS (`16 passed`)
+    - `make test-unit` -> PASS (`31 passed`)
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+    - `make up` -> PASS
+    - `PYTHONPATH=packages/db:packages/shared-types:apps/worker python3 - <<'PY' ... wm._load_runtime_dependencies(); wm._build_registered_activities(deps) ... PY` -> PASS (`REGISTERED_ACTIVITIES=16`, wrappers present)
+    - `make down` -> PASS
+- Manually selected and executed `prompt-10-tests-stabilization-loop` follow-through packet (without `.py` router loop) for warning-noise stabilization:
+  - first-party deprecation cleanup:
+    - replaced `datetime.utcnow()` with `datetime.now(timezone.utc)` across touched Core API/worker modules
+    - replaced Pydantic `.dict()` call sites with `.model_dump()` in route serialization/resolution paths
+    - removed debug token-payload prints from `apps/core-api/jwt_utils.py`
+  - verification evidence (2026-02-09):
+    - `for i in 1 2 3; do make test-unit; done` -> PASS (`28 passed` each run)
+    - `for i in 1 2 3 4 5; do PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/core_api/test_jwt_utils.py tests/unit/worker/test_phase_machine.py; done` -> PASS (`19 passed` each run)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_artifacts_exit.py tests/integration/core_api/test_logs_events.py tests/integration/core_api/test_drafts.py tests/integration/core_api/test_critiques.py tests/integration/core_api/test_claims tests/integration/worker/test_pdf_ingestion.py tests/integration/worker/test_repo_ingestion.py tests/integration/worker/test_sandbox_execution` -> PASS (`56 passed`)
+    - `make PYTHON=python3 test-all-guarded` -> PASS (`28 unit`, `176 integration`)
+- Manually selected and executed `prompt-09-tests-refactor-suite` follow-through packet (without `.py` router loop) to close worker unit-depth coverage gaps:
+  - added `tests/unit/worker/test_phase_machine.py`:
+    - transition validity/loopback/terminal behavior tests
+    - phase advancement activity behavior with fake DB (workspace missing, invalid workflow-id actor fallback, event payload assertions)
+    - required-action task materialization behavior (assign-task filtering and payload propagation)
+  - verification evidence (2026-02-09):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/worker/test_phase_machine.py` -> PASS (`10 passed`)
+    - `make test-unit` -> PASS (`28 passed`)
+- Manually selected and executed `prompt-09-tests-refactor-suite` follow-through packet (without `.py` router loop) to complete the open large-module split work:
+  - split Core API claims integration tests:
+    - removed `tests/integration/core_api/test_claims.py`
+    - added `tests/integration/core_api/test_claims/conftest.py`
+    - added `tests/integration/core_api/test_claims/test_claim_create.py`
+    - added `tests/integration/core_api/test_claims/test_claim_evidence.py`
+    - added `tests/integration/core_api/test_claims/test_claim_list.py`
+  - split worker sandbox integration tests:
+    - removed `tests/integration/worker/test_sandbox_execution.py`
+    - added `tests/integration/worker/test_sandbox_execution/test_sandbox_activity.py`
+    - added `tests/integration/worker/test_sandbox_execution/test_sandbox_endpoint.py`
+  - verification evidence (2026-02-09):
+    - `make up` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_claims tests/integration/worker/test_sandbox_execution` -> PASS (`13 passed`)
+    - `make PYTHON=python3 test-all-guarded` -> PASS (`176 passed`)
+    - `make down` -> PASS
+- Manually selected and executed `prompt-04-architecture-coherence-loop` follow-through packet (without `.py` router loop) to close architecture-coherence CI automation gaps:
+  - added architecture coherence checker utility:
+    - `scripts/check_architecture_coherence.py`
+  - added local command gate:
+    - `Makefile` target `check-architecture-coherence`
+    - runbook command `CMD-28` in `Docs/manifest/09_runbook.md`
+  - added CI enforcement:
+    - `.github/workflows/ci.yml` job `architecture-coherence`
+    - CI mapping updates in `Docs/manifest/11_ci.md`
+  - closed architecture checklist/report gaps:
+    - checked CI automation items in `Docs/implementation/checklists/00_architecture_coherence.md`
+    - refreshed `Docs/implementation/reports/architecture_coherence_report.md`
+    - refreshed architecture validation date references in `Docs/manifest/04_api_contracts.md` and `Docs/manifest/05_data_model.md`
+  - milestone + decision tracking updates:
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/manifest/03_decisions.md`
+  - verification evidence (2026-02-09):
+    - `make PYTHON=python3 check-architecture-coherence` -> PASS
+    - `make test` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet (without `.py` router loop) to close the three open 2026-02-09 alignment corrections:
+  - Temporal startup preflight/retry hardening:
+    - added `scripts/preflight_temporal.sh` (container health preflight + one restart on exited/dead state)
+    - added `scripts/run_test_all_with_temporal_guard.sh` (integration run with one retry on transient Temporal connection failures)
+    - added `Makefile` target `test-all-guarded`
+    - updated `.github/workflows/ci.yml` `cmd-12-integration` job to enforce the guarded path
+  - observability automation gate:
+    - added `Makefile` target `check-observability-slos`
+    - added `.github/workflows/ci.yml` `observability-gate` job
+    - updated `Docs/manifest/07_observability.md`, `Docs/manifest/09_runbook.md`, `Docs/manifest/11_ci.md`
+  - repeatable e2e critical-flow gate:
+    - added `Makefile` target `test-e2e-critical`
+    - added `.github/workflows/ci.yml` `cmd-13-e2e-critical-flow` job
+    - updated `Docs/manifest/11_ci.md`
+  - alignment + milestone tracking updates:
+    - checked correction closures in `Docs/implementation/checklists/07_alignment_review.md`
+    - added M4 follow-through closure entries in `Docs/implementation/checklists/02_milestones.md`
+    - marked preflight-helper follow-up complete in `Docs/implementation/checklists/03_test_refactor.md`
+  - verification evidence (2026-02-09):
+    - `make test` -> PASS
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 test-all-guarded` -> PASS
+    - `make PYTHON=python3 check-observability-slos` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-09-tests-refactor-suite` (without `.py` router loop) for one active `Now` cluster: git-repo-backed workflow tests.
+  - deliverables created:
+    - `Docs/implementation/reports/test_landscape.md`
+    - `Docs/implementation/reports/test_architecture_plan.md`
+    - `Docs/implementation/checklists/03_test_refactor.md`
+  - test refactor implementation:
+    - added shared helper: `tests/helpers/git_repo.py`
+    - refactored `tests/e2e/workflows/test_code_replication_workflow.py` to reuse deterministic repo helper and reduce duplicated Arrange blocks
+    - refactored `tests/integration/worker/test_repo_ingestion.py` fixture to reuse deterministic repo helper
+    - updated test architecture/ownership docs:
+      - `Docs/manifest/10_testing.md`
+      - `Docs/manifest/01_architecture.md`
+      - `Docs/implementation/checklists/00_architecture_coherence.md`
+      - `Docs/implementation/reports/README.md`
+  - verification evidence (2026-02-09):
+    - `/usr/bin/time -p sh -c 'PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_code_replication_workflow.py tests/integration/worker/test_repo_ingestion.py'` -> PASS (`8 passed`, `real 5.21s`)
+    - `/usr/bin/time -p make test-unit` -> PASS (`18 passed`, `real 0.77s`)
+    - `/usr/bin/time -p make test-all` -> PASS (`176 passed`, `real 10.90s`)
+    - `/usr/bin/time -p make test-e2e` -> PASS (`8 passed`, `real 3.45s`)
+- Manually selected and executed `prompt-10-tests-stabilization-loop` post-DIR07 rerun (without `.py` router loop):
+  - baseline verification:
+    - `make up` -> PASS
+    - `make test-unit` -> PASS (`18`)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts` -> PASS (`6`)
+    - first `make test-integration` -> FAIL (Temporal connection refused; `tests/integration/worker/test_workflows.py`)
+  - infra triage and recovery:
+    - `docker ps`/`docker logs agora-temporal` identified Temporal crash (`fatal error: concurrent map read and map write`)
+    - restarted Temporal: `docker start agora-temporal`
+    - targeted rerun: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_workflows.py` -> PASS (`6`)
+    - full integration rerun: `make test-integration` -> PASS (`176`)
+  - final non-flake verification:
+    - `make test-e2e` -> PASS (`8`)
+    - `make test-unit` rerun x3 -> PASS
+    - unit contracts rerun x3 -> PASS
+    - UI smoke regression check: `npm --prefix apps/web run smoke:artifact-viewer` -> PASS
+    - `make down` -> PASS
+  - updated stabilization evidence artifacts:
+    - `Docs/implementation/checklists/04_test_stabilization.md`
+    - `Docs/implementation/reports/test_stabilization_final_report.md`
+- Manually selected and executed a single `prompt-03-alignment-review-gate` checkpoint after prompt-10 evidence refresh:
+  - refreshed alignment artifacts to reflect current state (CI matrix/release-discipline gaps closed; current focus on Temporal startup reliability + observability automation):
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - checkpoint result: verdict unchanged (`ALIGNED_WITH_RISKS`) with no product drift detected
+  - repetition guard applied: no further prompt-03 reruns planned without new runtime/code deltas
+- Manually selected and executed `prompt-06-ui-e2e-verification-loop` for `DIR-07` (without `.py` router loop):
+  - hardened `apps/web/scripts/smoke_artifact_viewer.mjs` to seed deterministic workspace fixtures (workspace + log artifact + claim evidence + draft citation) before UI assertions
+  - extended browser smoke validation to cover:
+    - claims evidence drawer -> `Open Artifact Version` provenance drill-down
+    - drafts citation chip -> `Open Artifact Version` provenance drill-down
+    - artifacts tab viewer load and error-surface checks
+  - added missing prompt-06 deliverables:
+    - `Docs/implementation/checklists/05_ui_verification.md`
+    - `Docs/implementation/reports/ui_verification_final_report.md`
+  - synced tracking docs:
+    - added UI commands `CMD-21`/`CMD-22`/`CMD-23` in `Docs/manifest/09_runbook.md`
+    - marked M3 UI workflow milestone complete in `Docs/implementation/checklists/02_milestones.md`
+    - marked DIR-07 packet complete in `Docs/implementation/checklists/03_improvement_bets.md`
+    - indexed UI report in `Docs/implementation/reports/README.md`
+  - verification evidence (2026-02-08):
+    - `npm --prefix apps/web run build` -> PASS
+    - `make up` -> PASS
+    - `npm --prefix apps/web run smoke:artifact-viewer` -> PASS
+    - `make test-e2e` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-06-ui-e2e-verification-loop` follow-through packet for `AF-O02` (without `.py` router loop):
+  - upgraded evidence drill-down UX in `apps/web/src/components/EvidenceDrawer.jsx`:
+    - switched to canonical resolver fields (`ok`, `artifact_version_id`, `source.*`, `normalized_location`)
+    - surfaced deterministic provenance metadata (artifact version id, source artifact id/type/version)
+    - added `Open Artifact Version` action for direct drill-down
+  - wired claim/citation provenance navigation in `apps/web/src/pages/WorkspacePage.jsx`:
+    - claim evidence and draft citation flows now open exact artifact/version in `ArtifactViewer`
+    - added provenance drill-down containers in claims and drafts tabs
+  - styling support updates:
+    - `apps/web/src/components/EvidenceDrawer.css`
+    - `apps/web/src/pages/WorkspacePage.css`
+  - synced artifact-alignment tracking:
+    - marked `AF-O02` done in `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - marked `AF-O02` done in `Docs/implementation/checklists/02_milestones.md`
+    - updated `Docs/implementation/reports/artifact_feature_alignment.md` and `Docs/implementation/checklists/03_improvement_bets.md`
+  - verification evidence (2026-02-08):
+    - `npm --prefix apps/web run build` -> PASS
+    - `make up` -> PASS
+    - `make test-e2e` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet for `AF-O03` (without `.py` router loop):
+  - expanded observability contract for artifact freshness/provenance coverage in `Docs/manifest/07_observability.md`:
+    - added artifact-registry SLI/SLO rows (coverage + freshness)
+    - added severity routing criteria for stale/missing artifact metadata
+    - added `AF-O03` section with runbook-backed incident handling
+  - extended runbook command map in `Docs/manifest/09_runbook.md`:
+    - `CMD-19`: artifact index structure validation
+    - `CMD-20`: artifact freshness/provenance coverage audit
+  - added check utility `scripts/check_artifact_freshness.py` for deterministic stale/missing metadata detection
+  - synced artifact-alignment tracking:
+    - marked `AF-O03` done in `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - marked `AF-O03` done in `Docs/implementation/checklists/02_milestones.md`
+    - updated `Docs/implementation/reports/artifact_feature_alignment.md` and `Docs/implementation/checklists/03_improvement_bets.md`
+  - verification evidence (2026-02-08):
+    - `python3 scripts/check_artifact_freshness.py --index Docs/artifacts/index.json --warn-age-days 75 --max-age-days 90` -> PASS
+    - `make up` -> PASS
+    - `make test-integration` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-11-docs-diataxis-release` follow-through packet for `AF-O01` (without `.py` router loop):
+  - added release-gate requirements in `Docs/implementation/checklists/06_release_readiness.md`:
+    - latest artifact-feature alignment verdict reference required before sign-off
+    - unresolved AF outcomes must be explicitly acknowledged
+  - updated `Docs/reference/release_workflow.md` to require alignment checklist/report review in local release preparation and document the CI docs-guardrail alignment dependency
+  - synced artifact-alignment tracking:
+    - marked `AF-O01` done in `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - marked `AF-O01` done in `Docs/implementation/checklists/02_milestones.md`
+    - updated `Docs/implementation/reports/artifact_feature_alignment.md` and `Docs/implementation/checklists/03_improvement_bets.md`
+  - verification evidence (2026-02-08):
+    - `rg -n "artifact[- ]feature alignment|08_artifact_feature_alignment|alignment verdict" Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet for `AF-C04` (without `.py` router loop):
+  - hardened docs guardrail in `.github/workflows/ci.yml` with reliability-critical change detection:
+    - added `required_alignment` requirement for `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - added `reliability_changes` matcher for artifact/evidence authority paths and targeted tests
+    - included `Docs/artifacts/*` in docs-guardrail scope
+  - synced artifact-alignment tracking:
+    - marked `AF-C04` done in `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - marked `AF-C04` done in `Docs/implementation/checklists/02_milestones.md`
+    - updated `Docs/implementation/reports/artifact_feature_alignment.md` to completion state
+  - verification evidence (2026-02-08):
+    - `rg -n "required_alignment|reliability_changes|test_evidence_resolver|Docs/artifacts" .github/workflows/ci.yml` -> PASS
+    - `make test` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through packet for `AF-C01 + AF-C03` (without `.py` router loop):
+  - seeded external artifact registry:
+    - `Docs/artifacts/index.json` (6 load-bearing external sources with IDs + retrieval timestamps)
+    - `Docs/artifacts/README.md`
+  - hardened evidence resolver error determinism for repo/log edge cases in `apps/core-api/evidence_resolver.py`:
+    - repo path failures map to `PATH_NOT_FOUND`
+    - repo line-range failures map to `LINE_RANGE_INVALID`
+    - malformed log char ranges map to `CHAR_RANGE_INVALID`
+  - added/updated regression coverage:
+    - `tests/integration/core_api/test_evidence_resolver.py` (repo + log malformed pointer cases)
+    - `tests/integration/core_api/test_artifacts_exit.py` (storage-path immutability conflict returns 409 without version row writes)
+    - `tests/integration/worker/test_repo_ingestion.py` (aligned deterministic resolver codes)
+  - marked closures in milestone/alignment tracking:
+    - `AF-C01` + `AF-C03` checked in `Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - M2 reliability items checked and M6 follow-through updated in `Docs/implementation/checklists/02_milestones.md`
+  - verification evidence (2026-02-08):
+    - `python3 packages/project-prompts/scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate` -> PASS (`OK: 6 artifacts`)
+    - `make test-unit` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_evidence_resolver.py tests/integration/core_api/test_artifacts_exit.py tests/integration/worker/test_repo_ingestion.py` -> PASS
+    - `make test-integration` -> PASS
+- Manually selected and executed `prompt-04-architecture-coherence-loop` packet (without `.py` router loop):
+  - hardened worker runtime dependency lifecycle in `apps/worker/main.py`:
+    - startup dependency loader + DB validation
+    - per-invocation DB-scoped activity construction (no shared mutable DB state)
+    - removed placeholder lifecycle comments/path
+  - added unit regression coverage for worker lifecycle helpers in `tests/unit/worker/test_main_runtime_deps.py`
+  - refreshed architecture coherence artifacts:
+    - `Docs/manifest/01_architecture.md`
+    - `Docs/manifest/04_api_contracts.md`
+    - `Docs/manifest/05_data_model.md`
+    - `Docs/implementation/checklists/00_architecture_coherence.md`
+    - `Docs/implementation/reports/architecture_coherence_report.md`
+  - marked worker lifecycle outcomes complete in tracking docs:
+    - `DIR-04` (`Docs/implementation/checklists/03_improvement_bets.md`, `Docs/implementation/checklists/02_milestones.md`)
+    - `AF-C02` (`Docs/implementation/checklists/08_artifact_feature_alignment.md`, `Docs/implementation/checklists/02_milestones.md`)
+  - verification evidence (2026-02-08):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/worker/test_main_runtime_deps.py` -> PASS
+    - `make test-unit` -> PASS
+    - `make up` -> PASS
+    - `PYTHONPATH=packages/db:packages/shared-types:apps/worker python3 - <<'PY' ... wm._load_runtime_dependencies(); wm._validate_runtime_dependencies(deps) ... PY` -> PASS (`WORKER_DEPS_OK`)
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_pdf_ingestion.py` -> PASS
+    - `make down` -> PASS
+- Manually selected and executed `prompt-15-artifact-feature-alignment-gate` packet (without `.py` router loop):
+  - created `Docs/implementation/reports/artifact_feature_alignment.md` with explicit verdict `ALIGNED_WITH_GAPS`
+  - created `Docs/implementation/checklists/08_artifact_feature_alignment.md` with actionable corrective/opportunity blocks (`AF-C01`..`AF-O03`)
+  - updated milestone routing in `Docs/implementation/checklists/02_milestones.md`:
+    - marked `DIR-05` complete
+    - added `M6 - Artifact-Feature Alignment Follow-Through` outcomes with measurable AC + verification methods
+  - updated improvement-bet and report-index tracking (`Docs/implementation/checklists/03_improvement_bets.md`, `Docs/implementation/reports/README.md`)
+  - explicit gap capture: external artifact registry metadata is currently missing (`Docs/artifacts/index.json` not present)
+  - verification evidence (2026-02-08):
+    - `test -f Docs/implementation/checklists/08_artifact_feature_alignment.md`
+    - `test -f Docs/implementation/reports/artifact_feature_alignment.md`
+    - `rg -n "ALIGNED_WITH_GAPS|AF-C01|AF-O01|M6 - Artifact-Feature Alignment Follow-Through" Docs/implementation/reports/artifact_feature_alignment.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` packet for `DIR-02 + DIR-03` (without `.py` router loop):
+  - enforced orchestrator-only phase advancement at API boundary (`apps/core-api/phase_routes.py` now requires system token on `POST /workspaces/{id}/advance-phase`)
+  - completed draft finalization gate behavior in Core API:
+    - enforce workspace phase precondition (`FINALIZED`)
+    - evaluate finalization gate from persisted state
+    - persist gate outcomes to `rule_checks` + `logs`
+    - block non-PASS finalization attempts explicitly (`409 FINALIZATION_GATE_BLOCKED`)
+  - made citation materialization idempotent on repeated citation checks for the same draft version (`apps/worker/citation_check.py`)
+  - expanded observability gate docs with golden signals, SLI/SLO targets, and severity routing (`Docs/manifest/07_observability.md`)
+  - added runbook incident/observability commands (`CMD-16`/`CMD-17`/`CMD-18`) and linked CI/observability mapping (`Docs/manifest/09_runbook.md`, `Docs/manifest/11_ci.md`)
+  - updated milestone and improvement checklists to mark DIR-02 and DIR-03 complete
+  - verification evidence (2026-02-08):
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_drafts.py tests/integration/worker/test_phase_machine.py` -> PASS
+    - `make test-integration` -> PASS
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_literature_grounding.py` -> PASS
+- Manually selected and executed `prompt-02-app-development-playbook` packet (without router-loop selection) for `DIR-01 + DIR-06`:
+  - expanded CI workflow with `cmd-11-fast-checks` and `cmd-12-integration` jobs in `.github/workflows/ci.yml`
+  - upgraded docs guardrail to require status + worklog + active checklist updates for runtime/test/CI changes
+  - completed release-readiness checklist with concrete command evidence
+  - updated CI and release workflow references (`Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `CHANGELOG.md`)
+  - marked `DIR-01` and `DIR-06` completed in improvement and milestone checklists
+  - local verification evidence (2026-02-08):
+    - `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test` -> PASS
+    - `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-all` -> PASS
+    - `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-e2e` -> PASS
+- Routed prompt selection and captured execution plan in `Docs/implementation/reports/prompt_execution_plan.md`.
+- Executed router-selected `prompt-14-improvement-direction-bet-loop` packet:
+  - added `Docs/implementation/reports/improvement_directions.md` (ranked opportunity inventory + selected direction specs)
+  - added `Docs/implementation/checklists/03_improvement_bets.md` (actionable bet checklist blocks with prompt chains)
+  - updated `Docs/implementation/checklists/02_milestones.md` with schedulable M5 improvement outcomes
+  - post-execution router check (`2026-02-08T22:14:09Z`) now recommends `prompt-03-alignment-review-gate` as the next checkpoint
+- Executed `prompt-07-repo-audit-checklist` and generated root `checkbox.md` with P0/P1/P2 outcomes and handoff items.
+- Executed `prompt-10-tests-stabilization-loop` rerun packet:
+  - unit baseline + 3 reruns: PASS
+  - unit contract baseline + 3 reruns: PASS
+  - integration baseline: PASS
+  - e2e baseline: PASS
+- Updated `Docs/implementation/checklists/04_test_stabilization.md` and `Docs/implementation/reports/test_stabilization_final_report.md` with 2026-02-08 revalidation evidence.
+- Executed `prompt-04-architecture-coherence-loop` deliverables:
+  - added `Docs/implementation/checklists/00_architecture_coherence.md` with `GO_WITH_RISKS` verdict
+  - added `Docs/implementation/reports/architecture_coherence_report.md`
+  - refreshed architecture canonical diagram section in `Docs/manifest/01_architecture.md`
+  - linked coherence validation updates in `Docs/manifest/04_api_contracts.md` and `Docs/manifest/05_data_model.md`
+- Executed `prompt-03-alignment-review-gate` deliverables:
+  - added `Docs/implementation/checklists/07_alignment_review.md` with verdict `ALIGNED_WITH_RISKS`
+  - added `Docs/implementation/reports/alignment_review.md`
+  - mapped top 3 corrective actions into milestone M4 tracking
+- Executed `prompt-11-docs-diataxis-release` deliverables:
+  - added `CHANGELOG.md`
+  - added Diataxis docs under `Docs/getting_started`, `Docs/tutorials`, `Docs/how_to`, `Docs/reference`, `Docs/explanation`
+  - added release readiness checklist `Docs/implementation/checklists/06_release_readiness.md`
+  - rewrote `Docs/INDEX.md` with quick links, navigation tree, engineering-doc links, and docs bet tracking (`downhill` packet)
+- Re-ran `prompt-03-alignment-review-gate` after prompt-11 (pre-release checkpoint):
+  - confirmed verdict remains `ALIGNED_WITH_RISKS`
+  - marked release-doc artifact gap as closed
+  - refreshed top corrections to CI matrix, release checklist execution, observability gate expansion
+- Re-ran `prompt-03-alignment-review-gate` again for the current pre-release state:
+  - no additional drift found
+  - existing open corrections unchanged (CI matrix + observability gate expansion)
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T21:48:37Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new corrective actions beyond existing M4 items
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T21:49:53Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new corrective actions beyond existing M4 items
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T21:51:07Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new corrective actions beyond existing M4 items
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T21:57:11Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - router selected no additional required prompts beyond `prompt-03`
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:15:13Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`) after `prompt-14` improvements packet
+  - corrections remain prioritized as DIR-01 (CI matrix), DIR-06 (release readiness), DIR-02 (observability)
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:16:32Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new misalignment beyond existing DIR-01/DIR-06/DIR-02 corrections
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:17:29Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - backlog priority unchanged: DIR-01 (CI matrix), DIR-06 (release readiness), DIR-02 (observability)
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:18:35Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new drift; corrective backlog still DIR-01 -> DIR-06 -> DIR-02
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:19:29Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no new drift; execution order still DIR-01 -> DIR-06 -> DIR-02
+- Re-ran `prompt-03-alignment-review-gate` at `2026-02-08T22:20:14Z` from router recommendation:
+  - verdict unchanged (`ALIGNED_WITH_RISKS`)
+  - no additional drift; execution order remains DIR-01 -> DIR-06 -> DIR-02
+- Locked docs root mapping via `Docs/.prompt_system.yml`.
+- Added missing manifest baseline pages (`00`, `01`, `02`, `04`, `05`, `06`, `07`, `08`, `09`, `12`).
+- Added shape-stage planning artifacts:
+  - `Docs/implementation/checklists/01_plan.md`
+  - `Docs/implementation/checklists/02_milestones.md`
+  - `Docs/implementation/reports/project_plan.md`
+  - `Docs/implementation/reports/assumptions_register.md`
+  - `Docs/implementation/reports/README.md`
+  - `Docs/implementation/epics/*.md`
+- Updated existing index/decision/testing/ci docs to align with the new baseline.
+
+## In Progress (Now)
 
 - None.
-
-### Baseline Results (2026-02-06)
-
-- Unit (3x): `make test-unit` -> PASS (15 tests each run)
-- Unit data contracts (3x): `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts` -> PASS (6 tests each run)
-- Integration: `make test-integration` -> PASS (169 tests)
-- E2E: `make test-e2e` -> PASS (8 tests)
-  - Notes: high warning volume (mostly `datetime.utcnow()` deprecations from core-api/worker and third-party libs; some Pydantic v2 `.dict()` deprecations).
 
 ## Next
 
-- None.
+- Execute a `prompt-09-tests-refactor-suite` follow-through packet to split large integration modules (`tests/integration/core_api/test_claims.py`, `tests/integration/worker/test_sandbox_execution.py`) and reduce maintenance drift.
+- Optional checkpoint: run one `prompt-03-alignment-review-gate` pass after remote CI evidence accumulates for `architecture-coherence` + current reliability jobs.
 
-## Commands
+## Not Now
 
-- Unit: `make test-unit`
-- Unit (data contracts): `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts`
-- Integration: `make test-integration`
-- E2E: `make test-e2e`
+- Cross-browser UI smoke matrix (Firefox/WebKit) and viewport matrix expansion.
+
+## Historical Baseline (2026-02-06)
+
+- Completed test stabilization packet and final report (`Docs/implementation/reports/test_stabilization_final_report.md`).
+- Baseline suites passed: unit (3x), integration, e2e.
+
+## Commands Run (Prompt Routing + Reliability + Architecture Follow-Through)
+
+- `make PYTHON=python3 check-architecture-coherence`
+- `make test`
+- `make up`
+- `scripts/preflight_temporal.sh`
+- `make PYTHON=python3 test-all-guarded`
+- `make PYTHON=python3 check-observability-slos`
+- `make PYTHON=python3 test-e2e-critical`
+- `make down`
+- `python3 packages/project-prompts/scripts/prompts_manifest.py --check`
+- `python3 packages/project-prompts/scripts/prompt_router.py select --target-root . --phase auto --format markdown --output Docs/implementation/reports/prompt_execution_plan.md`
+- `find Docs/manifest -maxdepth 1 -type f | sort`
+- `find Docs/implementation -maxdepth 3 -type f | sort`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-unit`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 /Library/Frameworks/Python.framework/Versions/3.12/bin/python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-integration`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-e2e`
+- `python3 packages/project-prompts/scripts/prompt_router.py select --target-root . --phase auto --decision-mode hybrid --max-prompts 10 --output Docs/implementation/reports/prompt_execution_plan.md --format json`
+- `rg -n "phase|finaliz|rule_checks|activity_runs|Idempotency-Key|idempotency" tests/integration tests/e2e -S`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test`
+- `make up`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-all`
+- `make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-e2e`
+- `make down`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_drafts.py tests/integration/worker/test_phase_machine.py`
+- `make up`
+- `make test-integration`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_citation_checks.py tests/e2e/workflows/test_literature_grounding.py`
+- `test -f Docs/implementation/checklists/08_artifact_feature_alignment.md`
+- `test -f Docs/implementation/reports/artifact_feature_alignment.md`
+- `rg -n "ALIGNED_WITH_GAPS|AF-C01|AF-O01|M6 - Artifact-Feature Alignment Follow-Through" Docs/implementation/reports/artifact_feature_alignment.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/worker/test_main_runtime_deps.py`
+- `make test-unit`
+- `make up`
+- `PYTHONPATH=packages/db:packages/shared-types:apps/worker python3 - <<'PY' ... wm._load_runtime_dependencies(); wm._validate_runtime_dependencies(deps) ... PY`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_pdf_ingestion.py`
+- `make down`
+- `python3 packages/project-prompts/scripts/web_artifacts.py --repo-root . --store-root Docs/artifacts validate`
+- `make test-unit`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/core_api/test_evidence_resolver.py tests/integration/core_api/test_artifacts_exit.py tests/integration/worker/test_repo_ingestion.py`
+- `make test-integration`
+- `rg -n "required_alignment|reliability_changes|test_evidence_resolver|Docs/artifacts" .github/workflows/ci.yml`
+- `make test`
+- `rg -n "artifact[- ]feature alignment|08_artifact_feature_alignment|alignment verdict" Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md`
+- `python3 scripts/check_artifact_freshness.py --index Docs/artifacts/index.json --warn-age-days 75 --max-age-days 90`
+- `make up`
+- `make test-integration`
+- `make down`
+- `npm --prefix apps/web run build`
+- `make up`
+- `npm --prefix apps/web run smoke:artifact-viewer`
+- `make test-e2e`
+- `make down`
+- `make up`
+- `make test-unit`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts`
+- `make test-integration`
+- `docker ps --format 'table {{.Names}}\t{{.Status}}'`
+- `docker logs --tail 80 agora-temporal`
+- `docker start agora-temporal`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_workflows.py`
+- `make test-integration`
+- `make test-e2e`
+- `for i in 1 2 3; do make test-unit; done`
+- `for i in 1 2 3; do PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/data_contracts; done`
+- `npm --prefix apps/web run smoke:artifact-viewer`
+- `make down`
+- `find tests -maxdepth 4 -type f | sort`
+- `/usr/bin/time -p make test-unit`
+- `/usr/bin/time -p make test-all`
+- `/usr/bin/time -p make test-e2e`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -p pytest_cov --cov=apps/core-api --cov=apps/worker --cov-report=term-missing -q tests/unit`
+- `/usr/bin/time -p sh -c 'PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_code_replication_workflow.py tests/integration/worker/test_repo_ingestion.py'`

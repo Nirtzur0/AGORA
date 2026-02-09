@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-02-09T02:37:03.713784+00:00",
+  "objective": "Docs/manifest/00_overview.md#Core Objective",
+  "overall_status": "pass",
+  "artifact_snapshot": {
+    "status": "pass",
+    "index_path": "Docs/artifacts/index.json",
+    "artifacts": 20,
+    "coverage_percent": 100.0,
+    "warnings": 0,
+    "stale": 0,
+    "missing": 0,
+    "invalid_timestamps": 0,
+    "warn_age_days": 75,
+    "max_age_days": 90
+  },
+  "objective_snapshot": {
+    "status": "pass",
+    "latest_path": "Docs/implementation/reports/objective_metrics_latest.json",
+    "history_path": "Docs/implementation/reports/objective_metrics_history.jsonl",
+    "generated_at": "2026-02-09T01:40:45.190659+00:00",
+    "required_metrics": 2,
+    "passed_metrics": 2,
+    "pass_rate": 1.0,
+    "metric_ids": [
+      "citation_integrity",
+      "authority_boundary"
+    ],
+    "history_runs": 4,
+    "recent_statuses": [
+      "pass",
+      "pass",
+      "pass",
+      "pass"
+    ],
+    "pass_streak": 4
+  }
+}

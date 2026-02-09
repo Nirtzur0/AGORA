@@ -1,0 +1,8 @@
+docs_root: Docs
+manifest_dir: Docs/manifest
+implementation_dir: Docs/implementation
+index_file: Docs/INDEX.md
+status_file: Docs/implementation/00_status.md
+worklog_file: Docs/implementation/03_worklog.md
+command_map_file: Docs/manifest/09_runbook.md
+canonical_alias_note: "Paths written as docs/... resolve to Docs/... in this repository."

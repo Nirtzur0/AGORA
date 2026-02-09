@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.params import Query as QueryParam
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 from database import DBWrapper, get_db_session
@@ -295,7 +295,7 @@ def update_task(
     # Update task
     completed_at = None
     if request.status == "completed":
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(timezone.utc)
 
     db.execute(
         """

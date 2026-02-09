@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from database import get_db_session
+from auth_middleware import require_system_token, SystemContext
 import logging
 from pathlib import Path
 import sys
@@ -75,6 +76,7 @@ async def get_phase_status(
 async def advance_phase(
     workspace_id: str,
     request: PhaseAdvancementRequest,
+    system_context: SystemContext = Depends(require_system_token),
     db=Depends(get_db_session)
 ):
     """
@@ -83,8 +85,7 @@ async def advance_phase(
     This endpoint is INTERNAL ONLY - called by orchestrator workflows.
     Regular agents MUST NOT call this endpoint.
     
-    In a production system, this would require system-level authentication.
-    For MVP, we document this as orchestrator-only per AGENTS.md.
+    System-level authentication is required.
     """
     # Verify workspace exists
     row = db.execute(
