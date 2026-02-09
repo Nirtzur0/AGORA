@@ -6,7 +6,7 @@ Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. M7 and M8 evidence-closure items (`AR-C01`..`AR-C09`) now have recorded local/remote evidence. Residual risk has shifted from release/nightly evidence freshness to UI smoke stability in PR CI (`CMD-30`/`CMD-31`).
+AGORA remains aligned with the core objective. M7 and M8 evidence-closure items (`AR-C01`..`AR-C09`) now have recorded local/remote evidence. Residual risk has shifted to operational policy clarity for heavy/nightly release gates (`DIR-16`).
 
 ## Required Question Answers
 
@@ -33,23 +33,23 @@ AGORA remains aligned with the core objective. M7 and M8 evidence-closure items 
   - `release-tag-gate` PASS (`run 21811670648`, job `62924827121`)
   - `cmd-13-nightly-full-suite` PASS (`run 21811670648`, job `62924827118`)
   - `cmd-37-38-dash-data-quality` PASS (`run 21811670116`, job `62924847427`)
-- Surfaced new residual instability:
-  - PR run `21811670116` fails in `cmd-30-ui-smoke-cross-browser` and `cmd-31-ui-smoke-mobile` due `page.waitForURL("**/projects")` timeout in `apps/web/scripts/smoke_artifact_viewer.mjs`.
+- Closed UI smoke instability:
+  - PR run `21812201997` passes `cmd-30-ui-smoke-cross-browser` (`chromium`, `firefox`, `webkit`) and `cmd-31-ui-smoke-mobile` after smoke-flow hardening and CI migration-path fixes.
 
 ## Top 3 Corrective Actions
 
-1. Stabilize `CMD-30`/`CMD-31` smoke navigation across browser matrix + mobile.
-2. Guarantee smoke failure artifacts (screenshots/logs) are always emitted for failed jobs.
-3. Codify runtime/flake budget policy for heavy nightly/release paths (`DIR-16`).
+1. Codify runtime/flake budget policy for heavy nightly/release paths (`DIR-16`).
+2. Re-rank improvement directions post-`DIR-14` + UI-smoke closure (`prompt-14` refresh).
+3. Decide whether to keep the newly stabilized UI smoke gates as strict required checks for all PRs or scope by path/label.
 
 ## Milestone Mapping
 
-`AR-C01`..`AR-C09` are now closed in `Docs/implementation/checklists/02_milestones.md`; remaining follow-through is UI smoke stabilization + explicit runtime/flake policy refinement.
+`AR-C01`..`AR-C09` are now closed in `Docs/implementation/checklists/02_milestones.md`; remaining follow-through is explicit runtime/flake policy refinement and backlog re-ranking.
 
 ## Residual Risks
 
-- `ALIGNED_WITH_RISKS` remains appropriate while PR UI smoke gates (`CMD-30`/`CMD-31`) are unstable across environments.
-- Release automation and full-suite promotion evidence are now present; remaining risk is frontend smoke reliability and operational runtime policy clarity.
+- `ALIGNED_WITH_RISKS` remains appropriate while runtime/flake expectations for nightly/release heavyweight jobs are still implicit.
+- Release automation, full-suite evidence, and UI smoke stability are now present; remaining risk is policy clarity + operational ownership boundaries.
 
 ## Latest Checkpoint
 
@@ -64,4 +64,5 @@ AGORA remains aligned with the core objective. M7 and M8 evidence-closure items 
 - 2026-02-09 `.github/workflows/ci.yml` now includes `push.tags: ['v*']`, `workflow_dispatch` release/nightly inputs, `release-tag-gate`, and `cmd-13-nightly-full-suite`.
 - 2026-02-09 workflow dispatch run `21811670648` -> `release-tag-gate` PASS and `cmd-13-nightly-full-suite` PASS.
 - 2026-02-09 PR run `21811670116` -> `cmd-37-38-dash-data-quality`, `cmd-12-integration`, `observability-gate` PASS; overall run FAIL due UI smoke (`CMD-30`/`CMD-31`).
-- 2026-02-09 this fresh `prompt-03` checkpoint re-routes the next non-redundant packet to `prompt-10-tests-stabilization-loop` for UI smoke closure.
+- 2026-02-09 PR run `21812201997` -> full run PASS, including `CMD-30` cross-browser and `CMD-31` mobile smoke gates.
+- 2026-02-09 this checkpoint now re-routes the next non-redundant packet to `prompt-14-improvement-direction-bet-loop` for post-closure re-ranking and `DIR-16` packetization.

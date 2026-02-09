@@ -5,13 +5,29 @@ Last updated: 2026-02-09
 Entry mode: Existing Repo
 Cycle stage: Build (legacy `phase_3`)
 Intensity mode: Standard
-Primary prompt: `prompt-03-alignment-review-gate` (post-`DIR-14` remote-evidence checkpoint refresh)
+Primary prompt: `prompt-10-tests-stabilization-loop` (UI smoke CI stabilization follow-through)
 
 Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
-This step advances objective by: closing `DIR-14` remote CI evidence gaps for release/nightly/Dash gates and re-centering corrective work on reproducible UI smoke stability.
-Risks of misalignment: PR UI smoke gates (`CMD-30`/`CMD-31`) are still unstable across browser matrix/mobile due navigation timeout in smoke flow.
+This step advances objective by: closing `DIR-14` remote CI evidence gaps and stabilizing `CMD-30`/`CMD-31` UI smoke gates across browser matrix/mobile in remote PR CI.
+Risks of misalignment: runtime/flake policy for heavy nightly/release paths (`DIR-16`) is still implicit and not yet codified as an auditable promotion contract.
 
 ## Done (This Packet)
+
+- Manually selected and executed `prompt-10-tests-stabilization-loop` follow-through (without `.py` router loop):
+  - hardened UI smoke runner behavior in `apps/web/scripts/smoke_artifact_viewer.mjs`:
+    - login success detection now accepts either projects-route transition or token persistence
+    - failure path now captures debug screenshot and surfaces login error text
+  - fixed CI environment assumptions for UI smoke jobs:
+    - `.github/workflows/ci.yml` `CMD-30`/`CMD-31` now run `make PYTHON=python migrate-up` before Core API startup
+    - `Makefile` `migrate-up` now runs real migration entrypoint (`packages/db/migrate.py up`) instead of no-op shim invocation
+    - `apps/web/package.json` `smoke:artifact-viewer` now respects `AGORA_SMOKE_BROWSER` from matrix env (no hardcoded chromium override)
+  - remote validation evidence:
+    - PR run `21812201997` overall PASS, including:
+      - `CMD-30` chromium: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452884`
+      - `CMD-30` firefox: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452881`
+      - `CMD-30` webkit: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452872`
+      - `CMD-31` mobile: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452874`
+  - next non-redundant packet: `prompt-14-improvement-direction-bet-loop` for post-closure re-ranking and `DIR-16` packetization.
 
 - Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router loop) after remote-evidence closure:
   - updated alignment artifacts for the post-`DIR-14` state:

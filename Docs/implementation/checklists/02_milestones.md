@@ -62,12 +62,12 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
 
 - [x] Add deterministic cross-browser UI smoke matrix in CI.
   - AC: CI executes the UI provenance smoke flow across `chromium`, `firefox`, and `webkit`.
-  - Verify: `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:matrix` (PASS, 2026-02-09) and `rg -n "cmd-30-ui-smoke-cross-browser|smoke:artifact-viewer:matrix|firefox|webkit" .github/workflows/ci.yml apps/web/package.json` (PASS, 2026-02-09).
+  - Verify: local matrix command PASS (2026-02-09), CI mapping grep PASS (2026-02-09), and remote PR run `21812201997` passed `cmd-30-ui-smoke-cross-browser` for `chromium`/`firefox`/`webkit` (`https://github.com/Nirtzur0/AGORA/actions/runs/21812201997`).
   - Files: `apps/web/scripts/smoke_artifact_viewer.mjs`, `apps/web/package.json`, `.github/workflows/ci.yml`, `Docs/manifest/09_runbook.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/05_ui_verification.md`
 
 - [x] Add deterministic mobile-width UI smoke gate for all workspace tabs.
   - AC: CI executes mobile viewport smoke and verifies all workspace tabs remain reachable with provenance drill-down intact.
-  - Verify: `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:mobile` (PASS, 2026-02-09) and `rg -n "cmd-31-ui-smoke-mobile|AGORA_SMOKE_VIEWPORT|smoke:artifact-viewer:mobile" .github/workflows/ci.yml apps/web/scripts/smoke_artifact_viewer.mjs apps/web/package.json` (PASS, 2026-02-09).
+  - Verify: local mobile smoke command PASS (2026-02-09), CI mapping grep PASS (2026-02-09), and remote PR run `21812201997` passed `cmd-31-ui-smoke-mobile` (`https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452874`).
   - Files: `apps/web/scripts/smoke_artifact_viewer.mjs`, `apps/web/package.json`, `.github/workflows/ci.yml`, `Docs/manifest/09_runbook.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/05_ui_verification.md`
 
 - [x] Add optional Dash data explorer for report/artifact quality signals.

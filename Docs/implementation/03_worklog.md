@@ -26,6 +26,31 @@
   - alignment verdict remains `ALIGNED_WITH_RISKS`; risk focus moved from remote evidence freshness to UI smoke reliability (`CMD-30`/`CMD-31`).
   - next non-redundant packet: `prompt-10-tests-stabilization-loop`.
 
+- Manually selected and executed `prompt-10-tests-stabilization-loop` follow-through (without `.py` router scripts) to close UI smoke instability.
+- Prompt-10 stabilization implementation:
+  - `apps/web/scripts/smoke_artifact_viewer.mjs`:
+    - replaced brittle URL-only login wait with projects-route-or-token detection
+    - added failure-path screenshot capture + surfaced login error diagnostics
+  - `.github/workflows/ci.yml`:
+    - added `make PYTHON=python migrate-up` before Core API startup in `CMD-30` and `CMD-31` jobs
+  - `Makefile`:
+    - fixed `migrate-up` to call `packages/db/migrate.py up` (previous `python -m db.migrate up` path was a no-op shim)
+    - fixed `migrate-create` to call `packages/db/migrate.py create`
+  - `apps/web/package.json`:
+    - updated `smoke:artifact-viewer` to honor `AGORA_SMOKE_BROWSER` (removed hardcoded chromium override)
+- Verification evidence for this packet:
+  - Local fresh-state validation (with volume reset + migrations):
+    - `make clean && make up && make PYTHON=python3 migrate-up` -> PASS (tables created; roles seeded)
+    - `npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS
+    - `npm --prefix apps/web run smoke:artifact-viewer:mobile` -> PASS
+  - Remote validation:
+    - PR run `21812201997` -> PASS (all required gates green)
+    - `CMD-30` chromium PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452884`
+    - `CMD-30` firefox PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452881`
+    - `CMD-30` webkit PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452872`
+    - `CMD-31` mobile PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21812201997/job/62926452874`
+  - next non-redundant packet: `prompt-14-improvement-direction-bet-loop` (re-rank post-closure backlog; foreground `DIR-16`).
+
 - Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router scripts) for post-M7 `Now` follow-through (`DIR-14` + `DIR-15`).
 - Prompt-02 follow-through implementation (`AR-C09` closure):
   - added full e2e warning-budget guard:

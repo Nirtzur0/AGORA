@@ -44,19 +44,19 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 - [x] First remote GitHub Actions confirmations for `cmd-13-nightly-full-suite` and `release-tag-gate` are captured.
   - Evidence: workflow dispatch run `21811670648` passed for `cmd-13-nightly-full-suite` (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`) and `release-tag-gate` (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`).
 
-- [ ] PR UI smoke matrix is unstable across browsers and mobile.
-  - Evidence: PR run `21811670116` failed in `cmd-30-ui-smoke-cross-browser` (`chromium`, `firefox`, `webkit`) and `cmd-31-ui-smoke-mobile` with `page.waitForURL("**/projects")` timeout in `apps/web/scripts/smoke_artifact_viewer.mjs`.
+- [x] PR UI smoke matrix stability is restored across browsers and mobile.
+  - Evidence: PR run `21812201997` passed `cmd-30-ui-smoke-cross-browser` (`chromium`, `firefox`, `webkit`) and `cmd-31-ui-smoke-mobile` after smoke-flow and migration-path hardening.
 
 ## Top 4 Next Corrections
 
-- [ ] Correction 1: stabilize `CMD-30`/`CMD-31` UI smoke navigation across browser matrix and mobile.
+- [x] Correction 1: stabilize `CMD-30`/`CMD-31` UI smoke navigation across browser matrix and mobile.
   - Owner type: maintainer
   - Effort: M
   - Target files: `apps/web/scripts/smoke_artifact_viewer.mjs`, `apps/web/src/pages/LoginPage.jsx`, `.github/workflows/ci.yml`
   - Acceptance signal: one PR run shows `cmd-30-ui-smoke-cross-browser` and `cmd-31-ui-smoke-mobile` all green.
   - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (M3 UI audit surface/e2e confidence).
 
-- [ ] Correction 2: ensure UI smoke failure paths always publish debug artifacts.
+- [x] Correction 2: ensure UI smoke failure paths always publish debug artifacts.
   - Owner type: maintainer
   - Effort: S
   - Target files: `apps/web/scripts/smoke_artifact_viewer.mjs`, `.github/workflows/ci.yml`
@@ -74,13 +74,13 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
   - Owner type: maintainer
   - Effort: S
   - Target files: `Docs/implementation/reports/improvement_directions.md`, `Docs/implementation/checklists/03_improvement_bets.md`, `Docs/implementation/checklists/02_milestones.md`
-  - Acceptance signal: updated `Now`/`Next` packet ranking reflects `DIR-14` closure and foregrounds UI smoke + runtime/flake policy risks.
+  - Acceptance signal: updated `Now`/`Next` packet ranking reflects `DIR-14` + UI-smoke closure and foregrounds runtime/flake policy risk (`DIR-16`).
   - Milestone mapping: planning follow-through (post-M7 backlog grooming).
 
 ## Next Execution Packet Mapping
 
 - [x] Corrections are mapped into milestone checklist references (`M8`).
-- [x] Recommended next non-redundant packet: `prompt-10-tests-stabilization-loop` to close `CMD-30`/`CMD-31` CI smoke instability before another policy-only pass.
+- [x] Recommended next non-redundant packet: `prompt-14-improvement-direction-bet-loop` to re-rank post-closure work and drive `DIR-16` packetization.
 
 ## Latest Checkpoint
 
@@ -98,3 +98,4 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 - [x] 2026-02-09 `prompt-02-app-development-playbook` follow-through completed `DIR-15` (`AR-C09`) via full `CMD-13` warning-budget enforcement; remaining active `Now` scope is `DIR-14` remote evidence capture.
 - [x] 2026-02-09 `prompt-02-app-development-playbook` follow-through closed `DIR-14` with remote evidence: dispatch run `21811670648` passed (`release-tag-gate`, `cmd-13-nightly-full-suite`) and PR run `21811670116` passed `cmd-37-38-dash-data-quality`.
 - [x] 2026-02-09 fresh `prompt-03` checkpoint rerun after `DIR-14` closure; residual risk moved to UI smoke instability in `CMD-30`/`CMD-31`, and next non-redundant packet is `prompt-10-tests-stabilization-loop`.
+- [x] 2026-02-09 `prompt-10-tests-stabilization-loop` follow-through completed: PR run `21812201997` passed `CMD-30` (chromium/firefox/webkit) and `CMD-31` (mobile), and next non-redundant packet is `prompt-14-improvement-direction-bet-loop`.
