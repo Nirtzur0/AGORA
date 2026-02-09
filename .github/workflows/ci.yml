@@ -417,6 +417,9 @@ jobs:
       - name: Start infrastructure
         run: make up
 
+      - name: Apply DB migrations and seed roles
+        run: make PYTHON=python migrate-up
+
       - name: Start Core API
         run: |
           cd apps/core-api
@@ -509,6 +512,9 @@ jobs:
 
       - name: Start infrastructure
         run: make up
+
+      - name: Apply DB migrations and seed roles
+        run: make PYTHON=python migrate-up
 
       - name: Start Core API
         run: |

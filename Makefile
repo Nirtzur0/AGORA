@@ -125,9 +125,7 @@ build-moltbook: ## Build Moltbook adapter
 
 migrate-up: ## Run database migrations
 	@echo "Running migrations..."
-	cd packages/db && $(PYTHON) -m db.migrate up
-	@echo "Seeding roles..."
-	cd packages/db && $(PYTHON) -m db.migrate seed_roles
+	cd packages/db && $(PYTHON) migrate.py up
 
 seed-roles: ## Seed roles with canonical permissions
 	@echo "Seeding roles..."
@@ -135,6 +133,6 @@ seed-roles: ## Seed roles with canonical permissions
 
 migrate-create: ## Create a new migration (usage: make migrate-create NAME=description)
 	@echo "Creating migration: $(NAME)"
-	cd packages/db && $(PYTHON) -m db.migrate create "$(NAME)"
+	cd packages/db && $(PYTHON) migrate.py create "$(NAME)"
 
 .PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-architecture-coherence test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles
