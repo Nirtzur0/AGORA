@@ -189,6 +189,43 @@ async function assertWorkspaceTabsReachable(page, workspaceId) {
   }
 }
 
+async function readStoredToken(page) {
+  return page.evaluate((key) => {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  }, TOKEN_KEY);
+}
+
+async function waitForProjectsRouteOrToken(page, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const currentUrl = page.url();
+    try {
+      const parsed = new URL(currentUrl);
+      if (/^\/projects(?:\/|$)/.test(parsed.pathname)) {
+        return;
+      }
+    } catch {
+      // Ignore non-URL intermediate states.
+    }
+
+    const loginError = page.locator('.error-message').first();
+    if (await loginError.isVisible().catch(() => false)) {
+      const text = ((await loginError.textContent()) || '').trim();
+      throw new Error(`Dev login failed: ${text || 'unknown login error'}`);
+    }
+
+    const token = await readStoredToken(page);
+    if (token) {
+      return;
+    }
+
+    await page.waitForTimeout(200);
+  }
+
+  throw new Error(`Dev login did not reach /projects or set token within ${timeoutMs}ms (url=${page.url()})`);
+}
+
 async function main() {
   const requestedBrowser = (process.env.AGORA_SMOKE_BROWSER || 'chromium').toLowerCase();
   const browserType = BROWSER_TYPES[requestedBrowser];
@@ -208,9 +245,15 @@ async function main() {
     );
   }
 
+  const screenshotSuffix = requestedViewport === 'desktop'
+    ? requestedBrowser
+    : `${requestedBrowser}-${requestedViewport}`;
+  const screenshotPath = `/tmp/agora-smoke-artifact-viewer-${screenshotSuffix}.png`;
+
   const browser = await browserType.launch({ headless: true });
+  let page;
   try {
-    const page = await browser.newPage({ viewport });
+    page = await browser.newPage({ viewport });
 
     const base = process.env.AGORA_WEB_BASE_URL || 'http://localhost:3000';
     const coreApi = process.env.AGORA_CORE_API_URL || 'http://localhost:8000';
@@ -232,13 +275,15 @@ async function main() {
     }
 
     await devLogin.click();
-    await page.waitForURL('**/projects', { timeout: 20_000 });
+    await waitForProjectsRouteOrToken(page, 20_000);
 
-    const token = await page.evaluate((key) => {
-      return localStorage.getItem(key) || sessionStorage.getItem(key);
-    }, TOKEN_KEY);
+    const token = await readStoredToken(page);
     if (!token) {
       throw new Error(`Missing token in storage (${TOKEN_KEY}) after dev login`);
+    }
+
+    if (!/^\/projects(?:\/|$)/.test(new URL(page.url()).pathname)) {
+      await page.goto(`${base}/projects`, { waitUntil: 'domcontentloaded' });
     }
 
     const workspace = await createWorkspace(page.request, coreApi, token);
@@ -281,10 +326,6 @@ async function main() {
     await page.locator('.artifact-viewer').first().waitFor({ state: 'visible', timeout: 20_000 });
     await assertNoViewerError(page);
 
-    const screenshotSuffix = requestedViewport === 'desktop'
-      ? requestedBrowser
-      : `${requestedBrowser}-${requestedViewport}`;
-    const screenshotPath = `/tmp/agora-smoke-artifact-viewer-${screenshotSuffix}.png`;
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
     // eslint-disable-next-line no-console
@@ -293,6 +334,29 @@ async function main() {
       'Claims/drafts provenance drill-down and artifact viewer are healthy. ' +
       `Screenshot: ${screenshotPath}`
     );
+  } catch (err) {
+    if (page) {
+      try {
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        // eslint-disable-next-line no-console
+        console.error(`SMOKE DEBUG: failure screenshot captured at ${screenshotPath}`);
+      } catch (screenshotErr) {
+        // eslint-disable-next-line no-console
+        console.error(`SMOKE DEBUG: failed to capture screenshot: ${screenshotErr}`);
+      }
+
+      try {
+        const loginError = page.locator('.error-message').first();
+        if (await loginError.isVisible().catch(() => false)) {
+          const text = ((await loginError.textContent()) || '').trim();
+          // eslint-disable-next-line no-console
+          console.error(`SMOKE DEBUG: login error message: ${text}`);
+        }
+      } catch {
+        // Ignore debug-only failure path errors.
+      }
+    }
+    throw err;
   } finally {
     await browser.close();
   }
