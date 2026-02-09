@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -44,6 +45,30 @@ def _parse_map_rows() -> list[dict[str, str]]:
     return rows
 
 
+def _pattern_matches_file(pattern: str, code_path: Path) -> tuple[bool, str]:
+    """Prefer rg for speed; fall back to Python regex in CI environments."""
+    result = subprocess.run(
+        ["rg", "-n", pattern, str(code_path)],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return True, result.stdout
+    if result.returncode != 127 and "No such file or directory" not in result.stderr:
+        return False, f"stdout={result.stdout}\nstderr={result.stderr}"
+
+    text = code_path.read_text(encoding="utf-8")
+    try:
+        matched = re.search(pattern, text, flags=re.MULTILINE) is not None
+    except re.error:
+        matched = pattern in text
+    if matched:
+        return True, "fallback=python-regex"
+    return False, "fallback=python-regex no match"
+
+
 def test_implementation_map_rows_reference_real_labels_files_and_find_patterns():
     assert PAPER_MAIN.exists(), f"Missing paper file: {PAPER_MAIN}"
     assert IMPLEMENTATION_MAP.exists(), f"Missing map file: {IMPLEMENTATION_MAP}"
@@ -66,16 +91,10 @@ def test_implementation_map_rows_reference_real_labels_files_and_find_patterns()
         assert code_path.exists(), f"Mapped code path missing: {code_path}"
 
         if find_pattern != "N/A":
-            result = subprocess.run(
-                ["rg", "-n", find_pattern, str(code_path)],
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            assert result.returncode == 0, (
+            matched, details = _pattern_matches_file(find_pattern, code_path)
+            assert matched, (
                 f"Find pattern did not match: pattern={find_pattern} file={code_path}\n"
-                f"stdout={result.stdout}\nstderr={result.stderr}"
+                f"{details}"
             )
 
         test_file = tests_ref.split("::", 1)[0]
