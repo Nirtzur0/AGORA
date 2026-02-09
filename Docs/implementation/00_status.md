@@ -5,13 +5,20 @@ Last updated: 2026-02-09
 Entry mode: Existing Repo
 Cycle stage: Build (legacy `phase_3`)
 Intensity mode: Standard
-Primary prompt: `prompt-02-app-development-playbook` (post-M7 `DIR-15` implementation follow-through)
+Primary prompt: `prompt-03-alignment-review-gate` (post-`DIR-14` remote-evidence checkpoint refresh)
 
 Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
-This step advances objective by: enforcing warning-signal governance for full e2e (`CMD-13`) and narrowing the active residual risk surface to remote CI evidence freshness.
-Risks of misalignment: first remote evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality` remains pending until workflow changes are pushed and run remotely.
+This step advances objective by: closing `DIR-14` remote CI evidence gaps for release/nightly/Dash gates and re-centering corrective work on reproducible UI smoke stability.
+Risks of misalignment: PR UI smoke gates (`CMD-30`/`CMD-31`) are still unstable across browser matrix/mobile due navigation timeout in smoke flow.
 
 ## Done (This Packet)
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router loop) after remote-evidence closure:
+  - updated alignment artifacts for the post-`DIR-14` state:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - confirmed remote-evidence closures are complete (`AR-C06`..`AR-C08`), and shifted residual risk to PR UI smoke instability (`CMD-30`/`CMD-31`).
+  - next non-redundant packet: `prompt-10-tests-stabilization-loop`.
 
 - Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router loop) for post-M7 `Now` follow-through (`DIR-14` + `DIR-15`):
   - implemented `AR-C09` warning-signal hardening beyond `CMD-27`:
@@ -29,15 +36,23 @@ Risks of misalignment: first remote evidence for `release-tag-gate`, `cmd-13-nig
     - `Docs/implementation/checklists/02_milestones.md` (`AR-C09` checked)
     - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-15` checked)
     - `Docs/implementation/reports/improvement_directions.md` (execution update)
-  - `DIR-14` remote-evidence closure remains blocked in this local packet:
-    - remote `main` workflow content does not yet include `release-tag-gate`, `cmd-13-nightly-full-suite`, or `cmd-37-38-dash-data-quality`, so qualifying run evidence cannot yet be recorded.
+  - `DIR-14` remote-evidence closure is now complete:
+    - dispatch run `21811670648` passed `release-tag-gate` and `cmd-13-nightly-full-suite`
+    - PR run `21811670116` passed `cmd-37-38-dash-data-quality`, `cmd-12-integration`, and `observability-gate`
+    - follow-through CI fixes applied for this closure:
+      - added missing `requests` test dependency in `apps/core-api/requirements-dev.txt`
+      - made release evidence verification portable when `rg` is unavailable
+      - vendored `scripts/web_artifacts.py` and rewired `make check-observability-slos` to remove CI submodule dependence
   - triggering delta (for this packet): post-`prompt-14` `Now` packet left `DIR-15` as highest-value implementable slice while `DIR-14` depended on remote workflow state.
-  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-14` evidence capture immediately after pushing workflow changes and running remote CI.
+  - next non-redundant packet: `prompt-10-tests-stabilization-loop` for `CMD-30`/`CMD-31` UI smoke stability closure.
   - verification evidence (2026-02-09):
     - `E2E_FULL_WARNING_BUDGET=200 make PYTHON=python3 test-e2e` -> PASS (`10 passed`, `145 warnings`, budget gate pass)
     - `E2E_FULL_WARNING_BUDGET=0 make PYTHON=python3 test-e2e` -> expected FAIL (`warning_budget_summary gate=cmd-13 status=fail warnings=145 max_warnings=0`)
     - `rg -n "E2E_FULL_WARNING_BUDGET|check_full_e2e_warning_budget.py|CMD-13" Makefile .github/workflows/ci.yml Docs/manifest/09_runbook.md Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
-    - `gh api 'repos/Nirtzur0/AGORA/contents/.github/workflows/ci.yml?ref=main' --jq '.content' | base64 --decode | rg -n 'release-tag-gate|cmd-13-nightly-full-suite|cmd-37-38-dash-data-quality'` -> NO MATCH (expected; remote evidence still pending)
+    - dispatch run `21811670648` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`)
+    - dispatch run `21811670648` -> `release-tag-gate` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`)
+    - PR run `21811670116` -> `cmd-37-38-dash-data-quality` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924847427`)
+    - PR run `21811670116` overall -> FAIL due `cmd-30-ui-smoke-cross-browser` + `cmd-31-ui-smoke-mobile` navigation timeout (`page.waitForURL("**/projects")`)
 - Manually selected and executed `prompt-14-improvement-direction-bet-loop` packet (without `.py` router loop) after the fresh post-M7 `prompt-03` checkpoint:
   - refreshed improvement-direction discovery and ranking artifacts:
     - `Docs/implementation/reports/improvement_directions.md`

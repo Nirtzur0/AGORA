@@ -11,13 +11,13 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 
 ## Bet DIR-14: Remote CI evidence closure for newly added jobs
 
-- [ ] Record first remote pass evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality`.
+- [x] Record first remote pass evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality`.
   - Owner type: maintainer
   - Effort: S
   - Target files/areas: `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
   - AC: docs include run IDs/URLs (or equivalent references) and artifact names for all three jobs.
-  - Verify: `rg -n "release-tag-gate|cmd-13-nightly-full-suite|cmd-37-38-dash-data-quality|run id|actions/runs" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`
-  - Acceptance signal: residual-risk notes in alignment/CI docs no longer describe these jobs as evidence-pending.
+  - Verify: `rg -n "21811670648|21811670116|release-tag-gate|cmd-13-nightly-full-suite|cmd-37-38-dash-data-quality|actions/runs" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md` (PASS, 2026-02-09).
+  - Acceptance signal: remote run evidence is now recorded for all three jobs (`release-tag-gate`, `cmd-13-nightly-full-suite`, `cmd-37-38-dash-data-quality`).
   - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
 
 ## Bet DIR-15: Warning-signal hardening beyond `CMD-27`
@@ -114,7 +114,7 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 
 - [x] Completed packet (`medium` appetite): DIR-08 + DIR-09 + DIR-10.
 - [x] Completed packet (`medium` appetite): DIR-11 + DIR-13.
+- [x] Completed packet (`small` appetite): DIR-14.
 - [x] Completed packet (`small` appetite): DIR-15.
-- [ ] Now packet (`small` appetite): DIR-14 (remote CI evidence closure still open).
-- [ ] Next packet (`medium` appetite): DIR-16.
+- [ ] Now packet (`medium` appetite): DIR-16.
 - [ ] Not now (`large` appetite): DIR-17.

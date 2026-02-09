@@ -7,7 +7,9 @@ This page defines AGORA release policy and how local release actions map to CI g
 - Push/PR CI gates enforce `CMD-11`, `CMD-25`, `CMD-27`, `CMD-30`, `CMD-31`, `CMD-37`, and `CMD-38`.
 - Nightly full-suite promotion job is implemented as `cmd-13-nightly-full-suite` (`AR-C05`).
 - Tag-triggered release validation path is implemented as `release-tag-gate` (`AR-C04`).
-- First remote run evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality` is pending next push/dispatch.
+- First remote run evidence is captured:
+  - dispatch run `21811670648`: `release-tag-gate` pass (`62924827121`) and `cmd-13-nightly-full-suite` pass (`62924827118`)
+  - PR run `21811670116`: `cmd-37-38-dash-data-quality` pass (`62924847427`)
 
 ## Local Release Preparation
 
@@ -98,4 +100,4 @@ Current mapping (implemented):
 ## Implementation Handoff
 
 - CI implementation completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
-- Next non-redundant packet: `prompt-02-app-development-playbook` to capture first remote run evidence for `release-tag-gate`, `cmd-13-nightly-full-suite`, and `cmd-37-38-dash-data-quality` once workflow changes are pushed.
+- Next non-redundant packet: `prompt-03-alignment-review-gate` to refresh residual-risk ranking after remote-evidence closure (`DIR-14`) and PR-only UI smoke failures (`CMD-30`/`CMD-31`).

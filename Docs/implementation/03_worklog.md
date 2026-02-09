@@ -2,6 +2,30 @@
 
 ## 2026-02-09
 
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through to close `DIR-14` remote CI evidence capture (without `.py` router scripts).
+- Prompt-02 DIR-14 closure:
+  - fixed CI portability/dependency blockers discovered in remote runs:
+    - `apps/core-api/requirements-dev.txt`: added `requests==2.31.0`
+    - `.github/workflows/ci.yml`: made release evidence check portable when `rg` is missing; updated Dash gate dependency install to include core-api requirements
+    - `scripts/web_artifacts.py` (vendored) + `Makefile` rewiring to remove CI dependence on inaccessible `project-prompts` submodule checkout
+  - remote evidence captured:
+    - dispatch run `21811670648` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`)
+    - dispatch run `21811670648` -> `release-tag-gate` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`)
+    - PR run `21811670116` -> `cmd-37-38-dash-data-quality` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924847427`)
+    - PR run `21811670116` -> `cmd-12-integration` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924825106`)
+    - PR run `21811670116` -> `observability-gate` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924825100`)
+  - residual risk after `DIR-14` closure:
+    - PR run `21811670116` still fails in UI smoke jobs (`cmd-30` browser matrix and `cmd-31` mobile) with `page.waitForURL("**/projects")` timeout from `apps/web/scripts/smoke_artifact_viewer.mjs`.
+  - next non-redundant packet: `prompt-10-tests-stabilization-loop` for UI smoke stabilization.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after `DIR-14` closure.
+- Prompt-03 checkpoint refresh after remote evidence capture:
+  - updated:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - alignment verdict remains `ALIGNED_WITH_RISKS`; risk focus moved from remote evidence freshness to UI smoke reliability (`CMD-30`/`CMD-31`).
+  - next non-redundant packet: `prompt-10-tests-stabilization-loop`.
+
 - Manually selected and executed `prompt-02-app-development-playbook` packet (without `.py` router scripts) for post-M7 `Now` follow-through (`DIR-14` + `DIR-15`).
 - Prompt-02 follow-through implementation (`AR-C09` closure):
   - added full e2e warning-budget guard:

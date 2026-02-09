@@ -213,7 +213,7 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
 
 - [x] AR-C01: Add CI automation for Dash data-quality checks.
   - AC: CI executes `CMD-37` + `CMD-38` (scheduled or non-blocking PR gate initially) and publishes validation report artifacts.
-  - Verify: `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json` (PASS, 2026-02-09), `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` (PASS, 2026-02-09), and `rg -n "cmd-37-38-dash-data-quality|CMD-37|CMD-38|dash-data-quality-report" .github/workflows/ci.yml Docs/manifest/11_ci.md` (PASS, 2026-02-09). First remote GitHub Actions run is pending after push.
+  - Verify: local Dash checks pass (2026-02-09) and remote evidence exists: PR run `21811670116`, job `cmd-37-38-dash-data-quality` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924847427`) with `dash-data-quality-report` artifact publication.
   - Files: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/manifest/09_runbook.md`, `dash_app/data/validation.py`, `tests/test_data_validation.py`, `tests/test_loaders_smoke.py`
   - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-03`
 
@@ -231,33 +231,33 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
 
 - [x] AR-C04: Add tag-triggered release automation path.
   - AC: CI/release workflow supports tag-triggered release validation/execution path with explicit command coverage mapping.
-  - Verify: `rg -n "on:|tags: \\[ 'v\\*' \\]|workflow_dispatch|release-tag-gate" .github/workflows/ci.yml Docs/reference/release_workflow.md Docs/manifest/11_ci.md` (PASS, 2026-02-09), and local dry-run command path passes: `make PYTHON=python3 test`, `make PYTHON=python3 test-all-guarded`, `E2E_CRITICAL_WARNING_BUDGET=40 make PYTHON=python3 test-e2e-critical`, `make PYTHON=python3 test-e2e`, `python3 -m dash_app.data.validation --repo-root . --output /tmp/agora-dash-validation.json`, `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/test_data_validation.py tests/test_loaders_smoke.py` (all PASS, 2026-02-09). First remote run evidence pending.
+  - Verify: `rg -n "on:|tags: \\[ 'v\\*' \\]|workflow_dispatch|release-tag-gate" .github/workflows/ci.yml Docs/reference/release_workflow.md Docs/manifest/11_ci.md` (PASS, 2026-02-09), local dry-run command path passes (all PASS, 2026-02-09), and remote evidence pass exists: workflow dispatch run `21811670648`, job `release-tag-gate` (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`).
   - Files: `.github/workflows/ci.yml`, `Docs/reference/release_workflow.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
   - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
 
 - [x] AR-C05: Define and adopt full `CMD-13` suite promotion strategy.
   - AC: policy defines where/when full e2e suite runs (nightly/protected branch), ownership, and promotion criteria from critical-only coverage.
-  - Verify: `rg -n "CMD-13|nightly|schedule|run_full_e2e|cmd-13-nightly-full-suite|release-tag-gate" .github/workflows/ci.yml Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09) and local `make PYTHON=python3 test-e2e` (PASS, 2026-02-09). First remote nightly evidence pending.
+  - Verify: `rg -n "CMD-13|nightly|schedule|run_full_e2e|cmd-13-nightly-full-suite|release-tag-gate" .github/workflows/ci.yml Docs/manifest/10_testing.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09), local `make PYTHON=python3 test-e2e` (PASS, 2026-02-09), and remote nightly evidence pass exists: workflow dispatch run `21811670648`, job `cmd-13-nightly-full-suite` (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`).
   - Files: `.github/workflows/ci.yml`, `Docs/manifest/10_testing.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
   - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
 
 ## M8 - Post-M7 Evidence and Signal Hardening
 
-- [ ] AR-C06: Capture first remote pass evidence for `release-tag-gate`.
+- [x] AR-C06: Capture first remote pass evidence for `release-tag-gate`.
   - AC: one remote GitHub Actions run shows `release-tag-gate` passing with release gate artifacts uploaded.
-  - Verify: `rg -n "release-tag-gate|actions/runs|release-tag-gate-artifacts" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
+  - Verify: workflow dispatch run `21811670648`, job `release-tag-gate` passed and uploaded release artifacts (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`); docs references present via `rg -n "21811670648|release-tag-gate|release-tag-gate-artifacts|actions/runs/21811670648" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
   - Files: `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
   - Prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
 
-- [ ] AR-C07: Capture first remote pass evidence for `cmd-13-nightly-full-suite`.
+- [x] AR-C07: Capture first remote pass evidence for `cmd-13-nightly-full-suite`.
   - AC: one remote GitHub Actions run shows `cmd-13-nightly-full-suite` passing.
-  - Verify: `rg -n "cmd-13-nightly-full-suite|actions/runs" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
+  - Verify: workflow dispatch run `21811670648`, job `cmd-13-nightly-full-suite` passed (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`); docs references present via `rg -n "21811670648|cmd-13-nightly-full-suite|actions/runs/21811670648" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
   - Files: `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
   - Prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
 
-- [ ] AR-C08: Capture first remote pass evidence for `cmd-37-38-dash-data-quality`.
+- [x] AR-C08: Capture first remote pass evidence for `cmd-37-38-dash-data-quality`.
   - AC: one remote GitHub Actions run shows Dash data-quality gate passing and artifact publication.
-  - Verify: `rg -n "cmd-37-38-dash-data-quality|dash-data-quality-report|actions/runs" Docs/manifest/11_ci.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
+  - Verify: pull-request run `21811670116`, job `cmd-37-38-dash-data-quality` passed (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670116/job/62924847427`) with `dash-data-quality-report` artifact publication; docs references present via `rg -n "21811670116|cmd-37-38-dash-data-quality|dash-data-quality-report|actions/runs/21811670116" Docs/manifest/11_ci.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md`.
   - Files: `Docs/manifest/11_ci.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
   - Prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
 

@@ -1,12 +1,12 @@
 # Alignment Review
 
-Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` M7 `AR-C04`/`AR-C05` implementation)
+Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-14` remote-evidence closure)
 Prompt packet: `prompt-03-alignment-review-gate`
 Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. M7 corrections `AR-C01`..`AR-C05` are now implemented in local verification. Residual risk is concentrated on first remote CI confirmations for newly added release/nightly jobs and Dash data-quality evidence freshness.
+AGORA remains aligned with the core objective. M7 and M8 evidence-closure items (`AR-C01`..`AR-C09`) now have recorded local/remote evidence. Residual risk has shifted from release/nightly evidence freshness to UI smoke stability in PR CI (`CMD-30`/`CMD-31`).
 
 ## Required Question Answers
 
@@ -29,21 +29,27 @@ AGORA remains aligned with the core objective. M7 corrections `AR-C01`..`AR-C05`
 - Added docs-guardrail enforcement for alignment rerun metadata (`Triggering delta:` + next packet).
 - Added tag-triggered release validation job: `release-tag-gate`.
 - Added nightly full-suite `CMD-13` job: `cmd-13-nightly-full-suite`.
+- Captured first remote evidence for:
+  - `release-tag-gate` PASS (`run 21811670648`, job `62924827121`)
+  - `cmd-13-nightly-full-suite` PASS (`run 21811670648`, job `62924827118`)
+  - `cmd-37-38-dash-data-quality` PASS (`run 21811670116`, job `62924847427`)
+- Surfaced new residual instability:
+  - PR run `21811670116` fails in `cmd-30-ui-smoke-cross-browser` and `cmd-31-ui-smoke-mobile` due `page.waitForURL("**/projects")` timeout in `apps/web/scripts/smoke_artifact_viewer.mjs`.
 
 ## Top 3 Corrective Actions
 
-1. Capture first remote GitHub Actions pass for `release-tag-gate`.
-2. Capture first remote GitHub Actions pass for `cmd-13-nightly-full-suite`.
-3. Capture first remote GitHub Actions pass for `cmd-37-38-dash-data-quality` in status/worklog evidence.
+1. Stabilize `CMD-30`/`CMD-31` smoke navigation across browser matrix + mobile.
+2. Guarantee smoke failure artifacts (screenshots/logs) are always emitted for failed jobs.
+3. Codify runtime/flake budget policy for heavy nightly/release paths (`DIR-16`).
 
 ## Milestone Mapping
 
-`AR-C01`..`AR-C05` are now closed in `Docs/implementation/checklists/02_milestones.md`; remaining alignment follow-through is remote-run evidence capture.
+`AR-C01`..`AR-C09` are now closed in `Docs/implementation/checklists/02_milestones.md`; remaining follow-through is UI smoke stabilization + explicit runtime/flake policy refinement.
 
 ## Residual Risks
 
-- `ALIGNED_WITH_RISKS` remains appropriate until first remote CI confirmations are captured for new jobs.
-- Release automation and full-suite promotion policy are implemented; evidence freshness is the remaining risk.
+- `ALIGNED_WITH_RISKS` remains appropriate while PR UI smoke gates (`CMD-30`/`CMD-31`) are unstable across environments.
+- Release automation and full-suite promotion evidence are now present; remaining risk is frontend smoke reliability and operational runtime policy clarity.
 
 ## Latest Checkpoint
 
@@ -56,4 +62,6 @@ AGORA remains aligned with the core objective. M7 corrections `AR-C01`..`AR-C05`
 - 2026-02-09 `make PYTHON=python3 test-all-guarded` -> PASS.
 - 2026-02-09 `make PYTHON=python3 test-e2e` -> PASS.
 - 2026-02-09 `.github/workflows/ci.yml` now includes `push.tags: ['v*']`, `workflow_dispatch` release/nightly inputs, `release-tag-gate`, and `cmd-13-nightly-full-suite`.
-- 2026-02-09 `prompt-02-app-development-playbook` follow-through completed for `AR-C04`/`AR-C05`; this fresh `prompt-03` checkpoint confirms implementation and re-routes the next non-redundant packet to `prompt-14-improvement-direction-bet-loop`.
+- 2026-02-09 workflow dispatch run `21811670648` -> `release-tag-gate` PASS and `cmd-13-nightly-full-suite` PASS.
+- 2026-02-09 PR run `21811670116` -> `cmd-37-38-dash-data-quality`, `cmd-12-integration`, `observability-gate` PASS; overall run FAIL due UI smoke (`CMD-30`/`CMD-31`).
+- 2026-02-09 this fresh `prompt-03` checkpoint re-routes the next non-redundant packet to `prompt-10-tests-stabilization-loop` for UI smoke closure.

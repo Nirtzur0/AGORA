@@ -51,16 +51,16 @@ Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` CI automation
   - Evidence: `Docs/reference/release_workflow.md` now defines trigger spec, fail-closed behavior, and required command sequence for `v*` tags.
 - [x] Tag-triggered release workflow is implemented in CI.
   - Evidence: `.github/workflows/ci.yml` includes `push.tags: ['v*']`, `workflow_dispatch` input `run_release_gate`, and `release-tag-gate` command set.
-- [ ] Tag-triggered release workflow has one passing remote GitHub Actions evidence run.
-  - Pending evidence capture after push/dispatch.
+- [x] Tag-triggered release workflow has one passing remote GitHub Actions evidence run.
+  - Evidence: workflow dispatch run `21811670648`, job `release-tag-gate` (ID `62924827121`) passed with release artifacts uploaded (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827121`).
 - [x] Full `CMD-13` promotion strategy is explicitly documented.
   - Evidence: policy sections in `Docs/reference/release_workflow.md`, `Docs/manifest/10_testing.md`, and `Docs/manifest/11_ci.md` define trigger matrix, ownership, and promotion criteria.
 - [x] Nightly full `CMD-13` automation is implemented in CI.
   - Evidence: `.github/workflows/ci.yml` includes `schedule` trigger and `cmd-13-nightly-full-suite` job; manual trigger path uses `workflow_dispatch` input `run_full_e2e`.
 - [x] Full `CMD-13` warning-budget policy is enforced in promotion/release paths.
   - Evidence: `.github/workflows/ci.yml` runs `E2E_FULL_WARNING_BUDGET=200 make PYTHON=python test-e2e` in `cmd-13-nightly-full-suite` and `release-tag-gate`; local verification shows expected pass/fail behavior (`E2E_FULL_WARNING_BUDGET=200` PASS, `E2E_FULL_WARNING_BUDGET=0` expected FAIL).
-- [ ] Nightly full `CMD-13` job has one passing remote GitHub Actions evidence run.
-  - Pending evidence capture after schedule/dispatch.
+- [x] Nightly full `CMD-13` job has one passing remote GitHub Actions evidence run.
+  - Evidence: workflow dispatch run `21811670648`, job `cmd-13-nightly-full-suite` (ID `62924827118`) passed (`https://github.com/Nirtzur0/AGORA/actions/runs/21811670648/job/62924827118`).
 
 ## Documentation completeness
 
