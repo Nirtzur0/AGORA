@@ -75,9 +75,41 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
   - Any `FRESHNESS_STALE`, `MISSING_PROVENANCE`, or `INVALID_RETRIEVED_AT` result is treated as SEV-2 if unresolved for >24h.
   - Any `FRESHNESS_WARN` result (75-90 days) is tracked as SEV-3 and scheduled in the next working cycle.
 
+## External Sink Ownership and Escalation Policy (`AR-C12` Prep)
+
+Status: policy defined; sink wiring not yet implemented.
+
+### Ownership Model
+
+| Role | Responsibility | Escalation SLA |
+|---|---|---|
+| Maintainer on-call (primary) | Owns first response for external sink alerts and triage routing | Acknowledge SEV-1 immediately, SEV-2 within 30 minutes |
+| Release owner (secondary) | Approves release-impacting actions when sink signals indicate gating risk | Same business day for SEV-2, immediate for SEV-1 during release windows |
+| Core API/Worker maintainer (backup) | Owns remediation when signal source is objective metrics, workflow runs, or persistence | Join incident within 60 minutes for SEV-2 |
+
+### Signal-to-Severity Mapping for External Routing
+
+| Signal source | Trigger | Severity | Owner |
+|---|---|---|---|
+| `CMD-29` objective metrics gate | any `overall.status=fail` in `objective_metrics_latest.json` | SEV-1 | Maintainer on-call |
+| `CMD-32` observability snapshot | `overall_status=fail` in `observability_snapshot_latest.json` | SEV-1 | Maintainer on-call |
+| `CMD-39` heavy-gate trend output | 2 consecutive runtime-target misses or retries in 3 of latest 5 runs | SEV-2 | Release owner + maintainer on-call |
+| `CMD-20` freshness audit | stale/missing provenance unresolved >24h | SEV-2 | Maintainer on-call |
+| `CMD-20` freshness warning | warning window (75-90 days), no hard breach | SEV-3 | Next working cycle owner |
+
+### Rollout and Fallback Policy
+
+1. External sink routing is introduced as dry-run first (payload generation + delivery attempt logs), while existing CI artifacts remain the system of record.
+2. During dry-run and early rollout, sink-delivery failures are fail-open for CI promotion; triage continues from in-repo artifacts and job summaries.
+3. If sink delivery fails, responders must use in-repo fallback signals:
+   - `CMD-29` outputs (`objective_metrics_*`)
+   - `CMD-32` outputs (`observability_snapshot_*`)
+   - `CMD-39` heavy-job trend artifacts
+4. Pager-backed fail-closed behavior is deferred until `prompt-02` implementation closes `AR-C12` with first remote evidence.
+
 ## Known Gaps
 
-- Alert paging automation is manual (no pager integration in MVP).
+- External sink/pager delivery remains unimplemented; only ownership/escalation/fallback policy is now defined.
 - Structured external dashboards are not yet provisioned; runbook triage now includes generated in-repo snapshot dashboard outputs (`CMD-32`) and heavy-gate runtime trend artifacts plus CLI checks.
 - Objective metrics history is persisted in-repo (`objective_metrics_history.jsonl`) and per-run CI artifacts, but no external TSDB/pager automation exists yet.
 - Full e2e gating (`CMD-13`) is release-time; per-PR path currently enforces deterministic subset (`CMD-27`) with warning-budget guardrails.

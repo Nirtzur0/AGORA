@@ -277,12 +277,13 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
 
 - [x] AR-C11: Publish runtime+flake trend artifact for heavy CI jobs.
   - AC: nightly/release runs produce a durable trend artifact/dashboard summarizing job duration and retry/flake signals.
-  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09) and `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09).
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09), `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09), and workflow dispatch run `21813014551` job `62928919065` PASS with `cmd-13-nightly-runtime-trend` artifact (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`).
   - Files: `.github/workflows/ci.yml`, `scripts/*`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
   - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-10` -> `prompt-03`
 
 - [ ] AR-C12: Route observability outputs to an external dashboard/pager.
   - AC: one external operational sink receives objective/observability CI outputs with documented escalation ownership.
   - Verify: integration dry-run evidence and docs references in `Docs/manifest/07_observability.md` + `Docs/manifest/11_ci.md` + release/readiness notes.
+  - Prep status: ownership/severity/fallback policy is now documented (`Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`); implementation evidence remains open.
   - Files: `.github/workflows/ci.yml`, observability publish scripts, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
   - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-11` -> `prompt-03`

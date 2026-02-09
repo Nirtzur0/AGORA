@@ -6,7 +6,7 @@ Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-17` (`AR-C11`) by publishing runtime/flake trend artifacts for heavy nightly/release gates. Residual risk is now concentrated in two areas: remote evidence capture for the new trend artifacts and external observability routing (`DIR-18` / `AR-C12`).
+AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-17` (`AR-C11`) by publishing runtime/flake trend artifacts for heavy nightly/release gates, and remote evidence for those artifacts is now captured. Residual risk is concentrated on external observability routing (`DIR-18` / `AR-C12`).
 
 ## Required Question Answers
 
@@ -42,28 +42,30 @@ AGORA remains aligned with the core objective. The latest implementation follow-
 
 ## Top 3 Corrective Actions
 
-1. Capture first remote evidence run proving `AR-C11` trend artifacts (`cmd-13-nightly-runtime-trend`, `release-tag-runtime-trend-*`) are published.
-2. Scope and implement `DIR-18` / `AR-C12`: external observability sink/pager integration.
-3. Define external-sink escalation ownership and dry-run fallback path before enabling pager-backed routing.
+1. Scope and implement `DIR-18` / `AR-C12`: external observability sink/pager integration.
+2. Capture first remote evidence run once `AR-C12` implementation is in place.
+3. Run a fresh `prompt-03` checkpoint after `AR-C12` evidence capture to re-rank residual risk.
 
 ## Milestone Mapping
 
 - `AR-C10` and `AR-C11` are closed in `Docs/implementation/checklists/02_milestones.md`.
 - Next scheduled work is `AR-C12` (`DIR-18`) under `M9 - CI Operability Policy and Trend Hardening`.
-- `AR-C12` (`DIR-18`) remains open under the same milestone as not-now/large appetite.
+- `AR-C12` (`DIR-18`) remains open under the same milestone as the active now-packet (large appetite).
 
 ## Residual Risks
 
 - `ALIGNED_WITH_RISKS` remains appropriate because external dashboard/paging integration is still absent.
-- External sink/paging is still manual, so response workflows remain partially dependent on in-repo artifacts.
+- External sink/paging ownership and fallback are now documented, but delivery is still manual, so response workflows remain dependent on in-repo artifacts.
 
 ## Latest Checkpoint
 
 - 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` -> PASS.
 - 2026-02-09 `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime_policy_summary" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/11_ci.md Docs/reference/release_workflow.md` -> PASS.
+- 2026-02-09 workflow dispatch run `21813014551` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`) with `cmd-13-nightly-runtime-trend` artifact published.
 - 2026-02-09 `make up` -> PASS.
 - 2026-02-09 `scripts/preflight_temporal.sh` -> PASS.
 - 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS.
 - 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS.
+- 2026-02-09 `prompt-11` follow-through documented `AR-C12` ownership/escalation/fallback policy in `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, and `Docs/implementation/checklists/06_release_readiness.md`.
 - 2026-02-09 `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS.
-- Next non-redundant packet: `prompt-02-app-development-playbook` (capture first remote `AR-C11` runtime-trend artifact evidence), then route `DIR-18` shaping.
+- Next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-18` (`AR-C12`) implementation and first remote evidence capture.

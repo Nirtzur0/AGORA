@@ -1,4 +1,4 @@
-.PHONY: help up down logs test check-stubs clean test-unit test-integration test-e2e test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-architecture-coherence
+.PHONY: help up down logs test check-stubs clean test-unit test-integration test-e2e test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-architecture-coherence
 
 PYTHON ?= python3
 PYTEST_ENV ?= PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
@@ -68,6 +68,17 @@ check-observability-snapshot: ## Generate observability snapshot dashboard from 
 	@$(PYTHON) scripts/check_observability_snapshot.py
 	@echo "Observability snapshot dashboard generated ✓"
 
+check-observability-sink-dry-run: ## Build external sink payload/report locally without network publish
+	@echo "Generating observability sink dry-run report..."
+	@$(PYTHON) scripts/publish_observability_sink.py \
+		--mode dry_run \
+		--objective-latest Docs/implementation/reports/objective_metrics_latest.json \
+		--objective-history Docs/implementation/reports/objective_metrics_history.jsonl \
+		--observability-latest Docs/implementation/reports/observability_snapshot_latest.json \
+		--report Docs/implementation/reports/observability_sink_publish_latest.json \
+		--summary-markdown Docs/implementation/reports/observability_sink_publish_dashboard.md
+	@echo "Observability sink dry-run report generated ✓"
+
 check-architecture-coherence: ## Validate architecture docs coherence + CI wiring
 	@echo "Running architecture coherence gate..."
 	@$(PYTHON) scripts/check_architecture_coherence.py --repo-root .
@@ -135,4 +146,4 @@ migrate-create: ## Create a new migration (usage: make migrate-create NAME=descr
 	@echo "Creating migration: $(NAME)"
 	cd packages/db && $(PYTHON) migrate.py create "$(NAME)"
 
-.PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-architecture-coherence test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles
+.PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-architecture-coherence test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles

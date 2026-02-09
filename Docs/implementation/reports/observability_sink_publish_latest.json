@@ -1,0 +1,42 @@
+{
+  "generated_at": "2026-02-09T05:19:47.974704+00:00",
+  "status": "dry_run",
+  "mode": "dry_run",
+  "fail_open": true,
+  "sink_url_set": false,
+  "sink_host": "",
+  "response_code": null,
+  "error": "",
+  "signals_included": [
+    "objective_metrics_history_tail",
+    "objective_metrics_latest",
+    "observability_snapshot_latest"
+  ],
+  "signals_missing": [],
+  "signal_stats": {
+    "objective_metrics_latest": {
+      "path": "Docs/implementation/reports/objective_metrics_latest.json",
+      "kind": "json"
+    },
+    "objective_metrics_history_tail": {
+      "path": "Docs/implementation/reports/objective_metrics_history.jsonl",
+      "kind": "jsonl_tail",
+      "rows": 8
+    },
+    "observability_snapshot_latest": {
+      "path": "Docs/implementation/reports/observability_snapshot_latest.json",
+      "kind": "json"
+    }
+  },
+  "payload_bytes": 6339,
+  "source": {
+    "workflow": "",
+    "job": "",
+    "event_name": "",
+    "ref": "",
+    "sha": "",
+    "run_id": "",
+    "run_attempt": ""
+  },
+  "objective": "Docs/manifest/00_overview.md#Core Objective"
+}

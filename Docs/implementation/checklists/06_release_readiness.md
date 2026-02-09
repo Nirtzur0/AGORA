@@ -1,7 +1,7 @@
 # Checklist: Release Readiness
 
 Date: 2026-02-09
-Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` + `AR-C10`/`AR-C11` CI operability policy + trend telemetry)
+Packet: `prompt-11-docs-diataxis-release` follow-through (`AR-C12` ownership/escalation/fallback shaping)
 
 ## Versioning and changelog
 
@@ -81,6 +81,18 @@ Packet: prompt-02 implementation follow-through (`AR-C04`/`AR-C05` + `AR-C10`/`A
   - Evidence: script output schema includes `elapsed_seconds`, `runtime_target_minutes`, `attempts_used`, `retry_budget`, `retries_used`, and derived delta/target flags.
 - [x] Runtime trend dashboards are retained in CI evidence artifacts and job summaries.
   - Evidence: `cmd-13-nightly-runtime-trend` artifact upload path includes dashboard markdown; `release-tag-gate-artifacts` includes release dashboard markdown and both jobs append dashboard content to `$GITHUB_STEP_SUMMARY`.
+- [x] First remote runtime-trend artifact evidence is captured.
+  - Evidence: workflow dispatch run `21813014551`, job `cmd-13-nightly-full-suite` (`62928919065`) passed and published artifact `cmd-13-nightly-runtime-trend` (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`).
+
+## M9 External Sink Routing Prep (`AR-C12`)
+
+- [x] External sink escalation ownership is defined before implementation.
+  - Evidence: `Docs/manifest/07_observability.md` now includes owner roles + severity mapping in `External Sink Ownership and Escalation Policy`.
+- [x] Dry-run rollout and fallback behavior are explicitly documented.
+  - Evidence: `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, and `Docs/reference/release_workflow.md` all define dry-run/fail-open rollout and in-repo fallback signals (`CMD-29`, `CMD-32`, `CMD-39`).
+- [ ] First external-sink publish evidence is captured from a remote CI run.
+  - Verify: one run references successful external delivery attempt and links to the sink-targeted payload summary.
+  - Target packet: `prompt-02-app-development-playbook` implementation follow-through.
 
 ## Documentation completeness
 

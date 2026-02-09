@@ -8,7 +8,7 @@ Quick Links: [Getting Started](./getting_started/quickstart.md) | [Tutorials](./
 
 - Appetite: `medium`
 - Not now:
-  - First remote evidence capture for new nightly/tag release CI jobs
+  - External sink delivery implementation and first remote evidence capture for `AR-C12`
   - Expanded tutorial set beyond one end-to-end path
 
 ## Navigation Tree
@@ -110,5 +110,5 @@ These pages are internal engineering control-plane docs and should not be duplic
 
 ## Remaining Improvements
 
-- Capture and document first passing remote runs for nightly/tag release jobs.
+- Implement external observability sink delivery (`AR-C12`) and capture first remote publish evidence.
 - Expand troubleshooting matrix with concrete error signatures from future incidents.

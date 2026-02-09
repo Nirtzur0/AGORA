@@ -1,8 +1,8 @@
 # Checklist: Improvement Bets
 
 Date: 2026-02-09
-Prompt packet: `prompt-02-app-development-playbook`
-Triggering delta: `AR-C11` implementation added runtime/flake trend telemetry artifacts for heavy nightly/release jobs; next residual risk is now external sink routing (`DIR-18`).
+Prompt packet: `prompt-11-docs-diataxis-release`
+Triggering delta: `DIR-18` remained the only open risk after `AR-C11` remote-evidence closure; external sink ownership/escalation/fallback policy had to be defined before implementation.
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 Checked boxes imply acceptance signals were met and verification evidence was recorded in `Docs/implementation/00_status.md` and `Docs/implementation/03_worklog.md`.
@@ -11,6 +11,15 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 
 ## Bet DIR-18: External observability sink/pager integration
 
+- [x] Define external sink ownership + severity routing + fallback policy before implementation.
+  - Owner type: maintainer
+  - Effort: M
+  - Target files/areas: `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - AC: escalation owner, severity mapping, and dry-run/fallback policy are explicit and linked from CI/release docs.
+  - Verify: `rg -n "External Sink Ownership and Escalation Policy|External Sink Routing Plan|External Sink Ownership and Rollout Readiness|M9 External Sink Routing Prep" Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09).
+  - Acceptance signal: `AR-C12` implementation can proceed without ambiguity about incident ownership and fallback behavior.
+  - Suggested prompt chain: `prompt-11` -> `prompt-02` -> `prompt-03`
+
 - [ ] Route objective/observability CI outputs to an external dashboard/paging surface.
   - Owner type: maintainer
   - Effort: L
@@ -18,7 +27,7 @@ Checked boxes imply acceptance signals were met and verification evidence was re
   - AC: one external sink receives and exposes key CI observability outputs.
   - Verify: integration dry-run evidence + docs references.
   - Acceptance signal: CI artifacts are not only in-repo; at least one external operational surface is active.
-  - Suggested prompt chain: `prompt-02` -> `prompt-11` -> `prompt-03`
+  - Suggested prompt chain: `prompt-02` -> `prompt-03`
 
 ## Completed Bets (Recent)
 
@@ -29,7 +38,7 @@ Checked boxes imply acceptance signals were met and verification evidence was re
   - Effort: M
   - Target files/areas: `.github/workflows/ci.yml`, `scripts/*`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
   - AC: one artifact/report captures runtime duration and retry/flake trend for heavy jobs and is linked in docs.
-  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09) and `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09).
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09), `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime|duration|retry|flake|trend|artifact" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/reference/release_workflow.md` (PASS, 2026-02-09), and workflow dispatch run `21813014551` job `62928919065` PASS with `cmd-13-nightly-runtime-trend` artifact (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`).
   - Acceptance signal: operational drift in heavy CI paths is measurable over time, not only per-run.
   - Suggested prompt chain: `prompt-02` -> `prompt-10` -> `prompt-03`
 
@@ -129,4 +138,4 @@ Checked boxes imply acceptance signals were met and verification evidence was re
 - [x] Completed packet (`small` appetite): DIR-15.
 - [x] Completed packet (`medium` appetite): DIR-16.
 - [x] Completed packet (`medium` appetite): DIR-17.
-- [ ] Not now (`large` appetite): DIR-18.
+- [ ] Now packet (`large` appetite): DIR-18.

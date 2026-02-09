@@ -2,7 +2,7 @@
 
 Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-17` runtime-trend closure)
 Prompt packet: `prompt-03-alignment-review-gate`
-Triggering delta: `prompt-02` follow-through closed `DIR-17`/`AR-C11` by wiring runtime/flake trend artifact publication for heavy nightly/release gates; checkpoint rerun required to re-rank residual risk and route the next non-redundant packet.
+Triggering delta: `prompt-02` follow-through closed `DIR-17`/`AR-C11` by wiring runtime/flake trend artifact publication for heavy nightly/release gates; subsequent `prompt-11` follow-through completed correction 3 policy-shaping for `DIR-18` so implementation routing can advance.
 Verdict: `ALIGNED_WITH_RISKS`
 
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
@@ -40,11 +40,11 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 ## Top 3 Next Corrections
 
-- [ ] Correction 1: capture first remote evidence run for the new `AR-C11` runtime-trend artifact outputs.
+- [x] Correction 1: capture first remote evidence run for the new `AR-C11` runtime-trend artifact outputs.
   - Owner type: maintainer
   - Effort: S
   - Target files: `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
-  - Acceptance signal: at least one remote run reference includes runtime-trend artifacts (`cmd-13-nightly-runtime-trend` and/or `release-tag-runtime-trend-*`).
+  - Acceptance signal: at least one remote run reference includes runtime-trend artifacts (`cmd-13-nightly-runtime-trend` and/or `release-tag-runtime-trend-*`). (Completed 2026-02-09 via workflow dispatch run `21813014551`, job `62928919065`.)
   - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C11` follow-through evidence).
 
 - [ ] Correction 2: route observability outputs to external dashboard/paging surface (`DIR-18` / `AR-C12`).
@@ -54,17 +54,17 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
   - Acceptance signal: one external sink receives objective/observability outputs with documented escalation owner.
   - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C12`).
 
-- [ ] Correction 3: define external sink ownership + dry-run fallback before enabling pager-backed routing.
+- [x] Correction 3: define external sink ownership + dry-run fallback before enabling pager-backed routing.
   - Owner type: maintainer
   - Effort: M
   - Target files: `Docs/manifest/07_observability.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
-  - Acceptance signal: escalation owner, severity mapping, and rollback/fallback path are explicit before `AR-C12` implementation.
+  - Acceptance signal: escalation owner, severity mapping, and rollback/fallback path are explicit before `AR-C12` implementation. (Completed 2026-02-09 via `prompt-11` docs follow-through.)
   - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C12` prep).
 
 ## Next Execution Packet Mapping
 
 - [x] Corrections are mapped into milestone checklist references (`M9`).
-- [x] Recommended next non-redundant packet: `prompt-02-app-development-playbook` to capture first remote `AR-C11` runtime-trend artifact evidence and close correction 1; then route `DIR-18` shaping.
+- [x] Recommended next non-redundant packet: `prompt-02-app-development-playbook` to implement `DIR-18` (`AR-C12`) external sink delivery and capture first remote evidence run.
 
 ## Latest Checkpoint
 
@@ -75,4 +75,6 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 - [x] 2026-02-09 `make up` + `scripts/preflight_temporal.sh` -> PASS for objective metric gate preconditions.
 - [x] 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS (`required_metrics=2`, `passed_metrics=2`).
 - [x] 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS (`overall_status=pass`).
-- [x] 2026-02-09 alignment rerank after `DIR-17` closure keeps verdict at `ALIGNED_WITH_RISKS` and moves active open risk to `DIR-18` (`AR-C12`) with `AR-C11` remote-evidence follow-through pending.
+- [x] 2026-02-09 workflow dispatch run `21813014551` (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551`) passed `cmd-13-nightly-full-suite` job `62928919065` and published `cmd-13-nightly-runtime-trend` artifact.
+- [x] 2026-02-09 `prompt-11-docs-diataxis-release` follow-through defined `AR-C12` ownership/escalation/fallback policy in `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, and `Docs/implementation/checklists/06_release_readiness.md`.
+- [x] 2026-02-09 alignment rerank after `DIR-17` closure keeps verdict at `ALIGNED_WITH_RISKS`; active remaining risk is `DIR-18` (`AR-C12`) now that `AR-C11` remote evidence follow-through is closed.

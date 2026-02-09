@@ -10,6 +10,7 @@ This page defines AGORA release policy and how local release actions map to CI g
 - Runtime/flake policy is now codified for nightly and release heavy gates (`AR-C10`).
 - Runtime/flake trend artifacts are now emitted for nightly and release heavy gates (`AR-C11`).
 - First remote run evidence is captured:
+  - dispatch run `21813014551`: `cmd-13-nightly-full-suite` pass (`62928919065`) with `cmd-13-nightly-runtime-trend` artifact publication
   - dispatch run `21811670648`: `release-tag-gate` pass (`62924827121`) and `cmd-13-nightly-full-suite` pass (`62924827118`)
   - PR run `21811670116`: `cmd-37-38-dash-data-quality` pass (`62924847427`)
 
@@ -76,6 +77,30 @@ Operational notes:
   2. Retry usage in 3 of the latest 5 heavy runs is treated as flake-signal degradation requiring maintainer triage.
   3. Artifacts are retained as release evidence and mirrored into GitHub job summaries for quick review.
 
+## External Sink Ownership and Rollout Readiness (`AR-C12` Prep)
+
+Status: policy-ready; integration work remains open.
+
+Escalation ownership before implementation:
+
+| Severity class | Primary owner | Secondary owner | Release impact rule |
+|---|---|---|---|
+| SEV-1 | Maintainer on-call | Release owner | release cut is blocked until triage outcome is explicit |
+| SEV-2 | Maintainer on-call | Core API/Worker maintainer | release owner decides go/no-go with documented rationale |
+| SEV-3 | Next working cycle owner | Maintainer on-call | no immediate release block unless trend worsens |
+
+Signal mapping source of truth:
+
+- `Docs/manifest/07_observability.md` (`Severity Routing` + `External Sink Ownership and Escalation Policy`).
+- `Docs/manifest/11_ci.md` (`External Sink Routing Plan`).
+
+Rollout and fallback policy:
+
+1. `AR-C12` starts in dry-run mode with payload generation and delivery-attempt logs only.
+2. CI remains fail-open on sink-delivery failures until first remote publish evidence is captured.
+3. During any sink outage, release decisions rely on in-repo signals from `CMD-29`, `CMD-32`, and `CMD-39` artifacts.
+4. After successful dry-run evidence, implementation packet decides whether release paths should remain fail-open or move selected signals to fail-closed.
+
 ## Tag-Triggered Release Path (AR-C04 Implemented Trigger Spec)
 
 Implemented workflow trigger in `.github/workflows/ci.yml`:
@@ -139,4 +164,6 @@ Current mapping (implemented):
 - CI implementation completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
 - Runtime/flake policy codification (`AR-C10`) completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
 - Runtime/flake trend telemetry (`AR-C11`) completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
-- Next non-redundant packet: `prompt-03-alignment-review-gate` to refresh residual-risk ranking after `DIR-17` closure and route `AR-C12`.
+- AR-C11 remote evidence follow-through completed by workflow dispatch run `21813014551` (`cmd-13-nightly-full-suite` + `cmd-13-nightly-runtime-trend` artifact).
+- `prompt-11-docs-diataxis-release` follow-through completed ownership/escalation/fallback shaping for `AR-C12` (2026-02-09).
+- Next non-redundant packet: `prompt-02-app-development-playbook` to implement external sink delivery and capture first remote evidence for `AR-C12`.

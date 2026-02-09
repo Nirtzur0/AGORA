@@ -22,6 +22,17 @@ on:
         default: 'false'
         type: choice
         options: ['false', 'true']
+      observability_sink_mode:
+        description: 'External observability sink publish mode'
+        required: false
+        default: 'dry_run'
+        type: choice
+        options: ['disabled', 'dry_run', 'active']
+      observability_sink_url:
+        description: 'External observability sink URL override (optional)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   docs-guardrail:
@@ -273,6 +284,39 @@ jobs:
       - name: Run observability snapshot synthesis
         run: make PYTHON=python check-observability-snapshot
 
+      - name: Publish objective and observability payload to external sink
+        if: always()
+        env:
+          OBS_SINK_URL_FROM_INPUT: ${{ github.event.inputs.observability_sink_url }}
+          OBS_SINK_URL_FROM_SECRET: ${{ secrets.OBSERVABILITY_SINK_URL }}
+        run: |
+          mode="${{ github.event.inputs.observability_sink_mode }}"
+          if [ -z "$mode" ]; then
+            mode="dry_run"
+          fi
+
+          sink_url="${OBS_SINK_URL_FROM_INPUT:-}"
+          if [ -z "$sink_url" ]; then
+            sink_url="${OBS_SINK_URL_FROM_SECRET:-}"
+          fi
+
+          python scripts/publish_observability_sink.py \
+            --mode "$mode" \
+            --sink-url "$sink_url" \
+            --fail-open true \
+            --workflow "${{ github.workflow }}" \
+            --job "objective-metrics-gate" \
+            --event-name "${{ github.event_name }}" \
+            --ref "${{ github.ref }}" \
+            --sha "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --objective-latest Docs/implementation/reports/objective_metrics_latest.json \
+            --objective-history Docs/implementation/reports/objective_metrics_history.jsonl \
+            --observability-latest Docs/implementation/reports/observability_snapshot_latest.json \
+            --report /tmp/objective-observability-sink-report.json \
+            --summary-markdown /tmp/objective-observability-sink-summary.md
+
       - name: Publish objective metrics summary
         if: always()
         run: |
@@ -282,6 +326,10 @@ jobs:
           if [ -f Docs/implementation/reports/observability_snapshot_dashboard.md ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
             cat Docs/implementation/reports/observability_snapshot_dashboard.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f /tmp/objective-observability-sink-summary.md ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/objective-observability-sink-summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload objective metrics artifacts
@@ -304,6 +352,8 @@ jobs:
           path: |
             Docs/implementation/reports/observability_snapshot_latest.json
             Docs/implementation/reports/observability_snapshot_dashboard.md
+            /tmp/objective-observability-sink-report.json
+            /tmp/objective-observability-sink-summary.md
           if-no-files-found: error
 
       - name: Cleanup
@@ -654,6 +704,47 @@ jobs:
             cat /tmp/cmd-13-nightly-runtime-trend-dashboard.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Publish nightly runtime trend payload to external sink
+        if: always()
+        env:
+          OBS_SINK_URL_FROM_INPUT: ${{ github.event.inputs.observability_sink_url }}
+          OBS_SINK_URL_FROM_SECRET: ${{ secrets.OBSERVABILITY_SINK_URL }}
+        run: |
+          mode="${{ github.event.inputs.observability_sink_mode }}"
+          if [ -z "$mode" ]; then
+            mode="dry_run"
+          fi
+
+          sink_url="${OBS_SINK_URL_FROM_INPUT:-}"
+          if [ -z "$sink_url" ]; then
+            sink_url="${OBS_SINK_URL_FROM_SECRET:-}"
+          fi
+
+          python scripts/publish_observability_sink.py \
+            --mode "$mode" \
+            --sink-url "$sink_url" \
+            --fail-open true \
+            --workflow "${{ github.workflow }}" \
+            --job "cmd-13-nightly-full-suite" \
+            --event-name "${{ github.event_name }}" \
+            --ref "${{ github.ref }}" \
+            --sha "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --runtime-trend-latest /tmp/cmd-13-nightly-runtime-trend-latest.json \
+            --runtime-trend-dashboard /tmp/cmd-13-nightly-runtime-trend-dashboard.md \
+            --runtime-policy-summary /tmp/cmd-13-nightly-runtime-policy.txt \
+            --report /tmp/cmd-13-nightly-observability-sink-report.json \
+            --summary-markdown /tmp/cmd-13-nightly-observability-sink-summary.md
+
+      - name: Add nightly sink publish summary to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/cmd-13-nightly-observability-sink-summary.md ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/cmd-13-nightly-observability-sink-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Publish nightly runtime policy and trend artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -664,6 +755,8 @@ jobs:
             /tmp/cmd-13-nightly-runtime-trend-latest.json
             /tmp/cmd-13-nightly-runtime-trend-history.jsonl
             /tmp/cmd-13-nightly-runtime-trend-dashboard.md
+            /tmp/cmd-13-nightly-observability-sink-report.json
+            /tmp/cmd-13-nightly-observability-sink-summary.md
           if-no-files-found: error
 
       - name: Cleanup
@@ -769,6 +862,47 @@ jobs:
             cat /tmp/release-tag-runtime-trend-dashboard.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Publish release runtime trend payload to external sink
+        if: always()
+        env:
+          OBS_SINK_URL_FROM_INPUT: ${{ github.event.inputs.observability_sink_url }}
+          OBS_SINK_URL_FROM_SECRET: ${{ secrets.OBSERVABILITY_SINK_URL }}
+        run: |
+          mode="${{ github.event.inputs.observability_sink_mode }}"
+          if [ -z "$mode" ]; then
+            mode="dry_run"
+          fi
+
+          sink_url="${OBS_SINK_URL_FROM_INPUT:-}"
+          if [ -z "$sink_url" ]; then
+            sink_url="${OBS_SINK_URL_FROM_SECRET:-}"
+          fi
+
+          python scripts/publish_observability_sink.py \
+            --mode "$mode" \
+            --sink-url "$sink_url" \
+            --fail-open true \
+            --workflow "${{ github.workflow }}" \
+            --job "release-tag-gate" \
+            --event-name "${{ github.event_name }}" \
+            --ref "${{ github.ref }}" \
+            --sha "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}" \
+            --run-attempt "${{ github.run_attempt }}" \
+            --runtime-trend-latest /tmp/release-tag-runtime-trend-latest.json \
+            --runtime-trend-dashboard /tmp/release-tag-runtime-trend-dashboard.md \
+            --runtime-policy-summary /tmp/release-tag-runtime-policy.txt \
+            --report /tmp/release-tag-observability-sink-report.json \
+            --summary-markdown /tmp/release-tag-observability-sink-summary.md
+
+      - name: Add release sink publish summary to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/release-tag-observability-sink-summary.md ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/release-tag-observability-sink-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Verify release-readiness evidence files
         run: |
           test -f CHANGELOG.md
@@ -801,6 +935,8 @@ jobs:
             /tmp/release-tag-runtime-trend-latest.json
             /tmp/release-tag-runtime-trend-history.jsonl
             /tmp/release-tag-runtime-trend-dashboard.md
+            /tmp/release-tag-observability-sink-report.json
+            /tmp/release-tag-observability-sink-summary.md
             /tmp/release-readiness-evidence.tgz
           if-no-files-found: error
 

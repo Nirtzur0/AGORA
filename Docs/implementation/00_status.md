@@ -5,13 +5,61 @@ Last updated: 2026-02-09
 Entry mode: Existing Repo
 Cycle stage: Build (legacy `phase_3`)
 Intensity mode: Standard
-Primary prompt: `prompt-03-alignment-review-gate` (post-`DIR-17` checkpoint rerank)
+Primary prompt: `prompt-11-docs-diataxis-release` (policy-shaping follow-through for `DIR-18` / `AR-C12`)
 
 Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
-This step advances objective by: revalidating alignment after `DIR-17` (`AR-C11`) closure and rerouting the next packet to close remaining high-signal operability gaps without repeating stale prompt loops.
-Risks of misalignment: first remote runtime-trend artifact evidence is still pending (`AR-C11` follow-through) and external observability sink routing remains open (`DIR-18` / `AR-C12`).
+This step advances objective by: finalizing the external-sink ownership/escalation/fallback contract for `AR-C12`, so implementation can proceed without ambiguity in incident routing and rollback behavior.
+Risks of misalignment: external sink delivery is still unimplemented (`DIR-18` / `AR-C12`), so observability remains artifact-only until `prompt-02` follow-through lands.
 
 ## Done (This Packet)
+
+- Manually selected and executed `prompt-11-docs-diataxis-release` follow-through (without `.py` router loop) to shape `DIR-18` (`AR-C12`) ownership/escalation/fallback policy before implementation:
+  - triggering delta: `AR-C11` remote evidence is already closed and `DIR-18` remained the only open residual risk, so policy shaping had to be finalized before implementation.
+  - defined external-sink ownership + severity routing + fallback policy:
+    - `Docs/manifest/07_observability.md`
+  - documented CI routing plan and rollout mode (`dry-run` + fail-open while evidence is pending):
+    - `Docs/manifest/11_ci.md`
+  - documented release-governance ownership and escalation implications:
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+  - synced direction/milestone/alignment routing:
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - `Docs/implementation/checklists/07_alignment_review.md` (correction 3 checked; next packet moved to `prompt-02`)
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - docs navigation/changelog sync:
+    - `Docs/INDEX.md`
+    - `CHANGELOG.md`
+  - verification evidence (2026-02-09):
+    - `rg -n "External Sink Ownership and Escalation Policy|Signal-to-Severity Mapping|Rollout and Fallback Policy|Known Gaps" Docs/manifest/07_observability.md` -> PASS
+    - `rg -n "External Sink Routing Plan|delivery remains unimplemented|Ownership and escalation references" Docs/manifest/11_ci.md` -> PASS
+    - `rg -n "External Sink Ownership and Rollout Readiness|dry-run mode|fail-open" Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` -> PASS
+    - `rg -n "Correction 3|Recommended next non-redundant packet: prompt-02-app-development-playbook|AR-C12" Docs/implementation/checklists/07_alignment_review.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/02_milestones.md Docs/implementation/reports/improvement_directions.md Docs/implementation/reports/alignment_review.md` -> PASS
+  - next non-redundant packet: `prompt-02-app-development-playbook` to implement `AR-C12` external sink delivery and capture first remote publish evidence.
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router loop) to close `AR-C11` remote runtime-trend evidence capture:
+  - pushed follow-through implementation to remote branch:
+    - commit `726d7d0` on `prompt-02-dir14-remote-evidence`
+  - triggered workflow dispatch on branch:
+    - `gh workflow run ci.yml --ref prompt-02-dir14-remote-evidence -f run_full_e2e=true -f run_release_gate=false`
+  - remote evidence captured:
+    - run `21813014551`: `https://github.com/Nirtzur0/AGORA/actions/runs/21813014551`
+    - job `cmd-13-nightly-full-suite` (`62928919065`) PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`
+    - artifact published: `cmd-13-nightly-runtime-trend`
+  - synced docs/checklists for closure + routing:
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/checklists/07_alignment_review.md` (correction 1 checked)
+    - `Docs/implementation/reports/alignment_review.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-18` promoted to active now-packet)
+    - `Docs/implementation/reports/improvement_directions.md`
+  - verification evidence (2026-02-09):
+    - `gh run view 21813014551 --json status,conclusion,jobs,headSha,headBranch,event,url` -> PASS (`status=completed`, `conclusion=success`, job `62928919065` success)
+    - `gh api 'repos/Nirtzur0/AGORA/actions/runs/21813014551/artifacts' --jq '.artifacts[] | {name,size_in_bytes}'` -> PASS (`cmd-13-nightly-runtime-trend`)
+    - `rg -n "21813014551|62928919065|cmd-13-nightly-runtime-trend|AR-C11|Recommended next non-redundant packet:" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/alignment_review.md Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+  - next non-redundant packet: `prompt-11-docs-diataxis-release` to shape `DIR-18` (`AR-C12`) external sink ownership/escalation policy before `prompt-02` implementation.
 
 - Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router loop) after `DIR-17` (`AR-C11`) closure:
   - refreshed alignment artifacts for the post-`AR-C11` state:
@@ -118,7 +166,7 @@ Risks of misalignment: first remote runtime-trend artifact evidence is still pen
     - `rg -n "^\\| ID \\| Direction \\| Type \\| Evidence \\| Gap \\| Impact \\| Confidence \\| Effort \\| Deferral Risk \\| Suggested Prompt Chain \\|" Docs/implementation/reports/improvement_directions.md` -> PASS
     - `rg -n "DIR-16|DIR-17|DIR-18|Now packet|Next packet|Not now" Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
     - `rg -n "M9 - CI Operability Policy and Trend Hardening|AR-C10|AR-C11|AR-C12" Docs/implementation/checklists/02_milestones.md` -> PASS
-    - `rg -n 'Recommended next non-redundant packet: `prompt-02-app-development-playbook`|Correction 4: re-rank improvement directions' Docs/implementation/checklists/07_alignment_review.md` -> PASS
+    - `rg -n 'Recommended next non-redundant packet: prompt-02-app-development-playbook|Correction 4: re-rank improvement directions' Docs/implementation/checklists/07_alignment_review.md` -> PASS
   - next non-redundant packet: `prompt-02-app-development-playbook` to implement `DIR-16` (`AR-C10`) runtime/flake policy codification.
 
 - Manually selected and executed `prompt-10-tests-stabilization-loop` follow-through (without `.py` router loop):
@@ -191,7 +239,7 @@ Risks of misalignment: first remote runtime-trend artifact evidence is still pen
     - `rg -n "^\\| ID \\| Direction \\| Type \\| Evidence \\| Gap \\| Impact \\| Confidence \\| Effort \\| Deferral Risk \\| Suggested Prompt Chain \\|" Docs/implementation/reports/improvement_directions.md` -> PASS
     - `rg -n "DIR-14|DIR-15|DIR-16|DIR-17|Now packet|Next packet|Not now" Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
     - `rg -n "M8 - Post-M7 Evidence and Signal Hardening|AR-C06|AR-C07|AR-C08|AR-C09" Docs/implementation/checklists/02_milestones.md` -> PASS
-    - `rg -n 'Recommended next non-redundant packet: `prompt-02-app-development-playbook`|prompt-14-improvement-direction-bet-loop refresh completed' Docs/implementation/checklists/07_alignment_review.md` -> PASS
+    - `rg -n 'Recommended next non-redundant packet: prompt-02-app-development-playbook|prompt-14-improvement-direction-bet-loop refresh completed' Docs/implementation/checklists/07_alignment_review.md` -> PASS
 - Manually selected and executed fresh `prompt-03-alignment-review-gate` packet (without `.py` router loop) after `AR-C04`/`AR-C05` implementation:
   - refreshed alignment artifacts for post-implementation state:
     - `Docs/implementation/checklists/07_alignment_review.md`
