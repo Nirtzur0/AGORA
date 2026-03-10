@@ -16,7 +16,7 @@ import uuid
 # Use test database
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
+    f"postgresql://agora:agora_dev_password@localhost:{os.getenv('AGORA_DB_PORT', '55432')}/agora_test",
 )
 
 

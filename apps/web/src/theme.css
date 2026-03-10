@@ -1,72 +1,31 @@
 :root {
-  /* Colors */
-  /* "Paper + Ink" palette: warm background, high-contrast text, teal primary. */
-  --color-primary: #0f766e; /* Teal 700 */
-  --color-primary-hover: #0b5f59; /* Teal 800-ish */
-  --color-primary-light: #ccfbf1; /* Teal 100 */
-  --color-primary-ink: #042f2e; /* Teal 950 */
+  --color-paper: #f7f1e4;
+  --color-paper-strong: #fffaf0;
+  --color-surface: rgba(255, 250, 242, 0.92);
+  --color-surface-strong: #fffdf8;
+  --color-ink: #1c2d33;
+  --color-ink-strong: #132127;
+  --color-text: #2e4148;
+  --color-text-muted: #6d7c82;
+  --color-border: rgba(71, 89, 94, 0.14);
+  --color-border-strong: rgba(71, 89, 94, 0.24);
 
-  --color-bg-app: #fbf7ef; /* Parchment */
-  --color-bg-surface: #ffffff;
-  --color-bg-card: #ffffff;
-  --color-bg-hover: #f3efe6;
-  --color-bg-soft: #f7f2e7;
+  --color-accent: #bb7a30;
+  --color-accent-strong: #8f5717;
+  --color-accent-soft: rgba(217, 170, 106, 0.18);
+  --color-teal: #295666;
+  --color-teal-soft: rgba(38, 90, 107, 0.14);
 
-  --color-text-main: #0f172a; /* Slate 900 */
-  --color-text-secondary: #475569; /* Slate 600 */
-  --color-text-muted: #64748b; /* Slate 500 */
+  --color-success: #458164;
+  --color-warning: #b96c29;
+  --color-danger: #b44c42;
+  --color-info: #406f85;
 
-  --color-border: #e7dfd1;
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-mono: "SF Mono", Menlo, Monaco, Consolas, monospace;
 
-  --color-success: #16a34a;
-  --color-error: #dc2626;
-  --color-warning: #d97706;
-  --color-info: #0284c7;
-
-  --color-focus: rgba(15, 118, 110, 0.35);
-
-  /* Typography */
-  --font-sans: "Avenir Next", Avenir, "Gill Sans", "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 1.875rem;
-  
-  --weight-regular: 400;
-  --weight-medium: 500;
-  --weight-semibold: 600;
-  --weight-bold: 700;
-
-  /* Spacing */
-  --space-1: 0.25rem; /* 4px */
-  --space-2: 0.5rem;  /* 8px */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem;    /* 16px */
-  --space-5: 1.25rem; /* 20px */
-  --space-6: 1.5rem;  /* 24px */
-  --space-8: 2rem;    /* 32px */
-  --space-10: 2.5rem; /* 40px */
-  --space-12: 3rem;   /* 48px */
-
-  /* Radius */
-  --radius-sm: 0.25rem; /* 4px */
-  --radius-md: 0.375rem; /* 6px */
-  --radius-lg: 0.5rem;  /* 8px */
-  --radius-xl: 0.75rem; /* 12px */
-  --radius-full: 9999px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  
-  /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-card: 0 16px 40px rgba(31, 47, 54, 0.08);
+  --shadow-lift: 0 28px 56px rgba(18, 34, 38, 0.16);
+  --transition-fast: 160ms ease;
 }

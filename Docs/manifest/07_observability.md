@@ -78,9 +78,9 @@ Command IDs are defined in `Docs/manifest/09_runbook.md#command-map`.
   - Any `FRESHNESS_STALE`, `MISSING_PROVENANCE`, or `INVALID_RETRIEVED_AT` result is treated as SEV-2 if unresolved for >24h.
   - Any `FRESHNESS_WARN` result (75-90 days) is tracked as SEV-3 and scheduled in the next working cycle.
 
-## External Sink Ownership and Escalation Policy (`AR-C12`)
+## External Sink Ownership and Escalation Policy (`AR-C12`, `AR-C13`)
 
-Status: implemented with fail-open rollout.
+Status: implemented with gate-class sink failure-mode policy.
 
 ### Ownership Model
 
@@ -100,15 +100,23 @@ Status: implemented with fail-open rollout.
 | `CMD-20` freshness audit | stale/missing provenance unresolved >24h | SEV-2 | Maintainer on-call |
 | `CMD-20` freshness warning | warning window (75-90 days), no hard breach | SEV-3 | Next working cycle owner |
 
+### Failure-Mode Decision Matrix (`AR-C13`)
+
+| Gate class | CI publish step mode | Policy posture | Blocking rule |
+|---|---|---|---|
+| `objective-metrics-gate` (`CMD-29` + `CMD-32`) | `--fail-open true` | Governance fail-closed for release readiness | A release sign-off is blocked if the latest objective/snapshot sink publish is failed/missing and no successful rerun evidence is recorded. |
+| `cmd-13-nightly-full-suite` (`CMD-39`) | `--fail-open true` | Operability fail-open | Nightly sink failures do not block release directly; they trigger SEV-2 triage and require follow-up evidence before next release cut. |
+| `release-tag-gate` (`CMD-39`) | `--fail-open true` | Governance fail-closed for release cut | Release owner must block promotion when sink publish fails unless an explicit emergency waiver with fallback evidence is recorded. |
+
 ### Rollout and Fallback Policy
 
 1. CI supports `disabled`, `dry_run`, and `active` sink modes (`workflow_dispatch` input `observability_sink_mode`; URL from input override or `OBSERVABILITY_SINK_URL` secret).
-2. Current default rollout is fail-open: sink-delivery failures do not block CI promotion and triage continues from in-repo artifacts and job summaries.
-3. If sink delivery fails, responders must use in-repo fallback signals:
+2. Workflow publish steps remain technically fail-open (`--fail-open true`) so source-of-truth in-repo artifacts (`CMD-29`, `CMD-32`, `CMD-39`) always persist and stay reviewable.
+3. Governance posture is gate-class specific per `AR-C13` matrix above; objective/release paths are treated fail-closed at release decision time.
+4. If sink delivery fails, responders must use in-repo fallback signals:
    - `CMD-29` outputs (`objective_metrics_*`)
    - `CMD-32` outputs (`observability_snapshot_*`)
    - `CMD-39` heavy-job trend artifacts
-4. Pager-backed fail-closed behavior remains deferred until a later tightening packet explicitly flips fail-open policy.
 
 ### Current CI Publish Paths
 
@@ -121,5 +129,5 @@ Status: implemented with fail-open rollout.
 
 - Structured external dashboards are not yet provisioned; runbook triage now includes generated in-repo snapshot dashboard outputs (`CMD-32`) and heavy-gate runtime trend artifacts plus CLI checks.
 - Objective metrics history is persisted in-repo (`objective_metrics_history.jsonl`) and per-run CI artifacts, but no external TSDB/pager automation exists yet.
-- External sink routing is fail-open by policy; fail-closed escalation gating is deferred.
+- Objective/snapshot sink active-mode remote evidence (`AR-C14`) is still pending for `objective-metrics-gate`.
 - Full e2e gating (`CMD-13`) is release-time; per-PR path currently enforces deterministic subset (`CMD-27`) with warning-budget guardrails.

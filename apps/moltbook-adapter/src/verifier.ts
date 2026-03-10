@@ -58,6 +58,32 @@ export class MoltbookVerifier {
     );
   }
 
+  private buildDebugVerification(identityToken: string): VerificationResult {
+    const rawSlug = identityToken.replace(/^debug-token-/, '').trim();
+    const normalizedSlug = rawSlug
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'user';
+
+    const nameSuffix = normalizedSlug
+      .split('-')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    return {
+      moltbook_id: `mb_debug_${normalizedSlug}`,
+      name: nameSuffix ? `Debug ${nameSuffix}` : 'Debug User',
+      reputation: 999,
+      profile_meta: {
+        role: 'debugger',
+        environment: 'local',
+        debug_identity: identityToken,
+      },
+    };
+  }
+
   /**
    * Verify a Moltbook identity token.
    * 
@@ -75,15 +101,9 @@ export class MoltbookVerifier {
     // DEBUG MODE BYPASS
     if (this.config.enableDebugMode && identityToken.startsWith('debug-token-')) {
       console.log('DEBUG MODE: Bypassing Moltbook verification for debug token');
-      return {
-        moltbook_id: 'mb_debug_user_001',
-        name: 'Debug User',
-        reputation: 999,
-        profile_meta: {
-          role: 'debugger',
-          environment: 'local'
-        }
-      };
+      const debugResult = this.buildDebugVerification(identityToken);
+      this.cache.set(identityToken, debugResult);
+      return debugResult;
     }
 
     // Check circuit breaker

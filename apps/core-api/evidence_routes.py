@@ -1,7 +1,7 @@
 """
 Evidence Resolution API Routes - Component 10
 
-GET /evidence/resolve endpoint per Docs/04 §5.8.
+GET /evidence/resolve endpoint per canonical API contracts.
 
 This endpoint is the canonical evidence pointer resolver used by:
 - Agents (to validate citations before submission)

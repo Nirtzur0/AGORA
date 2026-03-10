@@ -1,6 +1,6 @@
 # API Contracts
 
-This file summarizes stable boundary contracts implemented by `apps/core-api/*.py` and aligned to `Docs/04-system-implementation-spec.md`.
+This file summarizes stable boundary contracts implemented by `apps/core-api/*.py` and aligned with `Docs/manifest/01_architecture.md` and `Docs/manifest/05_data_model.md`.
 
 Last architecture coherence validation: 2026-02-09 (CI automation follow-through rerun; `Docs/implementation/reports/architecture_coherence_report.md`).
 

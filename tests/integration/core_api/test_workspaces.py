@@ -17,9 +17,37 @@ from tests.helpers.factories import insert_agent, new_uuid, role_id
 def _delete_workspace(*, workspace_id: str) -> None:
     with get_db() as db:
         # Delete dependent rows first (no cascades assumed).
+        db.execute(
+            """
+            DELETE FROM activity_runs
+            WHERE workflow_run_id IN (
+                SELECT id FROM workflow_runs WHERE workspace_id = :ws
+            )
+            """,
+            {"ws": workspace_id},
+        )
+        db.execute("DELETE FROM workflow_runs WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM rule_checks WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM agent_tasks WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM citations WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM claim_evidence WHERE claim_id IN (SELECT id FROM claims WHERE workspace_id = :ws)", {"ws": workspace_id})
+        db.execute("DELETE FROM critiques WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM search_index WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute(
+            """
+            DELETE FROM artifact_versions
+            WHERE artifact_id IN (
+                SELECT id FROM artifacts WHERE workspace_id = :ws
+            )
+            """,
+            {"ws": workspace_id},
+        )
+        db.execute("DELETE FROM artifacts WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM claims WHERE workspace_id = :ws", {"ws": workspace_id})
         db.execute("DELETE FROM join_requests WHERE workspace_id = :ws", {"ws": workspace_id})
         db.execute("DELETE FROM workspace_agents WHERE workspace_id = :ws", {"ws": workspace_id})
         db.execute("DELETE FROM events WHERE workspace_id = :ws", {"ws": workspace_id})
+        db.execute("DELETE FROM logs WHERE workspace_id = :ws", {"ws": workspace_id})
         db.execute("DELETE FROM workspaces WHERE id = :ws", {"ws": workspace_id})
         db.commit()
 
@@ -85,6 +113,17 @@ def test_workspaces_create__valid_request__returns_init_phase_and_team_roster(te
     assert any(m["agent_id"] == agent_tokens["maintainer"]["agent_id"] and m["role_name"] == "Maintainer" for m in team)
 
 
+def test_roles_list__authenticated_agent__returns_seeded_roles(test_client, agent_tokens):
+    r = test_client.get("/workspaces/roles", headers=agent_tokens["maintainer"]["headers"])
+    assert r.status_code == 200, r.text
+
+    payload = r.json()
+    role_names = {role["name"] for role in payload}
+    assert "Maintainer" in role_names
+    assert "Experimentalist" in role_names
+    assert all("permissions" in role for role in payload)
+
+
 def test_join_request_create__valid_role__returns_pending_request(test_client, created_workspace, agent_tokens):
     with get_db() as db:
         exp_role_id = role_id(db, role_name="Experimentalist")
@@ -101,6 +140,49 @@ def test_join_request_create__valid_role__returns_pending_request(test_client, c
     assert payload["agent_id"] == agent_tokens["requester"]["agent_id"]
     assert payload["role_id"] == exp_role_id
     assert payload["status"] == "pending"
+
+
+def test_join_request_list__requester__returns_only_own_requests(test_client, created_workspace, agent_tokens):
+    with get_db() as db:
+        exp_role_id = role_id(db, role_name="Experimentalist")
+
+    create = test_client.post(
+        f"/workspaces/{created_workspace}/join-requests",
+        json={"role_id": exp_role_id},
+        headers=agent_tokens["requester"]["headers"],
+    )
+    assert create.status_code == 201, create.text
+
+    listing = test_client.get(
+        f"/workspaces/{created_workspace}/join-requests",
+        headers=agent_tokens["requester"]["headers"],
+    )
+    assert listing.status_code == 200, listing.text
+    payload = listing.json()
+    assert len(payload) == 1
+    assert payload[0]["agent_id"] == agent_tokens["requester"]["agent_id"]
+    assert payload[0]["role_name"] == "Experimentalist"
+
+
+def test_join_request_list__maintainer__returns_all_requests(test_client, created_workspace, agent_tokens):
+    with get_db() as db:
+        exp_role_id = role_id(db, role_name="Experimentalist")
+
+    create = test_client.post(
+        f"/workspaces/{created_workspace}/join-requests",
+        json={"role_id": exp_role_id},
+        headers=agent_tokens["requester"]["headers"],
+    )
+    assert create.status_code == 201, create.text
+
+    listing = test_client.get(
+        f"/workspaces/{created_workspace}/join-requests",
+        headers=agent_tokens["maintainer"]["headers"],
+    )
+    assert listing.status_code == 200, listing.text
+    payload = listing.json()
+    assert len(payload) >= 1
+    assert any(item["agent_id"] == agent_tokens["requester"]["agent_id"] for item in payload)
 
 
 def test_join_request_review__approved__adds_member_and_returns_approved_status(test_client, created_workspace, agent_tokens):

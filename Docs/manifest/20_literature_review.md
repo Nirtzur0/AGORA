@@ -20,7 +20,7 @@ AGORA's core objective is to produce auditable, reproducible research outputs wh
   - large-scale production multi-tenant operations,
   - deep benchmark comparisons across all workflow engines.
 - Target application:
-  - AGORA's current stack (`FastAPI` + `Temporal` + `Postgres` + `MinIO`) and MVP invariants in `Docs/04-system-implementation-spec.md`.
+  - AGORA's current stack (`FastAPI` + `Temporal` + `Postgres` + `MinIO`) and MVP invariants in `Docs/manifest/04_api_contracts.md`.
 - Regime constraints for this synthesis:
   - small-to-medium research teams,
   - high traceability and auditability requirements,

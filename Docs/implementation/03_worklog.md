@@ -2,6 +2,248 @@
 
 ## 2026-02-09
 
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) for `DIR-23` / `AR-C17` periodic sink-evidence recency enforcement.
+- Prompt-02 `AR-C17` enforcement follow-through:
+  - triggering delta: policy terms were already shaped by `prompt-11`, but no standing automation enforced recency outside sink-routing changes.
+  - implementation:
+    - added `scripts/check_sink_evidence_recency.py` and mapped command `CMD-41` (`make check-sink-evidence-recency`)
+    - added `tests/unit/test_sink_evidence_recency.py` (fresh/stale/missing + release-candidate waiver cases)
+    - updated `.github/workflows/ci.yml` with:
+      - weekly `sink-evidence-recency-gate` (cron `0 8 * * 1`)
+      - new dispatch input `run_sink_recency_gate`
+      - release preflight step `Enforce periodic sink-evidence recency policy for release sign-off`
+    - updated docs for runbook/CI/release/readiness/milestones/bets/directions routing to `DIR-24`
+  - verification evidence:
+    - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_sink_evidence_recency.py tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` -> PASS
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+    - `rg -n "run_sink_recency_gate|sink-evidence-recency-gate|check_sink_evidence_recency.py|check-sink-evidence-recency|CMD-41|allow-current-release-candidate|release-sink-evidence-recency" .github/workflows/ci.yml Makefile scripts/check_sink_evidence_recency.py Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+    - sink evidence references retained for guardrail continuity (2026-02-09):
+      - run `21824083555`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555`
+      - job `62964694204`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555/job/62964694204`
+      - artifacts: `objective-metrics-report`, `observability-snapshot-report`
+  - next non-redundant packet: `prompt-11-docs-diataxis-release` for `DIR-24` / `AR-C18`, then `prompt-03-alignment-review-gate`.
+
+- Manually selected and executed `prompt-11-docs-diataxis-release` follow-through (without `.py` router scripts) for `DIR-23` / `AR-C17` periodic sink-evidence recency policy shaping.
+- Prompt-11 `AR-C17` policy-shaping follow-through:
+  - triggering delta: `DIR-22` / `AR-C16` was closed by `prompt-02`, so standing recency governance became the next non-redundant packet.
+  - updated policy docs:
+    - `Docs/reference/release_workflow.md` (added periodic recency policy table, release sign-off expectations, and waiver constraints)
+    - `Docs/manifest/11_ci.md` (added `AR-C17` policy-shaping notes under external sink routing plan)
+    - `Docs/implementation/checklists/06_release_readiness.md` (added `AR-C17` pre-implementation shaping checklist section)
+    - `Docs/implementation/reports/improvement_directions.md` and `Docs/implementation/checklists/03_improvement_bets.md` (prompt/routing updates)
+  - verification evidence:
+    - `rg -n "AR-C17|recency|14 days|7 days|30 days|weekly|waiver|release sign-off" Docs/reference/release_workflow.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
+    - `rg -n "Prompt packet: \`prompt-11-docs-diataxis-release\`|Now packet .*DIR-23.*prompt-02|Next non-redundant execution packet is \`prompt-02-app-development-playbook\`|Next non-redundant packet: \`prompt-02-app-development-playbook\`" Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/03_improvement_bets.md Docs/reference/release_workflow.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md` -> PASS
+  - next non-redundant packet: `prompt-02-app-development-playbook` follow-through for `DIR-23` / `AR-C17` enforcement, then `prompt-03-alignment-review-gate`.
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) for `DIR-22` / `AR-C16` non-dispatch objective/snapshot sink evidence depth.
+- Prompt-02 `AR-C16` follow-through:
+  - triggering delta: post-M10 prompt-14 rerank set `DIR-22` as the immediate non-redundant packet.
+  - remote evidence captured:
+    - run `21824080587`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824080587`
+    - objective job `62964679628` PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21824080587/job/62964679628`
+    - sink publish execution line: `observability_sink_publish status=dry_run mode=dry_run`
+    - artifacts: `objective-metrics-report`, `observability-snapshot-report`
+  - synced packet docs:
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/00_status.md`
+    - `Docs/manifest/03_decisions.md`
+  - verification evidence:
+    - `gh run list --workflow ci.yml --limit 40 --json databaseId,event,headBranch,status,conclusion,url` -> PASS
+    - `gh run view 21824080587 --json status,conclusion,event,headBranch,headSha,url` -> PASS
+    - `gh run view 21824080587 --json jobs --jq '.jobs[] | select(.name=="Objective metrics gate") | {name,databaseId,conclusion,url}'` -> PASS
+    - `gh run view 21824080587 --job 62964679628 --log | rg -n "observability_sink_publish status=dry_run mode=dry_run|objective-observability-sink-report|objective-observability-sink-summary"` -> PASS
+    - `gh api 'repos/Nirtzur0/AGORA/actions/runs/21824080587/artifacts' --jq '.artifacts[] | select(.name=="objective-metrics-report" or .name=="observability-snapshot-report") | {name,size_in_bytes,expired,created_at}'` -> PASS
+  - next non-redundant packet: `prompt-11-docs-diataxis-release` -> `prompt-02-app-development-playbook` for `DIR-23` / `AR-C17`.
+
+- Manually selected and executed `prompt-14-improvement-direction-bet-loop` packet (without `.py` router scripts) after the fresh post-M10 prompt-03 checkpoint.
+- Prompt-14 rerank refresh (post-M10 closure):
+  - triggering delta: prompt-03 retained `ALIGNED_WITH_RISKS` after `AR-C14`/`AR-C15` closure and required explicit reranking of remaining sink-operability risks.
+  - updated improvement-direction artifacts:
+    - `Docs/implementation/reports/improvement_directions.md` (new open directions `DIR-22`, `DIR-23`, `DIR-24`; updated `Now/Next/Not now`)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (active unchecked bets for `DIR-22`..`DIR-24`)
+    - `Docs/implementation/checklists/02_milestones.md` (added `M11` with `AR-C16`..`AR-C18`)
+  - verification evidence:
+    - `rg -n "21824083555|workflow dispatch run|objective-metrics-gate|sink publish|sink_routing_changes|30 days" Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md .github/workflows/ci.yml` -> PASS
+    - `rg -n "Prompt packet: \`prompt-14-improvement-direction-bet-loop\`|DIR-22|DIR-23|DIR-24|Now|Next|Not now|AR-C16|AR-C17|AR-C18" Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/02_milestones.md` -> PASS
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-22` (`AR-C16`) implementation follow-through.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after `AR-C14` + `AR-C15` closure.
+- Prompt-03 checkpoint refresh (post-M10 closure):
+  - triggering delta: both `DIR-20`/`AR-C14` and `DIR-21`/`AR-C15` were closed, so a fresh rerank was required before selecting additional implementation work.
+  - updated alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verified objective/journey/signal checks:
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - first `make PYTHON=python3 check-objective-metrics` attempt failed during startup ordering (`required_metrics=2`, `passed_metrics=0`, executed tests `0`); rerun after preflight
+    - rerun `make PYTHON=python3 check-objective-metrics` -> PASS (`required_metrics=2`, `passed_metrics=2`)
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`1 passed`, warnings `37/40`)
+    - `make down` -> PASS
+    - `rg -n "AR-C13|AR-C14|AR-C15|DIR-20|DIR-21" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md` -> PASS
+    - `rg -n "sink_routing_changes|sink_required_release|sink_required_alignment|sink_cutoff_date|sink_run_url|sink_job_ref|sink_artifact_ref" .github/workflows/ci.yml` -> PASS
+  - rerank result: verdict remains `ALIGNED_WITH_RISKS`; keep-the-slate-clean decision set to `Reshape Next Bet`.
+  - next non-redundant packet: `prompt-14-improvement-direction-bet-loop`, then `prompt-02-app-development-playbook`.
+
+- Manually selected and executed `prompt-11` -> `prompt-02` follow-through (without `.py` router scripts) for `DIR-21` / `AR-C15` sink-evidence freshness guardrail.
+- Prompt-11 -> Prompt-02 `AR-C15` follow-through:
+  - triggering delta: `AR-C14` remote evidence was captured, but sink-routing edits still lacked an automated freshness guardrail.
+  - implementation:
+    - updated `.github/workflows/ci.yml` docs guardrail with sink-routing detection (`sink_routing_changes`)
+    - required sink-routing PR updates to include:
+      - `Docs/implementation/checklists/06_release_readiness.md`
+      - `Docs/implementation/checklists/07_alignment_review.md`
+    - required added sink evidence references across updated docs:
+      - remote run URL
+      - remote job reference
+      - sink artifact reference
+      - added evidence date within the last 30 days (`sink_cutoff_date`)
+  - docs closure sync:
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C15` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-21` completed; `Now=prompt-03`)
+    - `Docs/implementation/reports/improvement_directions.md` (`DIR-21` closed; next packet `prompt-03`)
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/00_status.md`
+    - `Docs/manifest/03_decisions.md`
+  - verification evidence:
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+    - `rg -n "sink_routing_changes|sink_required_release|sink_required_alignment|sink_cutoff_date|sink_run_url|sink_job_ref|sink_artifact_ref|run URL reference|job reference|sink artifact reference" .github/workflows/ci.yml` -> PASS
+    - `python3` local guardrail simulation harness (regex/date checks) -> PASS (`sink_guardrail_simulation pass_case=PASS`, `sink_guardrail_simulation fail_case=EXPECTED_FAIL`)
+    - `rg -n "AR-C15|DIR-21|sink-evidence freshness guardrail|21824083555|62964694204|objective-metrics-report|observability-snapshot-report|prompt-03-alignment-review-gate" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/00_status.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/manifest/03_decisions.md` -> PASS
+  - next non-redundant packet: `prompt-03-alignment-review-gate` checkpoint rerank.
+
+- Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) for `DIR-20` / `AR-C14` remote objective/snapshot sink evidence capture.
+- Prompt-02 `AR-C14` follow-through:
+  - triggering delta: after prompt-library refresh and prompt-03 rerank, `DIR-20` remained the active now-packet with missing remote objective/snapshot active evidence.
+  - implementation:
+    - updated `.github/workflows/ci.yml` to add `workflow_dispatch` input `run_objective_gate`
+    - enabled dispatch path for `cmd-12-integration` and `objective-metrics-gate` when `run_objective_gate=true`
+  - remote evidence captured:
+    - run `21824083555`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555`
+    - objective job `62964694204` PASS: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555/job/62964694204`
+    - sink publish step `Publish objective and observability payload to external sink` PASS (`observability_sink_publish status=pass`, mode `active`, response `200`)
+    - artifacts: `objective-metrics-report`, `observability-snapshot-report`
+  - synced packet docs:
+    - `Docs/implementation/checklists/02_milestones.md`
+    - `Docs/implementation/checklists/03_improvement_bets.md`
+    - `Docs/implementation/reports/improvement_directions.md`
+    - `Docs/manifest/11_ci.md`
+    - `Docs/reference/release_workflow.md`
+    - `Docs/implementation/checklists/06_release_readiness.md`
+    - `Docs/implementation/00_status.md`
+    - `Docs/manifest/03_decisions.md`
+  - verification evidence:
+    - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS
+    - `gh run view 21824083555 --json status,conclusion,jobs,headSha,headBranch,event,url,createdAt,updatedAt` -> PASS
+    - `gh api 'repos/Nirtzur0/AGORA/actions/runs/21824083555/artifacts' --jq '.artifacts[] | {name,size_in_bytes,expired,created_at}'` -> PASS
+    - `gh run view 21824083555 --job 62964694204 --log | rg -n "observability_sink_publish status=pass mode=active|response_code=200|objective-observability-sink-report|objective-observability-sink-summary"` -> PASS
+  - next non-redundant packet: `prompt-11` -> `prompt-02` follow-through for `DIR-21` / `AR-C15`, then `prompt-03` checkpoint rerank.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after updating the prompt library to latest upstream.
+- Prompt-03 checkpoint refresh (post-prompt-library refresh):
+  - triggering delta: `packages/project-prompts` was advanced from `e31c519` to `63d6ac9`, so objective/journey/signal alignment was re-checked before any new implementation packet.
+  - updated alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verified runtime + prompt-pack integrity signals:
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `git diff --submodule=log -- packages/project-prompts` -> PASS (`e31c519` -> `63d6ac9`)
+    - `python3 packages/project-prompts/scripts/prompts_manifest.py --check && python3 packages/project-prompts/scripts/system_integrity.py --mode prompt_pack` -> PASS
+    - first `make PYTHON=python3 check-objective-metrics` attempt failed during startup ordering; rerun after infra/preflight passed
+    - `make PYTHON=python3 check-objective-metrics` -> PASS
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`1 passed`, warnings `37/40`)
+  - rerank result: verdict remains `ALIGNED_WITH_RISKS`; open residual risks remain `DIR-20`/`AR-C14` and `DIR-21`/`AR-C15`.
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-20`, then `prompt-11`/`prompt-02` follow-through for `DIR-21`.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after prompt-06 UI revalidation.
+- Prompt-03 checkpoint refresh (post-prompt-06 revalidation):
+  - triggering delta: prompt-06 revalidation closed with green desktop/mobile/matrix smoke evidence, so one alignment rerank was required before new implementation work.
+  - updated alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verified current objective/journey/signal checks:
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+    - `make PYTHON=python3 test-e2e-critical` -> PASS (`1 passed`, warnings `37/40`)
+  - rerank result: verdict remains `ALIGNED_WITH_RISKS`; open residual risks remain `DIR-20`/`AR-C14` and `DIR-21`/`AR-C15`.
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-20`, then `prompt-11`/`prompt-02` follow-through for `DIR-21`.
+
+- Manually selected and executed `prompt-06-ui-e2e-verification-loop` revalidation packet (without `.py` router scripts) to refresh UI smoke evidence against the current working tree state.
+- Prompt-06 revalidation follow-through:
+  - triggering delta: large repo churn was present, so deterministic UI smoke checks were re-run to confirm claims/drafts provenance and artifact-viewer health are still stable.
+  - commands and outcomes:
+    - `make up` -> PASS
+    - `npm --prefix apps/web run build` -> PASS
+    - `npm --prefix apps/web run smoke:artifact-viewer` -> PASS
+    - `npm --prefix apps/web run smoke:artifact-viewer:mobile` -> PASS
+    - `npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS
+  - refreshed packet artifacts:
+    - `Docs/implementation/checklists/05_ui_verification.md`
+    - `Docs/implementation/reports/ui_verification_final_report.md`
+  - result: no new UI failure cluster detected; prompt-6 critical-flow packet remains green.
+
+- Manually selected and executed `prompt-11-docs-diataxis-release` follow-through (without `.py` router scripts) to close `DIR-19` / `AR-C13` sink failure-mode policy shaping.
+- Prompt-11 `AR-C13` policy-shaping follow-through:
+  - triggering delta: post-closure rerank showed sink failure posture was still implicit and blocked non-redundant implementation routing.
+  - codified gate-class failure posture and release governance:
+    - `Docs/manifest/07_observability.md` (`Failure-Mode Decision Matrix (AR-C13)`)
+    - `Docs/manifest/11_ci.md` (`External Sink Routing Plan` policy mapping)
+    - `Docs/reference/release_workflow.md` (`AR-C13` matrix + release impact rules)
+    - `Docs/implementation/checklists/06_release_readiness.md` (`M10` `AR-C13` evidence section)
+  - synced milestone/bet/alignment routing:
+    - `Docs/implementation/checklists/02_milestones.md` (`AR-C13` checked)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (`DIR-19` completed; `Now=DIR-20`)
+    - `Docs/implementation/reports/improvement_directions.md` (`DIR-19` closed; next packet `prompt-02`)
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verification evidence:
+    - `rg -n "AR-C13|Failure-Mode Decision Matrix|objective-metrics-gate|cmd-13-nightly-full-suite|release-tag-gate|fail-open|fail-closed" Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` -> PASS
+    - `rg -n "DIR-19|DIR-20|DIR-21|Now|Next|Not now" Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+    - `rg -n "M10 - External Sink Governance Follow-Through|AR-C13|AR-C14|AR-C15" Docs/implementation/checklists/02_milestones.md` -> PASS
+  - next non-redundant packet: `prompt-02-app-development-playbook` for `DIR-20` / `AR-C14`.
+
+- Manually selected and executed fresh `prompt-03-alignment-review-gate` checkpoint (without `.py` router scripts) after `AR-C12` closure evidence.
+- Prompt-03 checkpoint refresh (post-`DIR-18` / `AR-C12`):
+  - triggering delta: sink routing is implemented and remotely evidenced (`run 21813367976`), so one new rerank was required before further implementation.
+  - updated alignment artifacts:
+    - `Docs/implementation/checklists/07_alignment_review.md`
+    - `Docs/implementation/reports/alignment_review.md`
+  - verified local objective/observability gates after infra preflight:
+    - `make up` -> PASS
+    - `scripts/preflight_temporal.sh` -> PASS
+    - `make PYTHON=python3 check-objective-metrics` -> PASS
+    - `make PYTHON=python3 check-observability-snapshot` -> PASS
+  - rerank result: closed `DIR-16`..`DIR-18` moved out of active queue; new residual risks are `DIR-19`/`DIR-20`/`DIR-21`.
+  - next non-redundant packet: `prompt-14-improvement-direction-bet-loop`.
+
+- Manually selected and executed `prompt-14-improvement-direction-bet-loop` rerank (without `.py` router scripts) immediately after the fresh prompt-03 checkpoint.
+- Prompt-14 rerank refresh (post-`AR-C12` closure):
+  - updated improvement-direction artifacts:
+    - `Docs/implementation/reports/improvement_directions.md` (new open inventory: `DIR-19`, `DIR-20`, `DIR-21`)
+    - `Docs/implementation/checklists/03_improvement_bets.md` (active unchecked bets for `DIR-19`..`DIR-21`)
+    - `Docs/implementation/checklists/02_milestones.md` (added `M10 - External Sink Governance Follow-Through` with `AR-C13`..`AR-C15`)
+  - execution packet routing now avoids repeated checkpoint loops:
+    - `Now`: `prompt-11-docs-diataxis-release` for `DIR-19` / `AR-C13`
+    - `Next`: `prompt-02-app-development-playbook` for `DIR-20` / `AR-C14`
+  - verification evidence:
+    - `rg -n "DIR-19|DIR-20|DIR-21|Now|Next|Not now" Docs/implementation/reports/improvement_directions.md Docs/implementation/checklists/03_improvement_bets.md` -> PASS
+    - `rg -n "M10 - External Sink Governance Follow-Through|AR-C13|AR-C14|AR-C15" Docs/implementation/checklists/02_milestones.md` -> PASS
+  - next non-redundant packet: `prompt-11-docs-diataxis-release`.
+
 - Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) to close `DIR-18` / `AR-C12` external sink routing.
 - Prompt-02 `AR-C12` implementation follow-through:
   - triggering delta: `DIR-18` policy-shaping was complete under `prompt-11`, so implementation + remote evidence was the non-redundant next slice.

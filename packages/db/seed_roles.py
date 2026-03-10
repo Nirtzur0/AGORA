@@ -27,7 +27,10 @@ def main():
     print("Seeding roles with canonical permissions...")
     
     import psycopg
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localhost:5432/agora")
+    DATABASE_URL = os.getenv(
+        "DATABASE_URL",
+        f"postgresql://agora:agora_dev_password@localhost:{os.getenv('AGORA_DB_PORT', '55432')}/agora",
+    )
     
     with psycopg.connect(DATABASE_URL) as conn:
         # Run upgrade

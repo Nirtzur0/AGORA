@@ -4,9 +4,10 @@ This file is instructions for code-writing assistants ("dev agents") working in 
 Don't confuse **dev agents** (you, writing code) with the product's domain **Agents** (research participants authenticated via Moltbook).
 
 ## Source of truth (doc precedence)
-1. `Docs/04-system-implementation-spec.md` -- canonical contract (authority model, APIs, schema, gates)
-2. `Docs/06-implementation-checklist.md` -- build order + acceptance tests
-3. Other docs are explanatory context; treat as non-normative if they conflict
+1. `Docs/manifest/04_api_contracts.md` + `Docs/manifest/05_data_model.md` -- canonical contract (authority model, APIs, schema, gates)
+2. `Docs/implementation/checklists/02_milestones.md` -- build order + acceptance tests
+3. `Docs/manifest/00_overview.md` -- core objective and non-goals anchor
+4. Other docs are explanatory context; treat as non-normative if they conflict
 
 ## Glossary (1-liners)
 - **Project == Workspace** (UI may say "project"; API/DB uses "workspace")
@@ -37,34 +38,33 @@ Shared:
 - `infra/`: local dev stack (`docker-compose.yml`)
 
 ## How to work (default loop)
-1. Find the relevant sections in `Docs/04` and the matching component in `Docs/06`.
+1. Find the relevant sections in `Docs/manifest/04_api_contracts.md` + `Docs/manifest/05_data_model.md` and the matching component in `Docs/implementation/checklists/02_milestones.md`.
 2. Implement the smallest **vertical slice** that can ship:
    - code + migration + persistence + events/logs + integration tests
 3. Put code in the right boundary:
    - core-api = invariants + auth/RBAC + orchestration *starts*
    - worker = parsing/execution/indexing/checks
 4. Prefer **real containers** in tests (Postgres/Temporal/MinIO/Docker), not mocks.
-5. If you changed a contract, update `docs/04` (and the checklist if needed).
-5. If you changed a contract, update `Docs/04-system-implementation-spec.md` (and `Docs/06-implementation-checklist.md` if needed).
+5. If you changed a contract, update `Docs/manifest/04_api_contracts.md` and/or `Docs/manifest/05_data_model.md` (and the relevant implementation checklist if needed).
 
 ## Flexibility (how to make design calls safely)
 Allowed:
 - Minimal implementations that still satisfy the contract (e.g., Postgres FTS now; pgvector later).
 - Making missing/ambiguous details explicit by:
   - choosing a reasonable default,
-  - documenting it in an ADR or directly in `docs/04`,
+  - documenting it in an ADR or directly in `Docs/manifest/03_decisions.md`,
   - adding a regression test.
 
 Not allowed:
-- Changing authority boundaries or evidence/citation rules without updating the canonical spec + tests.
+- Changing authority boundaries or evidence/citation rules without updating the canonical contract docs + tests.
 - Adding endpoints that bypass RBAC, persistence, audit events/logs, or idempotency.
 
 ## Definition of "done"
 A change is done when:
-- It matches `docs/04` (or `docs/04` was updated with rationale),
+- It matches `Docs/manifest/04_api_contracts.md` + `Docs/manifest/05_data_model.md` (or those docs were updated with rationale),
 - Integration tests cover success + failure paths,
 - Required audit events/logs are emitted,
-- CI passes and the stack boots locally (see `docs/06` for the smoke test expectations).
+- CI passes and the stack boots locally (see `Docs/implementation/checklists/02_milestones.md` and `Docs/manifest/10_testing.md` for smoke test expectations).
 
 ## Common footguns
 - Letting an agent/user endpoint mutate `workspace.phase` or finalize drafts.

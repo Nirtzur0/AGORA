@@ -31,7 +31,7 @@ Bet tracking:
   - `Docs/manifest/20_literature_review.md`
   - `Docs/implementation/reports/20_literature_review_log.md`
   - `Docs/manifest/00_overview.md`
-  - `Docs/04-system-implementation-spec.md`
+  - `Docs/manifest/04_api_contracts.md`
 - Inclusion criteria:
   - DOI-backed source with direct relevance to reproducibility/provenance/workflows.
   - Enables a concrete modeling assumption or decision in this paper.

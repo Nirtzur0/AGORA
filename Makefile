@@ -1,4 +1,4 @@
-.PHONY: help up down logs test check-stubs clean test-unit test-integration test-e2e test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-architecture-coherence
+.PHONY: help up down logs test check-stubs clean test-unit test-integration test-e2e test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-sink-evidence-recency check-architecture-coherence
 
 PYTHON ?= python3
 PYTEST_ENV ?= PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
@@ -79,6 +79,11 @@ check-observability-sink-dry-run: ## Build external sink payload/report locally 
 		--summary-markdown Docs/implementation/reports/observability_sink_publish_dashboard.md
 	@echo "Observability sink dry-run report generated ✓"
 
+check-sink-evidence-recency: ## Validate periodic sink-evidence recency thresholds from workflow history
+	@echo "Checking sink evidence recency policy..."
+	@$(PYTHON) scripts/check_sink_evidence_recency.py --workflow-file ci.yml
+	@echo "Sink evidence recency policy check passed ✓"
+
 check-architecture-coherence: ## Validate architecture docs coherence + CI wiring
 	@echo "Running architecture coherence gate..."
 	@$(PYTHON) scripts/check_architecture_coherence.py --repo-root .
@@ -89,7 +94,7 @@ test-db: ## Run database migration tests
 	@echo "Creating test database if needed..."
 	@docker exec agora-postgres psql -U agora -c "DROP DATABASE IF EXISTS agora_test;" 2>/dev/null || true
 	@docker exec agora-postgres psql -U agora -c "CREATE DATABASE agora_test;" 2>/dev/null || true
-	cd packages/db && TEST_DATABASE_URL=postgresql://agora:agora_dev_password@localhost:5432/agora_test $(PYTEST) test_migrations.py -v
+	cd packages/db && TEST_DATABASE_URL=postgresql://agora:agora_dev_password@localhost:$${AGORA_DB_PORT:-55432}/agora_test $(PYTEST) test_migrations.py -v
 	@echo "Database tests passed ✓"
 
 test-storage: ## Run storage layer tests
@@ -146,4 +151,4 @@ migrate-create: ## Create a new migration (usage: make migrate-create NAME=descr
 	@echo "Creating migration: $(NAME)"
 	cd packages/db && $(PYTHON) migrate.py create "$(NAME)"
 
-.PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-architecture-coherence test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles
+.PHONY: help init up down db-migrate db-rollback logs install-core install-worker install-storage install-moltbook install-test-deps test test-all test-all-guarded test-e2e-critical check-observability-slos check-objective-metrics check-observability-snapshot check-observability-sink-dry-run check-sink-evidence-recency check-architecture-coherence test-db test-storage test-moltbook test-auth test-rbac build-moltbook check-stubs clean seed-roles

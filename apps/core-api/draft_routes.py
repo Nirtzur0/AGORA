@@ -1,7 +1,7 @@
 """
 Draft Routes - Component 12
 
-Implements draft lifecycle per Docs/04 §4.10:
+Implements draft lifecycle per `Docs/manifest/04_api_contracts.md`:
 - POST /workspaces/{id}/drafts: Create draft artifact
 - POST /drafts/{id}/versions: Create draft version (Markdown + content_hash)
 - GET /drafts/{id}/versions: List draft versions

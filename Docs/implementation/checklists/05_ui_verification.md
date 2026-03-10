@@ -124,7 +124,7 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
   - Files: `apps/web/scripts/smoke_artifact_viewer.mjs`, `apps/web/package.json`, `.github/workflows/ci.yml`
   - Verification: CI job `cmd-31-ui-smoke-mobile` and `smoke:artifact-viewer:mobile` script.
 - [x] No open failure cluster after rerun; root-cause loop stayed `downhill`.
-  - Verify: `npm --prefix apps/web run smoke:artifact-viewer` (PASS, 2026-02-08).
+  - Verify: `npm --prefix apps/web run smoke:artifact-viewer` (PASS, 2026-02-09).
 
 ## Stage 5: Polish Scope
 
@@ -138,10 +138,9 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 - [x] `npm --prefix apps/web run build` (PASS, 2026-02-09)
 - [x] `make up` (PASS, 2026-02-09)
-- [x] `npm --prefix apps/web run smoke:artifact-viewer` (PASS, 2026-02-08)
-- [x] `AGORA_SMOKE_BROWSER=chromium npm --prefix apps/web run smoke:artifact-viewer` (PASS, 2026-02-09)
-- [x] `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:matrix` (PASS, 2026-02-09)
-- [x] `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:mobile` (PASS, 2026-02-09)
+- [x] `npm --prefix apps/web run smoke:artifact-viewer` (PASS, 2026-02-09)
+- [x] `npm --prefix apps/web run smoke:artifact-viewer:mobile` (PASS, 2026-02-09)
+- [x] `npm --prefix apps/web run smoke:artifact-viewer:matrix` (PASS, 2026-02-09)
 - [x] `rg -n "cmd-30-ui-smoke-cross-browser|cmd-31-ui-smoke-mobile|smoke:artifact-viewer:matrix|smoke:artifact-viewer:mobile|firefox|webkit" .github/workflows/ci.yml apps/web/package.json` (PASS, 2026-02-09)
 - [x] `make test-e2e` (PASS, 2026-02-08)
 - [x] `make down` (PASS, 2026-02-09)

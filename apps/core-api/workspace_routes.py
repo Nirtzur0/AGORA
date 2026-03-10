@@ -1,7 +1,7 @@
 """
 Workspace routes for AGORA Core API.
 
-Implements workspace lifecycle + team formation per Docs/04 §4.2-4.3.
+Implements workspace lifecycle + team formation per `Docs/manifest/04_api_contracts.md`.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Header
@@ -79,6 +79,29 @@ class ReviewJoinRequestRequest(BaseModel):
     """Review a join request."""
     approve: bool
     reason: Optional[str] = Field(None, max_length=500)
+
+
+class RoleResponse(BaseModel):
+    """Role metadata for browser and API clients."""
+    id: str
+    name: str
+    permissions: dict
+    min_reputation: Optional[int]
+    role_capacity: Optional[int]
+    is_unique: bool
+
+
+class JoinRequestResponse(BaseModel):
+    """Workspace join request."""
+    id: str
+    workspace_id: str
+    agent_id: str
+    role_id: str
+    status: str
+    requested_at: datetime
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    role_name: Optional[str] = None
 
 
 # ============================================================================
@@ -315,6 +338,31 @@ async def list_workspaces_FIXED(
         ]
 
 
+@router.get("/roles", response_model=List[RoleResponse])
+async def list_roles(
+    agent: AgentContext = Depends(get_agent_context)
+):
+    """
+    List available workspace roles.
+
+    This is a read-only discovery endpoint for browser/API clients so they can
+    render join-request forms and reviewer context without querying the DB
+    directly.
+    """
+    with get_db() as db:
+        return [
+            RoleResponse(
+                id=str(role["id"]),
+                name=role["name"],
+                permissions=role["permissions"],
+                min_reputation=role["min_reputation"],
+                role_capacity=role["role_capacity"],
+                is_unique=bool(role["is_unique"]),
+            )
+            for role in rbac.list_all_roles(db)
+        ]
+
+
 @router.get("/{workspace_id}", response_model=WorkspaceDetailResponse)
 async def get_workspace(
     workspace_id: str,
@@ -472,16 +520,16 @@ async def create_join_request(
                     (existing["result_id"],)
                 ).fetchone()
                 
-                return {
-                    "id": result[0],
-                    "workspace_id": result[1],
-                    "agent_id": result[2],
-                    "role_id": result[3],
-                    "status": result[4],
-                    "requested_at": result[5],
-                    "reviewed_at": result[6],
-                    "reviewed_by": result[7]
-                }
+                return JoinRequestResponse(
+                    id=str(result[0]),
+                    workspace_id=str(result[1]),
+                    agent_id=str(result[2]),
+                    role_id=str(result[3]),
+                    status=result[4],
+                    requested_at=result[5],
+                    reviewed_at=result[6],
+                    reviewed_by=str(result[7]) if result[7] else None,
+                )
         
         # Check workspace exists
         workspace_result = db.execute(
@@ -590,16 +638,95 @@ async def create_join_request(
             (join_request_id,)
         ).fetchone()
         
-        return {
-            "id": result[0],
-            "workspace_id": result[1],
-            "agent_id": result[2],
-            "role_id": result[3],
-            "status": result[4],
-            "requested_at": result[5],
-            "reviewed_at": result[6],
-            "reviewed_by": result[7]
-        }
+        return JoinRequestResponse(
+            id=str(result[0]),
+            workspace_id=str(result[1]),
+            agent_id=str(result[2]),
+            role_id=str(result[3]),
+            status=result[4],
+            requested_at=result[5],
+            reviewed_at=result[6],
+            reviewed_by=str(result[7]) if result[7] else None,
+        )
+
+
+@router.get("/{workspace_id}/join-requests", response_model=List[JoinRequestResponse], status_code=200)
+async def list_join_requests(
+    workspace_id: str,
+    status: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    agent: AgentContext = Depends(get_agent_context),
+):
+    """
+    List join requests for a workspace.
+
+    Authorization:
+    - Members with `join_request.review` may list all requests.
+    - Other authenticated agents may list only their own requests.
+    """
+    with get_db() as db:
+        workspace_result = db.execute(
+            "SELECT id FROM workspaces WHERE id = %s",
+            (workspace_id,)
+        ).fetchone()
+
+        if not workspace_result:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "WORKSPACE_NOT_FOUND",
+                    "message": f"Workspace {workspace_id} not found"
+                }
+            )
+
+        requester_agent_id = str(agent.agent_id)
+        can_review = rbac.check_permission(db, requester_agent_id, workspace_id, "join_request.review")
+
+        normalized_agent_filter = agent_id if can_review else requester_agent_id
+        if agent_id and not can_review and str(agent_id) != requester_agent_id:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "PERMISSION_DENIED",
+                    "message": "Agents may only view their own join requests"
+                }
+            )
+
+        query = """
+            SELECT jr.id, jr.workspace_id, jr.agent_id, jr.role_id, jr.status,
+                   jr.requested_at, jr.reviewed_at, jr.reviewed_by, r.name
+            FROM join_requests jr
+            JOIN roles r ON jr.role_id = r.id
+            WHERE jr.workspace_id = %s
+        """
+        params = [workspace_id]
+
+        if status:
+            query += " AND jr.status = %s"
+            params.append(status)
+
+        if normalized_agent_filter:
+            query += " AND jr.agent_id = %s"
+            params.append(normalized_agent_filter)
+
+        query += " ORDER BY jr.requested_at DESC"
+
+        results = db.execute(query, tuple(params)).fetchall()
+
+        return [
+            JoinRequestResponse(
+                id=str(row[0]),
+                workspace_id=str(row[1]),
+                agent_id=str(row[2]),
+                role_id=str(row[3]),
+                status=row[4],
+                requested_at=row[5],
+                reviewed_at=row[6],
+                reviewed_by=str(row[7]) if row[7] else None,
+                role_name=row[8],
+            )
+            for row in results
+        ]
 
 
 @router.post("/{workspace_id}/join-requests/{request_id}/review", status_code=200)

@@ -9,8 +9,13 @@ This page defines AGORA release policy and how local release actions map to CI g
 - Tag-triggered release validation path is implemented as `release-tag-gate` (`AR-C04`).
 - Runtime/flake policy is now codified for nightly and release heavy gates (`AR-C10`).
 - Runtime/flake trend artifacts are now emitted for nightly and release heavy gates (`AR-C11`).
-- External observability sink routing is implemented with fail-open controls (`AR-C12`).
-- First remote run evidence is captured:
+- External observability sink routing is implemented with gate-class failure-mode policy (`AR-C12`, `AR-C13`).
+- Sink-evidence freshness guardrail is implemented for sink-routing edits (`AR-C15`).
+- Non-dispatch objective/snapshot sink evidence depth is now captured (`AR-C16`).
+- Periodic sink-evidence recency policy is now enforced in CI/runtime (`AR-C17`).
+- First remote run evidence is captured (including objective/snapshot path):
+  - dispatch run `21824083555`: `objective-metrics-gate` pass (`62964694204`) with sink publish step pass (`active`, response `200`) and artifacts (`objective-metrics-report`, `observability-snapshot-report`)
+  - pull request run `21824080587`: `objective-metrics-gate` pass (`62964679628`) with qualifying sink publish execution evidence (`observability_sink_publish status=dry_run mode=dry_run`) and artifacts (`objective-metrics-report`, `observability-snapshot-report`)
   - dispatch run `21813367976`: `cmd-13-nightly-full-suite` pass (`62929945541`) with sink publish step pass (`active`, `httpbin.org`, response `200`)
   - dispatch run `21813014551`: `cmd-13-nightly-full-suite` pass (`62928919065`) with `cmd-13-nightly-runtime-trend` artifact publication
   - dispatch run `21811670648`: `release-tag-gate` pass (`62924827121`) and `cmd-13-nightly-full-suite` pass (`62924827118`)
@@ -30,6 +35,10 @@ This page defines AGORA release policy and how local release actions map to CI g
    - `CMD-13` (`make test-e2e`, budgeted by `E2E_FULL_WARNING_BUDGET`) as full-suite release gate
    - `CMD-37` and `CMD-38` (Dash data-quality gate)
 5. Record command outcomes in release notes and release-readiness evidence.
+6. Validate periodic sink-evidence recency policy (`AR-C17`) before sign-off with `CMD-41`:
+   - objective/snapshot evidence age <=14 days
+   - nightly sink evidence age <=7 days
+   - release-tag sink evidence age <=30 days (or run a fresh release candidate gate)
 
 ## CMD-13 Promotion Strategy (AR-C05 Policy)
 
@@ -79,9 +88,9 @@ Operational notes:
   2. Retry usage in 3 of the latest 5 heavy runs is treated as flake-signal degradation requiring maintainer triage.
   3. Artifacts are retained as release evidence and mirrored into GitHub job summaries for quick review.
 
-## External Sink Ownership and Rollout Readiness (`AR-C12`)
+## External Sink Ownership and Rollout Readiness (`AR-C12`, `AR-C13`, `AR-C17`)
 
-Status: implemented with fail-open rollout; fail-closed tightening deferred.
+Status: implemented with gate-class policy; release governance now defines explicit fail-open vs fail-closed posture by gate class.
 
 Escalation ownership before implementation:
 
@@ -96,18 +105,57 @@ Signal mapping source of truth:
 - `Docs/manifest/07_observability.md` (`Severity Routing` + `External Sink Ownership and Escalation Policy`).
 - `Docs/manifest/11_ci.md` (`External Sink Routing Plan`).
 
+Failure-mode policy matrix:
+
+| Gate class | CI publish step mode | Governance posture | Release impact rule |
+|---|---|---|---|
+| `objective-metrics-gate` (`CMD-29`, `CMD-32`) | `--fail-open true` | Fail-closed for release readiness | Release sign-off is blocked if latest objective/snapshot sink publish is failed/missing and no successful rerun is documented. |
+| `cmd-13-nightly-full-suite` (`CMD-39`) | `--fail-open true` | Fail-open operability signal | Nightly sink failures trigger SEV-2 follow-up but do not directly block release without corroborating gate failures. |
+| `release-tag-gate` (`CMD-39`) | `--fail-open true` | Fail-closed for release cut | Release owner must block promotion on sink publish failure unless emergency waiver + fallback evidence is recorded. |
+
 Rollout and fallback policy:
 
-1. `workflow_dispatch` supports `observability_sink_mode` (`disabled`, `dry_run`, `active`) and optional `observability_sink_url` override.
-2. Publish steps run with fail-open policy (`--fail-open true`) so sink-delivery failures do not block release promotion.
-3. During any sink outage, release decisions rely on in-repo signals from `CMD-29`, `CMD-32`, `CMD-39`, and `CMD-40` outputs.
-4. Future tightening can selectively move sink failures to fail-closed once destination reliability and pager workflows are stable.
+1. `workflow_dispatch` supports `run_objective_gate` (`false`, `true`), `run_sink_recency_gate` (`false`, `true`), `observability_sink_mode` (`disabled`, `dry_run`, `active`), and optional `observability_sink_url` override.
+2. During any sink outage, release decisions rely on in-repo signals from `CMD-29`, `CMD-32`, `CMD-39`, and `CMD-40` outputs.
+3. Governance fail-closed rules above apply even though workflow publish steps remain technically fail-open.
+4. `docs-guardrail` enforces sink-evidence freshness when sink-routing files change:
+   - required docs updates: `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/checklists/07_alignment_review.md`
+   - required added evidence references in the PR diff: remote run URL, remote job reference, sink artifact reference, and an added evidence date within the last 30 days.
+
+### Periodic Sink-Evidence Recency Policy (`AR-C17`)
+
+Standing recency policy (independent of sink-routing code changes):
+
+| Evidence class | Recency threshold | Review cadence | Owner | Release impact |
+|---|---|---|---|---|
+| `objective-metrics-gate` sink evidence (`CMD-29`/`CMD-32` + `CMD-40`) | <=14 days | weekly (Monday UTC) and at release sign-off | maintainer on-call + release owner | release sign-off blocked when stale unless approved short waiver exists |
+| `cmd-13-nightly-full-suite` sink evidence (`CMD-39` + `CMD-40`) | <=7 days | weekly (Monday UTC) and at release sign-off | maintainer on-call | stale evidence requires remediation/rerun before release sign-off |
+| `release-tag-gate` sink evidence (`CMD-39` + `CMD-40`) | <=30 days (or fresh run for active release candidate) | pre-release and weekly governance review | release owner | release candidate must run a fresh gate when stale |
+
+Waiver policy:
+
+1. Maximum waiver window: 72 hours.
+2. Waiver requires both release-owner and maintainer-on-call acknowledgement in `Docs/implementation/checklists/06_release_readiness.md` and `Docs/implementation/00_status.md`.
+3. Waiver must include fallback evidence references (latest objective/snapshot artifacts and job URLs) and a remediation due time.
+
+Automation policy:
+
+1. Weekly governance enforcement runs in CI as `sink-evidence-recency-gate` (Monday UTC schedule `0 8 * * 1`).
+2. Release sign-off enforces the same thresholds in `release-tag-gate` before heavy release commands execute.
+3. Runbook command path is `CMD-41` (`make check-sink-evidence-recency`) backed by `scripts/check_sink_evidence_recency.py`.
 
 First remote evidence:
 
 - Run `21813367976`, job `62929945541` (`cmd-13-nightly-full-suite`) passed sink publish in `active` mode and uploaded:
   - `cmd-13-nightly-observability-sink-report.json`
   - `cmd-13-nightly-observability-sink-summary.md`
+- Run `21824083555`, job `62964694204` (`objective-metrics-gate`) passed sink publish in `active` mode and uploaded objective/snapshot sink evidence via:
+  - artifact `objective-metrics-report`
+  - artifact `observability-snapshot-report` (contains `objective-observability-sink-report.json` and `objective-observability-sink-summary.md`)
+- Run `21824080587`, job `62964679628` (`objective-metrics-gate`, `pull_request`) uploaded qualifying non-dispatch objective/snapshot sink evidence via:
+  - sink publish log line `observability_sink_publish status=dry_run mode=dry_run`
+  - artifact `objective-metrics-report`
+  - artifact `observability-snapshot-report` (contains `objective-observability-sink-report.json` and `objective-observability-sink-summary.md`)
 
 ## Tag-Triggered Release Path (AR-C04 Implemented Trigger Spec)
 
@@ -123,10 +171,13 @@ on:
       - "v*"
   schedule:
     - cron: "0 7 * * *"
+    - cron: "0 8 * * 1"
   workflow_dispatch:
     inputs:
       run_release_gate:
       run_full_e2e:
+      run_objective_gate:
+      run_sink_recency_gate:
       observability_sink_mode:
       observability_sink_url:
 ```
@@ -134,11 +185,12 @@ on:
 Implemented release job sequence:
 
 1. Checkout and dependency setup.
-2. Bring up infra (`CMD-01`) and Temporal preflight (`CMD-24`).
-3. Run quality gates: `CMD-11`, `CMD-25`, `CMD-27`, `CMD-13`, `CMD-37`, `CMD-38`.
-4. Validate release docs evidence (`CHANGELOG.md`, `Docs/how_to/upgrade_notes_template.md`, `Docs/implementation/checklists/06_release_readiness.md`).
-5. Publish release evidence artifacts (test reports + readiness checklist snapshot).
-6. Tear down infra (`CMD-02`).
+2. Enforce sink-evidence recency preflight (`CMD-41`) for release sign-off.
+3. Bring up infra (`CMD-01`) and Temporal preflight (`CMD-24`).
+4. Run quality gates: `CMD-11`, `CMD-25`, `CMD-27`, `CMD-13`, `CMD-37`, `CMD-38`.
+5. Validate release docs evidence (`CHANGELOG.md`, `Docs/how_to/upgrade_notes_template.md`, `Docs/implementation/checklists/06_release_readiness.md`).
+6. Publish release evidence artifacts (test reports + readiness checklist snapshot).
+7. Tear down infra (`CMD-02`).
 
 Fail-closed policy:
 
@@ -153,6 +205,7 @@ Current mapping (implemented):
 
 - `cmd-11-fast-checks` -> `CMD-11`
 - `cmd-12-integration` -> `CMD-25`
+- `sink-evidence-recency-gate` -> `CMD-41`
 - `cmd-13-e2e-critical-flow` -> `CMD-27`
 - `cmd-13-nightly-full-suite` -> `CMD-13`
 - `cmd-13-nightly-full-suite` runtime trend synthesis -> `CMD-39`
@@ -161,6 +214,7 @@ Current mapping (implemented):
 - `cmd-31-ui-smoke-mobile` -> `CMD-31`
 - `cmd-37-38-dash-data-quality` -> `CMD-37` + `CMD-38`
 - `release-tag-gate` -> `CMD-11`, `CMD-25`, `CMD-27`, `CMD-13`, `CMD-37`, `CMD-38`
+- `release-tag-gate` sink-evidence recency enforcement -> `CMD-41`
 - `release-tag-gate` runtime trend synthesis -> `CMD-39`
 - `release-tag-gate` sink publish -> `CMD-40`
 - `smoke-test` -> `CMD-01` + `CMD-02` + `CMD-04`
@@ -178,5 +232,12 @@ Current mapping (implemented):
 - Runtime/flake trend telemetry (`AR-C11`) completed by `prompt-02-app-development-playbook` follow-through (2026-02-09).
 - AR-C11 remote evidence follow-through completed by workflow dispatch run `21813014551` (`cmd-13-nightly-full-suite` + `cmd-13-nightly-runtime-trend` artifact).
 - `prompt-11-docs-diataxis-release` follow-through completed ownership/escalation/fallback shaping for `AR-C12` (2026-02-09).
+- `prompt-11-docs-diataxis-release` follow-through completed gate-class sink failure-mode policy shaping for `AR-C13` (2026-02-09).
 - `prompt-02-app-development-playbook` follow-through implemented external sink delivery and captured first remote evidence for `AR-C12` via run `21813367976` (2026-02-09).
-- Next non-redundant packet: `prompt-03-alignment-review-gate` to rerank residual risks after `AR-C12` implementation evidence.
+- `prompt-02-app-development-playbook` follow-through captured first remote active objective/snapshot sink evidence for `AR-C14` via run `21824083555` (objective job `62964694204`, 2026-02-09).
+- `prompt-11` -> `prompt-02` follow-through enforced sink-evidence freshness guardrail for sink-routing edits (`AR-C15`, 2026-02-09).
+- `prompt-14-improvement-direction-bet-loop` reranked post-M10 residual sink-operability work into `DIR-22` (`AR-C16`), `DIR-23` (`AR-C17`), and `DIR-24` (`AR-C18`) (2026-02-09).
+- `prompt-02-app-development-playbook` follow-through captured qualifying non-dispatch objective/snapshot sink evidence for `AR-C16` via run `21824080587` (`objective-metrics-gate` job `62964679628`, 2026-02-09).
+- `prompt-11-docs-diataxis-release` follow-through shaped periodic sink-evidence recency policy for `DIR-23` / `AR-C17` (cadence + thresholds + waiver model, 2026-02-09).
+- `prompt-02-app-development-playbook` follow-through enforced `AR-C17` via `CMD-41`, `sink-evidence-recency-gate`, and release sign-off recency preflight (2026-02-09).
+- Next non-redundant packet: `prompt-11-docs-diataxis-release` follow-through for `DIR-24` (`AR-C18`) troubleshooting signatures, then `prompt-03-alignment-review-gate`.

@@ -51,7 +51,7 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
   - Verify evidence: `apps/core-api/main.py`, `Docs/manifest/01_architecture.md`
 
 - [x] Invariant: phase/finalization authority remains orchestrator/system-controlled.
-  - Verify evidence: `Docs/04-system-implementation-spec.md`, `apps/core-api/phase_routes.py`, `apps/core-api/draft_routes.py`
+  - Verify evidence: `Docs/manifest/04_api_contracts.md`, `apps/core-api/phase_routes.py`, `apps/core-api/draft_routes.py`
 
 - [x] Invariant: evidence is version-pinned and resolvable.
   - Verify evidence: `packages/db/migrations/001_initial_schema.py`, `apps/core-api/evidence_routes.py`, `apps/core-api/evidence_resolver.py`

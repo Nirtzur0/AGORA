@@ -19,9 +19,9 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 
 | Artifact ID | Source type | Role | Affected feature area | Evidence path |
 |---|---|---|---|---|
-| ART-01 | Canonical contract | Defines authority and finalization invariants | phase transitions, finalization gates | `Docs/04-system-implementation-spec.md`, `apps/core-api/phase_routes.py`, `apps/core-api/draft_routes.py` |
-| ART-02 | Canonical contract | Defines version-pinned evidence + citation requirements | claim evidence, citation checks | `Docs/04-system-implementation-spec.md`, `apps/worker/citation_check.py`, `tests/e2e/workflows/test_literature_grounding.py` |
-| ART-03 | Implementation checklist | Defines completion bar for evidence/artifact reliability | resolver and immutability hardening | `Docs/06-implementation-checklist.md`, `Docs/implementation/checklists/02_milestones.md` |
+| ART-01 | Canonical contract | Defines authority and finalization invariants | phase transitions, finalization gates | `Docs/manifest/04_api_contracts.md`, `apps/core-api/phase_routes.py`, `apps/core-api/draft_routes.py` |
+| ART-02 | Canonical contract | Defines version-pinned evidence + citation requirements | claim evidence, citation checks | `Docs/manifest/04_api_contracts.md`, `apps/worker/citation_check.py`, `tests/e2e/workflows/test_literature_grounding.py` |
+| ART-03 | Implementation checklist | Defines completion bar for evidence/artifact reliability | resolver and immutability hardening | `Docs/implementation/checklists/02_milestones.md`, `Docs/implementation/checklists/02_milestones.md` |
 | ART-04 | Runtime implementation artifact | Worker dependency lifecycle behavior | Temporal worker startup | `apps/worker/main.py` |
 | ART-05 | Artifact grounding policy | Requires stable external-source capture and retrieval metadata | artifact provenance traceability | `packages/project-prompts/charter-artifacts-system.md` |
 | ART-06 | Router and planning artifact | Requires explicit artifact-feature gate output and routing | milestone prioritization | `Docs/implementation/reports/prompt_execution_plan.md`, `Docs/implementation/checklists/03_improvement_bets.md` |

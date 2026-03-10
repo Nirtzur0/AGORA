@@ -14,7 +14,9 @@ import uuid
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.exc import IntegrityError
 
-DEFAULT_TEST_DATABASE_URL = "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
+DEFAULT_TEST_DATABASE_URL = (
+    f"postgresql://agora:agora_dev_password@localhost:{os.getenv('AGORA_DB_PORT', '55432')}/agora_test"
+)
 
 
 @pytest.fixture(scope="module")

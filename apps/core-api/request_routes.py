@@ -196,7 +196,7 @@ async def request_ingest_pdf(
             detail=f"Artifact {request.artifact_id} is not a PDF (type={artifact_row[1]})"
         )
 
-    # RBAC: request actions must be permission-gated (Docs/04 §4.15)
+    # RBAC: request actions must be permission-gated (see manifest API contracts).
     require_permission(db, _agent_id(current_agent), workspace_id_str, "artifact.request.ingest_pdf")
     
     # Idempotency on agent writes (schema-backed). This dedupes the *request* to ingest,
@@ -291,7 +291,7 @@ async def request_ingest_repo(
     if not ws_row:
         raise HTTPException(status_code=404, detail=f"Workspace {workspace_id_str} not found")
 
-    # RBAC: request actions must be permission-gated (Docs/04 §4.15)
+    # RBAC: request actions must be permission-gated (see manifest API contracts).
     agent_id = _agent_id(current_agent)
     if not agent_id:
         raise HTTPException(status_code=401, detail="Missing agent context")

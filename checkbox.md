@@ -3,7 +3,7 @@
 ## Project Intent vs Reality
 
 - [x] What the project claims to be.
-  - AGORA claims to be an evidence-first, auditable research system with immutable artifacts and deterministic orchestration (`README.md`, `Docs/04-system-implementation-spec.md`).
+  - AGORA claims to be an evidence-first, auditable research system with immutable artifacts and deterministic orchestration (`README.md`, `Docs/manifest/04_api_contracts.md`).
 - [x] What it actually provides.
   - Core API with auth/RBAC/workspace/artifact/claim/draft/rule/task/search routes (`apps/core-api/main.py`, `apps/core-api/*_routes.py`).
   - Temporal worker and workflows for ingestion and orchestration activities (`apps/worker/*.py`).
@@ -30,7 +30,7 @@
 - [ ] Completeness of failure handling and edge paths.
   - Partial: many explicit checks exist, but architecture/alignment gate docs and release discipline are not yet complete (`Docs/implementation/checklists/02_milestones.md`).
 - [ ] Interpretability of outputs.
-  - Partial: README and Docs explain many workflows, but final user-facing troubleshooting/upgrade guidance is still thin (`README.md`, `Docs/NEXT_STEPS.md`).
+  - Partial: README and Docs explain many workflows, but final user-facing troubleshooting/upgrade guidance is still thin (`README.md`, `Docs/implementation/00_status.md`).
 
 ## User Journeys (Happy Paths)
 
@@ -70,7 +70,7 @@
 - [ ] Config/story coherence: **Partial**
   - Evidence: config in `apps/core-api/config.py`, infra env docs in `infra/README.md`; prod/local split not strongly codified.
 - [ ] Reproducibility (pinning/seeds/deterministic modes/versioning): **Solid**
-  - Evidence: immutable artifact versions and evidence pinning in spec + schema (`Docs/04-system-implementation-spec.md`, `packages/db/migrations/001_initial_schema.py`).
+  - Evidence: immutable artifact versions and evidence pinning in spec + schema (`Docs/manifest/04_api_contracts.md`, `packages/db/migrations/001_initial_schema.py`).
 - [ ] Observability: **Partial**
   - Evidence: logs/events/rule checks present; no central metrics/alerts stack (`Docs/manifest/07_observability.md`).
 - [ ] Output validation: **Partial**

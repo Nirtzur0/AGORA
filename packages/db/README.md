@@ -33,7 +33,7 @@ python -m db.migrate down
 
 ## Schema
 
-The schema implements all MVP tables from `Docs/04-system-implementation-spec.md` §3:
+The schema implements the MVP tables documented in `Docs/manifest/05_data_model.md`:
 
 - **agents**: Moltbook identity + reputation
 - **roles**: Role definitions with permissions

@@ -286,3 +286,43 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
   - Verify: `make PYTHON=python3 check-observability-sink-dry-run` (PASS, 2026-02-09), `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_publish_observability_sink.py tests/unit/test_ci_runtime_trend.py` (PASS, 2026-02-09), `rg -n "publish_observability_sink.py|observability_sink_mode|observability_sink_url|cmd-13-nightly-observability-sink-report|release-tag-observability-sink-report|check-observability-sink-dry-run" .github/workflows/ci.yml scripts/publish_observability_sink.py Makefile Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md` (PASS, 2026-02-09), and workflow dispatch run `21813367976` job `62929945541` PASS with sink publish step pass (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`).
   - Files: `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `tests/unit/test_publish_observability_sink.py`, `Makefile`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`
   - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
+
+## M10 - External Sink Governance Follow-Through
+
+- [x] AR-C13: Codify sink failure posture by gate criticality.
+  - AC: fail-open/fail-closed behavior is explicit for `objective-metrics-gate`, `cmd-13-nightly-full-suite`, and `release-tag-gate`, with severity/ownership mapping.
+  - Verify: `rg -n "AR-C13|Failure-Mode Decision Matrix|objective-metrics-gate|cmd-13-nightly-full-suite|release-tag-gate|fail-open|fail-closed" Docs/manifest/07_observability.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09).
+  - Files: `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
+
+- [x] AR-C14: Capture first remote active sink evidence for objective/snapshot gates.
+  - AC: at least one remote run shows `objective-metrics-gate` sink publish status `pass` with artifacted report references.
+  - Verify: `gh run view 21824083555 --json status,conclusion,jobs,headSha,headBranch,event,url` (PASS, 2026-02-09; `objective-metrics-gate` job `62964694204` success), `gh api 'repos/Nirtzur0/AGORA/actions/runs/21824083555/artifacts' --jq '.artifacts[] | {name,size_in_bytes,expired,created_at}'` (PASS, 2026-02-09; `objective-metrics-report`, `observability-snapshot-report`), `gh run view 21824083555 --job 62964694204 --log | rg -n "observability_sink_publish status=pass mode=active|response_code=200|objective-observability-sink-report|objective-observability-sink-summary"` (PASS, 2026-02-09), and docs references in `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, and `Docs/implementation/03_worklog.md`.
+  - Files: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
+  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-03`
+
+- [x] AR-C15: Enforce sink-evidence freshness guardrail for sink-routing changes.
+  - AC: CI/docs guardrail fails when sink-routing changes lack recent remote sink evidence references.
+  - Verify: `rg -n "sink_routing_changes|sink_required_release|sink_required_alignment|sink_cutoff_date|sink_artifact_ref|run URL reference|job reference" .github/workflows/ci.yml` (PASS, 2026-02-09), `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` (PASS, 2026-02-09), local `python3` sink-guardrail simulation harness (`pass_case=PASS`, `fail_case=EXPECTED_FAIL`, 2026-02-09), and `rg -n "AR-C15|sink-evidence freshness guardrail|21824083555|62964694204|objective-metrics-report|observability-snapshot-report|prompt-03-alignment-review-gate" Docs/implementation/checklists/06_release_readiness.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/00_status.md Docs/implementation/03_worklog.md Docs/reference/release_workflow.md Docs/manifest/11_ci.md` (PASS, 2026-02-09).
+  - Files: `.github/workflows/ci.yml`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/checklists/07_alignment_review.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`, `Docs/reference/release_workflow.md`, `Docs/manifest/11_ci.md`
+  - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
+
+## M11 - Post-M10 Sink Operability Maturity
+
+- [x] AR-C16: Capture qualifying non-dispatch remote sink evidence for objective/snapshot gates.
+  - AC: at least one non-dispatch remote run shows `objective-metrics-gate` sink publish execution with job/artifact references.
+  - Verify: `gh run list --workflow ci.yml --limit 40 --json databaseId,event,headBranch,status,conclusion,url` (PASS, 2026-02-09), `gh run view 21824080587 --json status,conclusion,event,headBranch,headSha,url` (PASS, 2026-02-09), `gh run view 21824080587 --json jobs --jq '.jobs[] | select(.name=="Objective metrics gate") | {name,databaseId,conclusion,url}'` (PASS, 2026-02-09; objective job `62964679628`), `gh run view 21824080587 --job 62964679628 --log | rg -n "observability_sink_publish status=dry_run mode=dry_run|objective-observability-sink-report|objective-observability-sink-summary"` (PASS, 2026-02-09), and `gh api 'repos/Nirtzur0/AGORA/actions/runs/21824080587/artifacts' --jq '.artifacts[] | select(.name=="objective-metrics-report" or .name=="observability-snapshot-report") | {name,size_in_bytes,expired,created_at}'` (PASS, 2026-02-09).
+  - Files: `.github/workflows/ci.yml`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
+  - Prompt chain: `prompt-14` -> `prompt-02` -> `prompt-03`
+
+- [x] AR-C17: Enforce periodic sink-evidence recency policy outside code-change-triggered guardrails.
+  - AC: recency threshold, ownership, and verification path are explicit for release sign-off, independent of sink-routing diffs.
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_sink_evidence_recency.py` (PASS, 2026-02-09), `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` (PASS, 2026-02-09), and `rg -n "run_sink_recency_gate|sink-evidence-recency-gate|check_sink_evidence_recency.py|check-sink-evidence-recency|CMD-41|allow-current-release-candidate|release-sink-evidence-recency" .github/workflows/ci.yml Makefile scripts/check_sink_evidence_recency.py Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` (PASS, 2026-02-09).
+  - Files: `.github/workflows/ci.yml`, `Makefile`, `scripts/check_sink_evidence_recency.py`, `tests/unit/test_sink_evidence_recency.py`, `Docs/manifest/09_runbook.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
+  - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-02` -> `prompt-03`
+
+- [ ] AR-C18: Add sink-failure troubleshooting signatures and first-response playbook.
+  - AC: CI/release docs include concrete sink-failure signatures, likely causes, and first-response actions by owner role.
+  - Verify: `rg -n "Troubleshooting|signature|sink publish|CMD-40|objective-observability-sink-report|cmd-13-nightly-observability-sink-report" Docs/reference/release_workflow.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md`.
+  - Files: `Docs/reference/release_workflow.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
+  - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-03`

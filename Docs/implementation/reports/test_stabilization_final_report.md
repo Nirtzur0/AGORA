@@ -24,7 +24,7 @@ Date: 2026-02-08 (includes 2026-02-06 baseline + 2026-02-08 revalidation)
   - `apps/core-api/rbac.py`: treat unparsable `min_reputation` as unset (`None`)
   - `apps/core-api/request_routes.py`: import and check `fastapi.params.Header` sentinel without `try/except`
   - `apps/core-api/task_routes.py`: import and check `fastapi.params.Query` sentinel without `try/except`
-- Documentation/audit trail: added stabilization checklist, status, worklog, and manifests under `Docs/` (canonical spec remains in `Docs/04-system-implementation-spec.md`).
+- Documentation/audit trail: added stabilization checklist, status, worklog, and manifests under `Docs/` (canonical spec remains in `Docs/manifest/04_api_contracts.md`).
 - CI guardrail: added a PR-only CI job that fails if tests/CI/runtime files change without updating:
   - `Docs/implementation/00_status.md`
   - `Docs/implementation/checklists/04_test_stabilization.md`

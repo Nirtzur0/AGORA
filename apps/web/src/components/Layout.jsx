@@ -3,78 +3,65 @@ import './Layout.css';
 
 export function AppShell({ children, onLogout }) {
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main">
-        Skip to content
+    <div className="shell">
+      <a className="shell-skip-link" href="#main-content">
+        Skip to main content
       </a>
-      <header className="app-header">
-        <div className="header-content">
-          <div className="brand">
-            <h1 className="app-title">AGORA</h1>
-            <span className="app-tagline">Evidence-first research records</span>
-          </div>
-          <div className="header-actions">
-            <span className="user-info">Audit UI</span>
-            {onLogout && (
-              <button className="btn btn-secondary btn-compact" onClick={onLogout}>
-                Log out
-              </button>
-            )}
+      <header className="shell-header">
+        <div className="shell-branding">
+          <div className="shell-brand-mark">AG</div>
+          <div>
+            <p className="shell-overline">Evidence-first workspace console</p>
+            <h1 className="shell-title">AGORA</h1>
           </div>
         </div>
+        <div className="shell-header-actions">
+          <span className="shell-status-pill">Audit + authoring</span>
+          {onLogout ? (
+            <button className="btn btn-secondary" onClick={onLogout}>
+              Log out
+            </button>
+          ) : null}
+        </div>
       </header>
-      <main id="main" className="app-main">
+      <main id="main-content" className="shell-main">
         {children}
       </main>
     </div>
   );
 }
 
-export function PageContainer({ title, children, actions }) {
+export function SectionCard({ eyebrow, title, actions, children, tone = 'default' }) {
   return (
-    <div className="page-container">
-      {(title || actions) && (
-        <div className="page-header">
-          {title && <h2 className="page-title">{title}</h2>}
-          {actions && <div className="page-actions">{actions}</div>}
+    <section className={`section-card section-card-${tone}`}>
+      {(eyebrow || title || actions) && (
+        <div className="section-card-header">
+          <div>
+            {eyebrow ? <p className="section-card-eyebrow">{eyebrow}</p> : null}
+            {title ? <h2 className="section-card-title">{title}</h2> : null}
+          </div>
+          {actions ? <div className="section-card-actions">{actions}</div> : null}
         </div>
       )}
-      <div className="page-content">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-export function Card({ title, children, actions }) {
-  return (
-    <div className="card">
-      {(title || actions) && (
-        <div className="card-header">
-          {title && <h3 className="card-title">{title}</h3>}
-          {actions && <div className="card-actions">{actions}</div>}
-        </div>
-      )}
-      <div className="card-body">
-        {children}
-      </div>
-    </div>
+      <div className="section-card-body">{children}</div>
+    </section>
   );
 }
 
 export function TabNav({ tabs, activeTab, onTabChange }) {
   return (
-    <div className="tab-nav">
+    <div className="console-tab-nav" role="tablist" aria-label="Workspace tabs">
       {tabs.map((tab) => (
         <button
           key={tab.id}
-          className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={tab.id === activeTab}
+          className={`console-tab ${tab.id === activeTab ? 'active' : ''}`}
           onClick={() => onTabChange(tab.id)}
         >
-          {tab.label}
-          {tab.count !== undefined && (
-            <span className="tab-count">{tab.count}</span>
-          )}
+          <span>{tab.label}</span>
+          {tab.count !== undefined ? <span className="console-tab-count">{tab.count}</span> : null}
         </button>
       ))}
     </div>

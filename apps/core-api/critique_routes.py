@@ -493,7 +493,14 @@ async def list_critiques(
     query += " ORDER BY created_at DESC"
     
     critiques = db.execute(query, params).fetchall()
-    
+
+    def normalize_resolution(value):
+        if not value:
+            return None
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
+
     return [
         CritiqueResponse(
             id=str(c[0]),
@@ -505,7 +512,7 @@ async def list_critiques(
             status=c[6],
             severity=c[7],
             message=c[8],
-            resolution=json.loads(c[9]) if c[9] else None,
+            resolution=normalize_resolution(c[9]),
             created_at=c[10].isoformat()
         )
         for c in critiques

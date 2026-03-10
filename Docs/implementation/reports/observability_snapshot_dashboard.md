@@ -1,6 +1,6 @@
 # Observability Snapshot Dashboard
 
-Generated at: `2026-02-09T04:57:38.936363+00:00`
+Generated at: `2026-02-09T12:27:02.837509+00:00`
 Overall status: `pass`
 
 ## Signal Summary
@@ -8,7 +8,7 @@ Overall status: `pass`
 | Signal | Status | Key values |
 |---|---|---|
 | Artifact freshness/provenance | `pass` | coverage=100.0%, warnings=0, stale=0, missing=0, invalid_ts=0 |
-| Objective metrics | `pass` | passed=2/2, history_runs=8, pass_streak=2 |
+| Objective metrics | `pass` | passed=2/2, history_runs=14, pass_streak=1 |
 
 ## Commands
 

@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: agora_dev_password
       POSTGRES_DB: agora
     ports:
-      - "5432:5432"
+      - "${AGORA_DB_PORT:-55432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

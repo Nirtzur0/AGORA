@@ -1,8 +1,8 @@
 # Checklist: Alignment Review Gate
 
-Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-17` runtime-trend closure)
+Date: 2026-02-09 (fresh checkpoint after `DIR-23` / `AR-C17` enforcement)
 Prompt packet: `prompt-03-alignment-review-gate`
-Triggering delta: `prompt-02` follow-through implemented `DIR-18`/`AR-C12` external sink routing and captured first remote active-mode sink evidence (`run 21813367976`), so the next packet should be a fresh post-closure rerank.
+Triggering delta: `prompt-02` follow-through implemented periodic sink-evidence recency enforcement (`AR-C17`) in CI/runtime, so residual sink-operability risk needed reranking.
 Verdict: `ALIGNED_WITH_RISKS`
 
 Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
@@ -10,72 +10,63 @@ Objective anchor: `Docs/manifest/00_overview.md#Core Objective`
 ## Required Questions
 
 - [x] Are we still building the same thing defined by Core Objective?
-  - Evidence: authority boundaries and evidence immutability remain unchanged in core contracts (`Docs/manifest/00_overview.md`, `Docs/manifest/04_api_contracts.md`, `Docs/manifest/05_data_model.md`).
+  - Evidence: authority boundaries and evidence immutability remain unchanged in `Docs/manifest/00_overview.md`, `Docs/manifest/04_api_contracts.md`, and `Docs/manifest/05_data_model.md`.
 
 - [x] Is the main user journey usable end-to-end right now?
-  - Evidence: deterministic critical flow remains green (`make PYTHON=python3 test-e2e-critical` latest pass recorded 2026-02-09), and latest remote UI smoke evidence remains green in PR run `21812201997` for `cmd-30-ui-smoke-cross-browser` + `cmd-31-ui-smoke-mobile`.
+  - Evidence: deterministic critical flow remains green (`make PYTHON=python3 test-e2e-critical` PASS, 2026-02-09).
 
 - [x] Are we measuring the right success metrics from the objective?
-  - Evidence: `make PYTHON=python3 check-objective-metrics` -> PASS (2026-02-09, after infra preflight) and `make PYTHON=python3 check-observability-snapshot` -> PASS (2026-02-09).
+  - Evidence: objective/snapshot checks remain green (`make PYTHON=python3 check-objective-metrics`, `make PYTHON=python3 check-observability-snapshot`, both PASS on 2026-02-09).
 
 - [x] Are we spending meaningful effort on explicit non-goals?
-  - Evidence: latest packet focused on CI operability telemetry (`AR-C11`) and did not expand product scope or alter authority semantics.
+  - Evidence: packet scope stayed on CI/release sink-operability governance; no product-scope expansion introduced.
 
 ## Evidence-Backed Misalignment Checklist
 
-- [x] Dash quality gates are CI-enforced with remote pass evidence.
-  - Evidence: `cmd-37-38-dash-data-quality` and PR run `21811670116` pass references remain documented.
+- [x] M10 and M11 governance outcomes through `AR-C17` are closed.
+  - Evidence: `Docs/implementation/checklists/02_milestones.md` and `Docs/implementation/checklists/06_release_readiness.md` now mark `AR-C13`..`AR-C17` closed.
 
-- [x] Release/nightly heavy gates now have explicit runtime/flake policy.
-  - Evidence: `.github/workflows/ci.yml` now defines timeout/retry/runtime env policy for `cmd-13-nightly-full-suite` and `release-tag-gate`; release docs/checklist updated (`Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`).
-
-- [x] Objective metrics and observability snapshot gates are passing in current local checkpoint.
-  - Evidence: `make PYTHON=python3 check-objective-metrics` -> PASS, `make PYTHON=python3 check-observability-snapshot` -> PASS (2026-02-09).
-
-- [x] Runtime/flake trend telemetry for heavy jobs is now persisted as a dedicated operational signal.
-  - Evidence: `.github/workflows/ci.yml` now runs `scripts/build_ci_runtime_trend.py` for `cmd-13-nightly-full-suite` and `release-tag-gate`, and docs/checklists record `AR-C11` as complete.
-
-- [x] External dashboard/paging sink routing is implemented with first remote evidence.
-  - Evidence: `DIR-18`/`AR-C12` is closed in milestone/bet docs and workflow dispatch run `21813367976` captures active sink publish success.
+- [ ] Sink troubleshooting guidance still lacks concrete error signatures and first-response owner actions.
+  - Evidence: `Docs/reference/release_workflow.md` and `Docs/manifest/11_ci.md` still need the explicit troubleshooting signature matrix planned for `DIR-24` / `AR-C18`.
 
 ## Top 3 Next Corrections
 
-- [x] Correction 1: capture first remote evidence run for the new `AR-C11` runtime-trend artifact outputs.
+- [ ] Correction 1: add sink-failure troubleshooting signature matrix (`DIR-24` / `AR-C18`).
   - Owner type: maintainer
   - Effort: S
-  - Target files: `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
-  - Acceptance signal: at least one remote run reference includes runtime-trend artifacts (`cmd-13-nightly-runtime-trend` and/or `release-tag-runtime-trend-*`). (Completed 2026-02-09 via workflow dispatch run `21813014551`, job `62928919065`.)
-  - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C11` follow-through evidence).
+  - Target files: `Docs/reference/release_workflow.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`
+  - Acceptance signal: docs include representative sink-failure signatures, likely causes, first-response actions, and owner routing.
 
-- [x] Correction 2: route observability outputs to external dashboard/paging surface (`DIR-18` / `AR-C12`).
+- [ ] Correction 2: rerun alignment checkpoint after `DIR-24` docs follow-through.
   - Owner type: maintainer
-  - Effort: L
-  - Target files: `.github/workflows/ci.yml`, `scripts/publish_observability_sink.py`, `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`
-  - Acceptance signal: one external sink receives objective/observability outputs with documented escalation owner. (Completed 2026-02-09 via run `21813367976`, job `62929945541`, sink publish status `pass`.)
-  - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C12`).
+  - Effort: S
+  - Target files: `Docs/implementation/checklists/07_alignment_review.md`, `Docs/implementation/reports/alignment_review.md`
+  - Acceptance signal: fresh rerank confirms no new post-AR-C18 residual risks require immediate implementation.
 
-- [x] Correction 3: define external sink ownership + dry-run fallback before enabling pager-backed routing.
+- [ ] Correction 3: defer additional sink-governance expansion until troubleshooting signatures land.
   - Owner type: maintainer
-  - Effort: M
-  - Target files: `Docs/manifest/07_observability.md`, `Docs/reference/release_workflow.md`, `Docs/implementation/checklists/06_release_readiness.md`
-  - Acceptance signal: escalation owner, severity mapping, and rollback/fallback path are explicit before `AR-C12` implementation. (Completed 2026-02-09 via `prompt-11` docs follow-through.)
-  - Milestone mapping: `Docs/implementation/checklists/02_milestones.md` (`M9` `AR-C12` prep).
+  - Effort: S
+  - Target files: `Docs/implementation/checklists/03_improvement_bets.md`, `Docs/implementation/reports/improvement_directions.md`
+  - Acceptance signal: plan stays focused on `DIR-24` + checkpoint, without introducing parallel low-signal work.
 
 ## Next Execution Packet Mapping
 
-- [x] Corrections are mapped into milestone checklist references (`M9`).
-- [x] Recommended next non-redundant packet: `prompt-03-alignment-review-gate` to rerank residual risk after `DIR-18` (`AR-C12`) closure.
+- [x] Corrections remain mapped to milestone planning references in `Docs/implementation/checklists/02_milestones.md`.
+- [x] Recommended next non-redundant packet: `prompt-11-docs-diataxis-release` for `DIR-24` (`AR-C18`), then `prompt-03-alignment-review-gate`.
+
+## Keep-The-Slate-Clean Decision
+
+- Decision: `Reshape Next Bet`
+- Closed leftovers: `AR-C13`, `AR-C14`, `AR-C15`, `AR-C16`, `AR-C17`.
+- Reshaped leftovers: `DIR-24` troubleshooting signatures remain the primary residual risk.
+- Dropped leftovers: none.
 
 ## Latest Checkpoint
 
-- [x] 2026-02-09 `prompt-02-app-development-playbook` follow-through completed `DIR-16` (`AR-C10`) runtime/flake policy codification.
-- [x] 2026-02-09 `prompt-02-app-development-playbook` follow-through completed `DIR-17` (`AR-C11`) runtime/flake trend artifact publication for heavy nightly/release jobs.
-- [x] 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` -> PASS.
-- [x] 2026-02-09 `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime_policy_summary" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/11_ci.md Docs/reference/release_workflow.md` -> PASS.
-- [x] 2026-02-09 `make up` + `scripts/preflight_temporal.sh` -> PASS for objective metric gate preconditions.
-- [x] 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS (`required_metrics=2`, `passed_metrics=2`).
-- [x] 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS (`overall_status=pass`).
-- [x] 2026-02-09 workflow dispatch run `21813014551` (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551`) passed `cmd-13-nightly-full-suite` job `62928919065` and published `cmd-13-nightly-runtime-trend` artifact.
-- [x] 2026-02-09 `prompt-11-docs-diataxis-release` follow-through defined `AR-C12` ownership/escalation/fallback policy in `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, and `Docs/implementation/checklists/06_release_readiness.md`.
-- [x] 2026-02-09 `prompt-02-app-development-playbook` follow-through implemented sink publishing (`scripts/publish_observability_sink.py`) and workflow dispatch run `21813367976` (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976`) passed `cmd-13-nightly-full-suite` job `62929945541` with sink publish status `pass` (`response_code=200`, host `httpbin.org`).
-- [x] 2026-02-09 post-`DIR-18` follow-through now requires fresh `prompt-03` rerank to refresh the residual-risk ranking after `AR-C12` closure.
+- [x] 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_sink_evidence_recency.py` -> PASS.
+- [x] 2026-02-09 `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS.
+- [x] 2026-02-09 `rg -n "run_sink_recency_gate|sink-evidence-recency-gate|check_sink_evidence_recency.py|allow-current-release-candidate|release-sink-evidence-recency" .github/workflows/ci.yml Makefile scripts/check_sink_evidence_recency.py Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` -> PASS.
+- [x] 2026-02-09 retained remote sink evidence references for guardrail continuity:
+  - run URL: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555`
+  - job URL: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555/job/62964694204`
+  - sink artifacts: `objective-metrics-report`, `observability-snapshot-report`

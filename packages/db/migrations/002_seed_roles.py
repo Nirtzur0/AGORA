@@ -2,7 +2,7 @@
 Seed roles with canonical permissions.
 
 Creates the 6 MVP roles with their permission keys exactly as specified in:
-Docs/04-system-implementation-spec.md §4.0 Permission Keys (Canonical)
+Docs/manifest/04_api_contracts.md §4.0 Permission Keys (Canonical)
 """
 
 import uuid

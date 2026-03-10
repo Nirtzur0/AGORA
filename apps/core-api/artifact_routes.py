@@ -167,6 +167,84 @@ def _process_content(content: bytes, artifact_type: str) -> dict:
             return {"message": "Binary content cannot be displayed"}
 
 
+def _extract_search_document(content: bytes, artifact_type: str) -> tuple[Optional[str], dict]:
+    """Extract searchable text plus lightweight metadata for search indexing."""
+    normalized_type = (artifact_type or "").lower()
+
+    if normalized_type == "pdf":
+        doc = fitz.open(stream=content, filetype="pdf")
+        page_text = [page.get_text().strip() for page in doc]
+        return "\n\n".join(filter(None, page_text)), {"page_count": len(page_text)}
+
+    if normalized_type in {"log", "draft", "code", "repo", "dataset", "config"}:
+        return content.decode("utf-8", errors="replace"), {}
+
+    return None, {}
+
+
+def _upsert_search_index(
+    *,
+    workspace_id: UUID,
+    artifact_id: UUID,
+    artifact_version_id: UUID,
+    artifact_type: str,
+    content: bytes,
+    filename: Optional[str],
+    mime_type: Optional[str],
+    db,
+):
+    """Index searchable artifact content so browser uploads become queryable immediately."""
+    search_text, search_metadata = _extract_search_document(content, artifact_type)
+    if not search_text or not search_text.strip():
+        return
+
+    metadata = {
+        **search_metadata,
+        "filename": filename,
+        "mime_type": mime_type,
+    }
+
+    existing = db.execute(
+        "SELECT id FROM search_index WHERE artifact_version_id = :artifact_version_id",
+        {"artifact_version_id": str(artifact_version_id)},
+    ).fetchone()
+
+    if existing:
+        db.execute(
+            """
+            UPDATE search_index
+            SET content = :content,
+                metadata = :metadata,
+                indexed_at = NOW()
+            WHERE artifact_version_id = :artifact_version_id
+            """,
+            {
+                "artifact_version_id": str(artifact_version_id),
+                "content": search_text,
+                "metadata": metadata,
+            },
+        )
+        return
+
+    db.execute(
+        """
+        INSERT INTO search_index (
+            workspace_id, artifact_id, artifact_version_id, artifact_type, content, metadata, indexed_at
+        ) VALUES (
+            :workspace_id, :artifact_id, :artifact_version_id, :artifact_type, :content, :metadata, NOW()
+        )
+        """,
+        {
+            "workspace_id": str(workspace_id),
+            "artifact_id": str(artifact_id),
+            "artifact_version_id": str(artifact_version_id),
+            "artifact_type": artifact_type,
+            "content": search_text,
+            "metadata": metadata,
+        },
+    )
+
+
 def _ensure_uuid(value: Any) -> UUID:
     if isinstance(value, UUID):
         return value
@@ -378,6 +456,17 @@ async def create_artifact_version(
             "content_hash": content_hash
         },
         db=db
+    )
+
+    _upsert_search_index(
+        workspace_id=workspace_id,
+        artifact_id=artifact_id,
+        artifact_version_id=version_id,
+        artifact_type=artifact_type,
+        content=content,
+        filename=file.filename,
+        mime_type=file.content_type,
+        db=db,
     )
     
     db.commit()

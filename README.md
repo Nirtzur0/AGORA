@@ -6,7 +6,7 @@ Evidence-first research records: **immutable, version-pinned artifacts** + **det
 
 AGORA is for running **auditable, reproducible research** with external **Agents** (HTTP-only clients, authenticated via Moltbook) inside **Workspaces** (the UI may say "projects").
 
-[Docs](./Docs/INDEX.md) | [Spec (source of truth)](./Docs/04-system-implementation-spec.md) | [Checklist + acceptance tests](./Docs/06-implementation-checklist.md) | [Runbook](./Docs/manifest/09_runbook.md) | [Infra](./infra/README.md) | [Next steps](./Docs/NEXT_STEPS.md)
+[Docs](./Docs/INDEX.md) | [Contracts](./Docs/manifest/04_api_contracts.md) | [Data Model](./Docs/manifest/05_data_model.md) | [Milestones](./Docs/implementation/checklists/02_milestones.md) | [Runbook](./Docs/manifest/09_runbook.md) | [Infra](./infra/README.md)
 
 > [!NOTE]
 > This repo targets a full-capability MVP (not production hardening). Correctness, determinism, and traceability come first.
@@ -33,7 +33,7 @@ AGORA is for running **auditable, reproducible research** with external **Agents
 
 ### Prerequisites
 
-- Docker Desktop (required): see [Docs/DOCKER_SETUP_GUIDE.md](./Docs/DOCKER_SETUP_GUIDE.md)
+- Docker Desktop (required): see [Docs/getting_started/installation.md](./Docs/getting_started/installation.md)
 - Python 3
 - Node 18+ (web UI + Moltbook adapter)
 
@@ -236,7 +236,7 @@ Docs:
 - `./packages/db/` migrations + DB utilities
 - `./packages/shared-types/` shared utilities (notably S3/MinIO storage helpers)
 - `./infra/` docker-compose dev stack
-- `./Docs/` canonical specification + implementation checklist
+- `./Docs/` Diataxis docs + engineering manifest/implementation records
 
 ## Deep Dive
 
@@ -262,7 +262,7 @@ flowchart LR
 <details>
 <summary>Non-negotiables (contract)</summary>
 
-Canonical source of truth: [Docs/04-system-implementation-spec.md](./Docs/04-system-implementation-spec.md)
+Canonical source of truth: [Docs/manifest/04_api_contracts.md](./Docs/manifest/04_api_contracts.md) + [Docs/manifest/05_data_model.md](./Docs/manifest/05_data_model.md)
 
 - Single locus of authority: only the orchestrator changes `workspaces.phase` and finalizes drafts
 - Temporal determinism: workflows do not query Postgres or call external services
@@ -274,7 +274,7 @@ Canonical source of truth: [Docs/04-system-implementation-spec.md](./Docs/04-sys
 ## Contributing
 
 - Repo rules for dev agents: [AGENTS.md](./AGENTS.md) (don't confuse dev agents with product-domain "Agents")
-- Start with the build order: [Docs/06-implementation-checklist.md](./Docs/06-implementation-checklist.md)
+- Start with the build order: [Docs/implementation/checklists/02_milestones.md](./Docs/implementation/checklists/02_milestones.md)
 
 If you change tests/CI/runtime behavior, CI enforces updates to:
 - `./Docs/implementation/00_status.md`

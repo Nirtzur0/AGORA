@@ -1,73 +1,69 @@
 # Alignment Review
 
-Date: 2026-02-09 (fresh `prompt-03` checkpoint after `prompt-02` `DIR-17` runtime-trend closure)
+Date: 2026-02-09 (fresh checkpoint after `AR-C17` enforcement)
 Prompt packet: `prompt-03-alignment-review-gate`
 Verdict: `ALIGNED_WITH_RISKS`
 
 ## Summary
 
-AGORA remains aligned with the core objective. The latest implementation follow-through closed `DIR-18` (`AR-C12`) by adding external sink publish paths for observability outputs and capturing first remote active-mode evidence. The next non-redundant step is a fresh alignment rerank (`prompt-03`) after this closure.
+AGORA remains aligned with the core objective. M10 + M11 sink-governance outcomes through `AR-C17` are now closed, and the primary residual risk is missing troubleshooting signatures/first-response guidance (`DIR-24` / `AR-C18`).
 
 ## Required Question Answers
 
 1. Are we still building the same thing?
-- Yes. Authority boundaries and evidence immutability contracts are unchanged.
+- Yes. Canonical authority/evidence invariants remain unchanged in `Docs/manifest/00_overview.md`, `Docs/manifest/04_api_contracts.md`, and `Docs/manifest/05_data_model.md`.
 
 2. Is the main user journey usable end-to-end right now?
-- Yes. Critical flow remains green in recent local evidence, and latest remote UI smoke matrix/mobile evidence remains green (`run 21812201997`).
+- Yes. Deterministic critical-flow e2e remains green (`make PYTHON=python3 test-e2e-critical` PASS on 2026-02-09).
 
 3. Are we measuring the right success metrics?
-- Yes, with current checkpoint evidence:
-  - `make PYTHON=python3 check-objective-metrics` -> PASS (`2/2` objective metrics passing, 2026-02-09).
-  - `make PYTHON=python3 check-observability-snapshot` -> PASS (`overall_status=pass`, 2026-02-09).
+- Yes. Objective and observability checks remain green (`make PYTHON=python3 check-objective-metrics`, `make PYTHON=python3 check-observability-snapshot`, PASS on 2026-02-09).
 
 4. Are we spending effort on explicit non-goals?
-- No material drift detected. Work stayed in CI/release-operability hardening and documentation alignment, not feature-scope expansion.
+- No. The packet stayed within CI/release governance enforcement scope.
 
 ## What Changed Since Previous Alignment Run
 
-- Implemented `DIR-17` / `AR-C11` trend telemetry publication:
-  - `.github/workflows/ci.yml` now runs `scripts/build_ci_runtime_trend.py` in `cmd-13-nightly-full-suite` and `release-tag-gate`.
-  - runtime trend artifacts are emitted and artifacted:
-    - nightly: `cmd-13-nightly-runtime-trend` (policy summary + latest JSON + history JSONL + dashboard)
-    - release: `release-tag-gate-artifacts` now includes `release-tag-runtime-trend-*` files.
-- Updated observability/release/CI docs and release-readiness checklist for runtime/flake trend interpretation:
-  - `Docs/manifest/07_observability.md`
-  - `Docs/reference/release_workflow.md`
-  - `Docs/manifest/11_ci.md`
-  - `Docs/implementation/checklists/06_release_readiness.md`
-- Milestone/bet routing advanced:
-  - `AR-C11` is now closed.
-  - `AR-C12` is now closed with first remote sink evidence.
-  - Remaining risk evaluation should be refreshed by a new `prompt-03` checkpoint.
+- `AR-C17` is now enforced:
+  - new command path `CMD-41` (`make check-sink-evidence-recency`)
+  - weekly CI gate `sink-evidence-recency-gate` (Monday UTC cron `0 8 * * 1`)
+  - release sign-off recency preflight in `release-tag-gate` with release-candidate waiver handling.
+- Recency enforcement is validated by unit tests (`tests/unit/test_sink_evidence_recency.py`) and workflow YAML integrity checks.
+- Existing sink evidence references remain in place for guardrail continuity:
+  - run `21824083555`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555`
+  - job `62964694204`: `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555/job/62964694204`
+  - artifacts: `objective-metrics-report`, `observability-snapshot-report`
 
 ## Top 3 Corrective Actions
 
-1. Run a fresh `prompt-03` checkpoint after `AR-C12` closure to re-rank residual risks.
-2. Decide whether sink-delivery failures should remain fail-open or move selected paths to fail-closed.
-3. Capture objective-metrics-gate (`CMD-29`/`CMD-32`) sink publish evidence once a qualifying non-dispatch run executes with sink configured.
+1. Add sink-failure troubleshooting signature matrix (`DIR-24` / `AR-C18`) in CI/release/readiness docs.
+2. Run a fresh prompt-03 checkpoint after `DIR-24` lands to rerank residual risk.
+3. Defer further governance expansion until `AR-C18` troubleshooting signals are explicit.
 
 ## Milestone Mapping
 
-- `AR-C10` and `AR-C11` are closed in `Docs/implementation/checklists/02_milestones.md`.
-- `AR-C12` (`DIR-18`) is now closed under `M9 - CI Operability Policy and Trend Hardening`.
-- Next scheduled work is a post-closure alignment rerank (`prompt-03`).
+- Closed outcomes:
+  - `M9`: `AR-C10`, `AR-C11`, `AR-C12`
+  - `M10`: `AR-C13`, `AR-C14`, `AR-C15`
+  - `M11`: `AR-C16`, `AR-C17`
+- Open outcomes:
+  - `M11`: `AR-C18`
+
+## Keep-The-Slate-Clean
+
+- Decision: `Reshape Next Bet`
+- Rationale: recency governance is now enforced; remaining risk is bounded and documentation-focused.
 
 ## Residual Risks
 
-- `ALIGNED_WITH_RISKS` remains appropriate pending fresh rerank, with current known residual:
-- sink routing is intentionally fail-open; fail-closed behavior is deferred until destination reliability and pager workflows are proven.
+- Sink publish incident triage remains too implicit without a concrete signature/action matrix.
 
 ## Latest Checkpoint
 
-- 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_ci_runtime_trend.py` -> PASS.
-- 2026-02-09 `rg -n "build_ci_runtime_trend.py|cmd-13-nightly-runtime-trend|release-tag-runtime-trend|runtime_policy_summary" .github/workflows/ci.yml scripts/build_ci_runtime_trend.py Docs/manifest/11_ci.md Docs/reference/release_workflow.md` -> PASS.
-- 2026-02-09 workflow dispatch run `21813014551` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21813014551/job/62928919065`) with `cmd-13-nightly-runtime-trend` artifact published.
-- 2026-02-09 `make up` -> PASS.
-- 2026-02-09 `scripts/preflight_temporal.sh` -> PASS.
-- 2026-02-09 `make PYTHON=python3 check-objective-metrics` -> PASS.
-- 2026-02-09 `make PYTHON=python3 check-observability-snapshot` -> PASS.
-- 2026-02-09 `prompt-11` follow-through documented `AR-C12` ownership/escalation/fallback policy in `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, `Docs/reference/release_workflow.md`, and `Docs/implementation/checklists/06_release_readiness.md`.
-- 2026-02-09 workflow dispatch run `21813367976` -> `cmd-13-nightly-full-suite` PASS (`https://github.com/Nirtzur0/AGORA/actions/runs/21813367976/job/62929945541`) with sink publish step PASS (`active`, host `httpbin.org`, response `200`).
-- 2026-02-09 `rg -n "AR-C10|AR-C11|AR-C12|DIR-16|DIR-17|DIR-18" Docs/implementation/checklists/02_milestones.md Docs/implementation/checklists/03_improvement_bets.md Docs/implementation/checklists/07_alignment_review.md Docs/implementation/reports/improvement_directions.md` -> PASS.
-- Next non-redundant packet: `prompt-03-alignment-review-gate` for post-`AR-C12` residual-risk rerank.
+- 2026-02-09 `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/unit/test_sink_evidence_recency.py` -> PASS.
+- 2026-02-09 `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); puts "yaml_ok"'` -> PASS.
+- 2026-02-09 `rg -n "run_sink_recency_gate|sink-evidence-recency-gate|check_sink_evidence_recency.py|check-sink-evidence-recency|CMD-41|allow-current-release-candidate|release-sink-evidence-recency" .github/workflows/ci.yml Makefile scripts/check_sink_evidence_recency.py Docs/manifest/09_runbook.md Docs/manifest/11_ci.md Docs/reference/release_workflow.md Docs/implementation/checklists/06_release_readiness.md` -> PASS.
+
+## Next Non-Redundant Packet
+
+`prompt-11-docs-diataxis-release` for `DIR-24` (`AR-C18`), then `prompt-03-alignment-review-gate`.

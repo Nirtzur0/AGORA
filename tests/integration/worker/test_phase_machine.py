@@ -1,7 +1,7 @@
 """
 Integration tests for Component 20: Phase Machine + Gates
 
-Tests per Docs/06 exit criteria:
+Tests per milestone/checklist exit criteria:
 - Agent cannot change phase
 - Orchestrator can, and emits event with previous/next phase and gate summary
 

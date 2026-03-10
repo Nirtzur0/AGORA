@@ -1,7 +1,7 @@
 """
 Integration tests for Component 19: Critiques + Critique Sufficiency
 
-Tests per Docs/06 exit criteria:
+Tests per milestone/checklist exit criteria:
 - High-trust critic cannot defer -> fails sufficiency
 - Low-trust deferral with rationale passes
 - Target author cannot resolve critique
@@ -465,6 +465,70 @@ def test_critiques_list__filters_applied__returns_matching(test_client, test_db)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+def test_critiques_list__resolved_resolution_json__returns_normalized_payload(test_client):
+    workspace_id = str(uuid.uuid4())
+    agent_id = TEST_AGENT_ID
+    claim_id = str(uuid.uuid4())
+    critique_id = str(uuid.uuid4())
+    resolution = {"status": "accepted_fix", "rationale": "Resolved after review"}
+
+    with get_raw_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (id) DO NOTHING
+            """,
+            (agent_id, "test_moltbook_id", "Test Agent", 0.0)
+        )
+        cursor.execute(
+            "INSERT INTO workspaces (id, name, phase) VALUES (%s, %s, %s)",
+            (workspace_id, "Critique Resolution Workspace", "active")
+        )
+        cursor.execute(
+            """
+            INSERT INTO claims (id, workspace_id, text, kind, confidence, status, created_by, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """,
+            (claim_id, workspace_id, "Resolved claim", "fact", 0.9, "active", agent_id)
+        )
+        cursor.execute(
+            """
+            INSERT INTO critiques (
+                id, workspace_id, target_type, target_id, critic_agent_id,
+                status, severity, message, resolution, created_at
+            ) VALUES (
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, NOW()
+            )
+            """,
+            (
+                critique_id,
+                workspace_id,
+                "claim",
+                claim_id,
+                agent_id,
+                "resolved",
+                "minor",
+                "Resolved critique",
+                json.dumps(resolution),
+            )
+        )
+        conn.commit()
+
+    token = _make_agent_token(agent_id, "test_moltbook_id")
+    response = test_client.get(
+        f"/workspaces/{workspace_id}/critiques",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["resolution"] == resolution
 
 
 def test_critique_sufficiency__high_trust_open_blocking__cannot_defer(test_db):

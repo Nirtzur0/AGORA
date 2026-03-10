@@ -4,11 +4,15 @@
 
 The `docker-compose.yml` brings up all required services:
 
-- **Postgres** (port 5432): Application database
+- **Postgres** (default host port 55432): Application database
 - **Temporal Postgres** (port 5433): Temporal persistence
 - **MinIO** (ports 9000, 9001): S3-compatible object storage
 - **Temporal Server** (port 7233): Workflow orchestration
 - **Temporal UI** (port 8080): Workflow observability
+
+The application Postgres host port is configurable via `AGORA_DB_PORT`. AGORA
+defaults it to `55432` so the local stack does not collide with other projects
+that already use `localhost:5432`.
 
 ## Environment Variables
 
@@ -17,7 +21,7 @@ Required for application services (Core API, Worker, Moltbook Adapter):
 ### Core API
 ```bash
 # Database
-DATABASE_URL=postgresql://agora:agora_dev_password@localhost:5432/agora
+DATABASE_URL=postgresql://agora:agora_dev_password@localhost:55432/agora
 
 # Object Storage (MinIO)
 S3_ENDPOINT=http://localhost:9000
@@ -46,7 +50,7 @@ SERVICE_JWT_AUDIENCE=agora-internal
 ### Worker
 ```bash
 # Database
-DATABASE_URL=postgresql://agora:agora_dev_password@localhost:5432/agora
+DATABASE_URL=postgresql://agora:agora_dev_password@localhost:55432/agora
 
 # Object Storage
 S3_ENDPOINT=http://localhost:9000
@@ -91,7 +95,7 @@ docker compose up -d
 docker compose ps
 
 # Test Postgres connection
-psql postgresql://agora:agora_dev_password@localhost:5432/agora -c "SELECT 1"
+psql postgresql://agora:agora_dev_password@localhost:55432/agora -c "SELECT 1"
 
 # Test MinIO
 curl http://localhost:9000/minio/health/live

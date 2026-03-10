@@ -17,7 +17,7 @@ pytest_plugins = ("pytest_asyncio.plugin",)
 # Test database URL (must be set before importing database module)
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql://agora:agora_dev_password@localhost:5432/agora_test"
+    f"postgresql://agora:agora_dev_password@localhost:{os.getenv('AGORA_DB_PORT', '55432')}/agora_test",
 )
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 

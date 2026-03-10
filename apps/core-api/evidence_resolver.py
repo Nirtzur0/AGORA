@@ -1,7 +1,7 @@
 """
 Evidence Pointer Resolver - Component 10
 
-Canonical resolver for evidence pointers per Docs/04 §5.8.
+Canonical resolver for evidence pointers per `Docs/manifest/04_api_contracts.md`.
 All citation checks, claim-evidence validation, and UI evidence display
 MUST use this resolver to ensure deterministic resolution.
 

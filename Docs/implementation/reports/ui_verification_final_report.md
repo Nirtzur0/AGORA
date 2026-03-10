@@ -101,10 +101,9 @@ From repo root:
 
 - `npm --prefix apps/web run build` -> PASS (2026-02-09)
 - `make up` -> PASS (2026-02-09)
-- `npm --prefix apps/web run smoke:artifact-viewer` -> PASS (2026-02-08)
-- `AGORA_SMOKE_BROWSER=chromium npm --prefix apps/web run smoke:artifact-viewer` -> PASS (2026-02-09)
-- `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS (2026-02-09)
-- `AGORA_CORE_API_URL=http://localhost:8000 AGORA_WEB_BASE_URL=http://localhost:3100 npm --prefix apps/web run smoke:artifact-viewer:mobile` -> PASS (2026-02-09)
+- `npm --prefix apps/web run smoke:artifact-viewer` -> PASS (2026-02-09)
+- `npm --prefix apps/web run smoke:artifact-viewer:mobile` -> PASS (2026-02-09)
+- `npm --prefix apps/web run smoke:artifact-viewer:matrix` -> PASS (2026-02-09)
 - `rg -n "cmd-30-ui-smoke-cross-browser|cmd-31-ui-smoke-mobile|smoke:artifact-viewer:matrix|smoke:artifact-viewer:mobile|firefox|webkit" .github/workflows/ci.yml apps/web/package.json` -> PASS (2026-02-09)
 - `make test-e2e` -> PASS (2026-02-08)
 - `make down` -> PASS (2026-02-09)

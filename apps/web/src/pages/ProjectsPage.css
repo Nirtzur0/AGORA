@@ -1,112 +1,228 @@
+.projects-page {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.projects-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: 1.65rem;
+  background:
+    linear-gradient(155deg, rgba(255, 249, 238, 0.98), rgba(248, 240, 227, 0.96)),
+    radial-gradient(circle at top right, rgba(187, 122, 48, 0.1), transparent 22%);
+  border: 1px solid rgba(71, 89, 94, 0.14);
+  box-shadow: var(--shadow-card);
+}
+
+.projects-kicker,
+.dialog-kicker {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.projects-hero h2 {
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 4vw, 3.3rem);
+  line-height: 1;
+  color: var(--color-ink-strong);
+}
+
+.projects-summary {
+  max-width: 42rem;
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+}
+
+.projects-hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.projects-top-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 1rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.metric-card {
+  padding: 1rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(71, 89, 94, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.metric-card span {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--color-text-muted);
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 1.8rem;
+  color: var(--color-ink-strong);
+}
+
+.projects-filter-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .project-card {
-  background: linear-gradient(180deg, #ffffff 0%, rgba(247, 242, 231, 0.35) 100%);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(71, 89, 94, 0.14);
+  border-radius: 1.45rem;
+  background:
+    linear-gradient(180deg, rgba(255, 254, 250, 0.98), rgba(251, 247, 240, 0.98));
+  padding: 1.15rem;
+  display: grid;
+  gap: 0.95rem;
+  text-align: left;
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .project-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.10);
-  border-color: color-mix(in srgb, var(--color-border), var(--color-primary) 20%);
+  border-color: rgba(187, 122, 48, 0.34);
+  box-shadow: 0 20px 38px rgba(31, 47, 54, 0.12);
 }
 
-.project-header {
+.project-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: var(--space-3);
-  gap: var(--space-3);
+  gap: 1rem;
+  align-items: start;
 }
 
-.project-name {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-bold);
-  color: var(--color-text-main);
+.project-card h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.24rem;
+  color: var(--color-ink-strong);
+}
+
+.project-phase {
   margin: 0;
-  flex: 1;
-  letter-spacing: -0.015em;
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 .project-description {
-  color: var(--color-text-secondary);
-  font-size: var(--text-sm);
-  line-height: 1.55;
-  margin-bottom: var(--space-4);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0;
+  line-height: 1.65;
 }
 
-.project-tags {
+.project-metrics,
+.project-blockers {
   display: flex;
+  gap: 0.6rem;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
 }
 
-.project-stats {
-  display: flex;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-  flex-wrap: wrap;
+.project-metrics span,
+.project-blockers span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(71, 89, 94, 0.1);
 }
 
-.project-stats .stat-item {
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+.projects-empty,
+.projects-error {
+  border-radius: 1.4rem;
+  padding: 1rem 1.2rem;
+  border: 1px solid rgba(71, 89, 94, 0.12);
+  background: rgba(255, 251, 245, 0.88);
 }
 
-.project-stats .stat-item.blockers {
-  color: color-mix(in srgb, var(--color-error), black 15%);
-  font-weight: var(--weight-bold);
+.projects-error,
+.dialog-error {
+  color: var(--color-danger);
+  border-color: rgba(180, 76, 66, 0.18);
+  background: rgba(180, 76, 66, 0.08);
 }
 
-.project-meta {
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 33, 39, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 1.2rem;
+  z-index: 1200;
+}
+
+.dialog-card {
+  width: min(100%, 540px);
+  border-radius: 1.5rem;
+  border: 1px solid var(--color-border-strong);
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: var(--shadow-lift);
+  padding: 1.25rem;
+}
+
+.dialog-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
-  margin-top: var(--space-5);
+  gap: 1rem;
+  align-items: start;
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.dialog-header h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--color-ink-strong);
 }
 
-.loading,
-.error,
-.empty-state {
-  text-align: center;
-  padding: var(--space-12) var(--space-6);
-  color: var(--color-text-secondary);
+.dialog-form {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
 }
 
-.error {
-  color: color-mix(in srgb, var(--color-error), black 15%);
+.dialog-form label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
 }
 
-@media (max-width: 720px) {
-  .projects-grid {
+@media (max-width: 960px) {
+  .projects-hero,
+  .projects-top-grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .projects-hero-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 }
-

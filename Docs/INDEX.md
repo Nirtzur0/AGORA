@@ -13,15 +13,13 @@ Quick Links: [Getting Started](./getting_started/quickstart.md) | [Tutorials](./
 
 ## Navigation Tree
 
-### Canonical Product/System Specs
+### Canonical Product/System Sources
 
-- [System Implementation Spec](./04-system-implementation-spec.md)
-- [Implementation Checklist](./06-implementation-checklist.md)
-- [Engineering Overview](./00-engineering-overview.md)
-- [System Architecture (legacy overview)](./01-system-architecture.md)
-- [Primitives and Grounding](./02-primitives-and-grounding.md)
-- [Collaboration Protocol](./03-collaboration-protocol.md)
-- [Evaluation and Risks](./05-evaluation-and-risks.md)
+- [Core Objective](./manifest/00_overview.md)
+- [Architecture](./manifest/01_architecture.md)
+- [API Contracts](./manifest/04_api_contracts.md)
+- [Data Model](./manifest/05_data_model.md)
+- [Milestones + Acceptance Evidence](./implementation/checklists/02_milestones.md)
 
 ### Getting Started
 
@@ -102,6 +100,26 @@ These pages are internal engineering control-plane docs and should not be duplic
 - [Literature Review Checklist](./implementation/checklists/20_literature_review.md)
 - [Reports Index](./implementation/reports/README.md)
 
+## Legacy Docs Migration Map
+
+The legacy root docs were retired and folded into this structure.
+
+| Legacy doc | New location(s) |
+|---|---|
+| `00-engineering-overview.md` | `manifest/00_overview.md`, `manifest/01_architecture.md`, `explanation/architecture.md` |
+| `01-system-architecture.md` | `manifest/01_architecture.md` |
+| `02-primitives-and-grounding.md` | `reference/data_formats.md`, `glossary.md`, `manifest/04_api_contracts.md` |
+| `03-collaboration-protocol.md` | `manifest/04_api_contracts.md`, `manifest/03_decisions.md` |
+| `04-system-implementation-spec.md` | `manifest/04_api_contracts.md`, `manifest/05_data_model.md`, `manifest/06_security.md` |
+| `05-evaluation-and-risks.md` | `manifest/03_decisions.md`, `manifest/07_observability.md` |
+| `06-implementation-checklist.md` | `implementation/checklists/02_milestones.md`, `implementation/checklists/06_release_readiness.md` |
+| `07-test-landscape.md` | `manifest/10_testing.md`, `implementation/reports/test_landscape.md` |
+| `08-test-architecture-plan.md` | `manifest/10_testing.md`, `implementation/reports/test_architecture_plan.md` |
+| `DOCKER_SETUP_GUIDE.md` | `getting_started/installation.md` |
+| `END_TO_END_TESTING_STATUS.md` | `how_to/run_end_to_end.md`, `manifest/10_testing.md` |
+| `NEXT_STEPS.md`, `SETUP_PROGRESS.md` | `implementation/00_status.md`, `implementation/03_worklog.md` |
+| `component-23-implementation-status.md`, `component-23-web-ui-implementation-plan.md` | `implementation/checklists/05_ui_verification.md`, `implementation/reports/ui_verification_final_report.md` |
+
 ## Where To Look Next
 
 - New users: start at [Installation](./getting_started/installation.md), then [Quickstart](./getting_started/quickstart.md).
@@ -111,5 +129,5 @@ These pages are internal engineering control-plane docs and should not be duplic
 ## Remaining Improvements
 
 - Capture objective-metrics-gate sink publish evidence in a qualifying non-dispatch run.
-- Decide and document fail-open versus fail-closed sink policy by severity class.
+- Keep sink-evidence references fresh by periodically re-running active-mode remote evidence capture before the 30-day guardrail window expires.
 - Expand troubleshooting matrix with concrete error signatures from future incidents.

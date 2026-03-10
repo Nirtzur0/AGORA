@@ -1,7 +1,7 @@
 """
 Claims and Evidence API Routes - Component 11
 
-Endpoints per Docs/04 §4.9:
+Endpoints per `Docs/manifest/04_api_contracts.md`:
 - POST /workspaces/{id}/claims
 - POST /claims/{id}/evidence
 - GET /workspaces/{id}/claims

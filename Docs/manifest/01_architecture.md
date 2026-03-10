@@ -1,6 +1,6 @@
 # Architecture
 
-This file is the current-state architecture source for AGORA, aligned with `Docs/04-system-implementation-spec.md`.
+This file is the current-state architecture source for AGORA, aligned with the canonical contract and data-model docs.
 
 ## Scope, Constraints, and Quality Scenarios
 

@@ -8,6 +8,7 @@ on:
     branches: [ main, develop ]
   schedule:
     - cron: '0 7 * * *'
+    - cron: '0 8 * * 1'
   workflow_dispatch:
     inputs:
       run_release_gate:
@@ -28,6 +29,12 @@ on:
         default: 'false'
         type: choice
         options: ['false', 'true']
+      run_sink_recency_gate:
+        description: 'Run periodic sink-evidence recency gate job'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
       observability_sink_mode:
         description: 'External observability sink publish mode'
         required: false
@@ -42,7 +49,7 @@ on:
 
 jobs:
   docs-guardrail:
-    name: Docs guardrail (status/worklog + active checklist)
+    name: Docs guardrail (status/worklog + active checklist + sink freshness)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -109,6 +116,71 @@ jobs:
             if ! echo "$CHANGED" | grep -qx "$required_alignment"; then
               echo "ERROR: '$required_alignment' must be updated when reliability-critical files change."
               missing=1
+            fi
+          fi
+
+          sink_routing_changes="$(echo "$CHANGED" | grep -E '^(.github/workflows/ci\.yml|scripts/publish_observability_sink\.py|scripts/check_sink_evidence_recency\.py|Docs/manifest/07_observability\.md|Docs/manifest/09_runbook\.md|Docs/manifest/11_ci\.md|Docs/reference/release_workflow\.md|Makefile)$' || true)"
+          if [[ -n "$sink_routing_changes" ]]; then
+            echo "Sink-routing changes detected:"
+            echo "$sink_routing_changes" | sed 's/^/  - /'
+
+            sink_required_release="Docs/implementation/checklists/06_release_readiness.md"
+            sink_required_alignment="Docs/implementation/checklists/07_alignment_review.md"
+
+            if ! echo "$CHANGED" | grep -qx "$sink_required_release"; then
+              echo "ERROR: '$sink_required_release' must be updated when sink-routing files change."
+              missing=1
+            fi
+            if ! echo "$CHANGED" | grep -qx "$sink_required_alignment"; then
+              echo "ERROR: '$sink_required_alignment' must be updated when sink-routing files change."
+              missing=1
+            fi
+
+            added_sink_evidence="$(
+              {
+                git diff -U0 "$BASE_SHA" "$HEAD_SHA" -- "$required_status" || true
+                git diff -U0 "$BASE_SHA" "$HEAD_SHA" -- "$required_worklog" || true
+                git diff -U0 "$BASE_SHA" "$HEAD_SHA" -- "$sink_required_release" || true
+                git diff -U0 "$BASE_SHA" "$HEAD_SHA" -- "$sink_required_alignment" || true
+              } | grep -E '^\+' | grep -v '^\+\+\+' || true
+            )"
+
+            if [[ -z "$added_sink_evidence" ]]; then
+              echo "ERROR: sink-routing changes require added sink evidence references in status/worklog/release/alignment docs."
+              missing=1
+            else
+              sink_run_url="$(echo "$added_sink_evidence" | grep -Eo 'https://github.com/[^ )`]+/actions/runs/[0-9]+' | head -n 1 || true)"
+              sink_job_ref="$(echo "$added_sink_evidence" | grep -Eo '(https://github.com/[^ )`]+/actions/runs/[0-9]+/job/[0-9]+|job[[:space:]]+`?[0-9]{6,}`?)' | head -n 1 || true)"
+              sink_artifact_ref="$(echo "$added_sink_evidence" | grep -Eo '(objective-metrics-report|observability-snapshot-report|cmd-13-nightly-runtime-trend|release-tag-gate-artifacts|objective-observability-sink-report\.json|objective-observability-sink-summary\.md|cmd-13-nightly-observability-sink-report\.json|cmd-13-nightly-observability-sink-summary\.md)' | head -n 1 || true)"
+
+              sink_cutoff_date="$(date -u -d '30 days ago' +%F)"
+              sink_fresh_date=""
+              while IFS= read -r evidence_date; do
+                [[ -z "$evidence_date" ]] && continue
+                if [[ "$evidence_date" > "$sink_cutoff_date" || "$evidence_date" == "$sink_cutoff_date" ]]; then
+                  sink_fresh_date="$evidence_date"
+                  break
+                fi
+              done < <(echo "$added_sink_evidence" | grep -Eo '20[0-9]{2}-[0-9]{2}-[0-9]{2}' | sort -u)
+
+              if [[ -z "$sink_run_url" ]]; then
+                echo "ERROR: sink-routing changes require at least one added remote run URL reference."
+                missing=1
+              fi
+              if [[ -z "$sink_job_ref" ]]; then
+                echo "ERROR: sink-routing changes require at least one added remote job reference."
+                missing=1
+              fi
+              if [[ -z "$sink_artifact_ref" ]]; then
+                echo "ERROR: sink-routing changes require at least one added sink artifact reference."
+                missing=1
+              fi
+              if [[ -z "$sink_fresh_date" ]]; then
+                echo "ERROR: sink-routing changes require an added evidence date within the last 30 days (cutoff $sink_cutoff_date)."
+                missing=1
+              else
+                echo "Fresh sink evidence date detected: $sink_fresh_date (cutoff $sink_cutoff_date)."
+              fi
             fi
           fi
 
@@ -365,6 +437,41 @@ jobs:
       - name: Cleanup
         if: always()
         run: make down
+
+  sink-evidence-recency-gate:
+    name: Sink evidence recency gate (AR-C17)
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 8 * * 1') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_sink_recency_gate == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Enforce periodic sink-evidence recency policy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          make PYTHON=python check-sink-evidence-recency
+
+      - name: Add sink evidence recency summary to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/sink-evidence-recency-summary.md ]; then
+            cat /tmp/sink-evidence-recency-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload sink evidence recency artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sink-evidence-recency-report
+          path: |
+            /tmp/sink-evidence-recency-report.json
+            /tmp/sink-evidence-recency-summary.md
+          if-no-files-found: error
 
   cmd-13-e2e-critical-flow:
     name: CMD-13 e2e critical-flow gate
@@ -631,7 +738,7 @@ jobs:
 
   cmd-13-nightly-full-suite:
     name: CMD-13 nightly full-suite gate
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_e2e == 'true')
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 7 * * *') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_e2e == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
@@ -786,6 +893,18 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Enforce periodic sink-evidence recency policy for release sign-off
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/check_sink_evidence_recency.py \
+            --repo "${{ github.repository }}" \
+            --workflow-file ci.yml \
+            --allow-current-release-candidate true \
+            --current-run-id "${{ github.run_id }}" \
+            --report /tmp/release-sink-evidence-recency-report.json \
+            --summary-markdown /tmp/release-sink-evidence-recency-summary.md
+
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
@@ -868,6 +987,14 @@ jobs:
             cat /tmp/release-tag-runtime-trend-dashboard.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Add release sink evidence recency summary to job summary
+        if: always()
+        run: |
+          if [ -f /tmp/release-sink-evidence-recency-summary.md ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/release-sink-evidence-recency-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Publish release runtime trend payload to external sink
         if: always()
         env:
@@ -941,6 +1068,8 @@ jobs:
             /tmp/release-tag-runtime-trend-latest.json
             /tmp/release-tag-runtime-trend-history.jsonl
             /tmp/release-tag-runtime-trend-dashboard.md
+            /tmp/release-sink-evidence-recency-report.json
+            /tmp/release-sink-evidence-recency-summary.md
             /tmp/release-tag-observability-sink-report.json
             /tmp/release-tag-observability-sink-summary.md
             /tmp/release-readiness-evidence.tgz

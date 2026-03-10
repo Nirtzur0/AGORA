@@ -1,7 +1,7 @@
 """
 Initial schema migration - all MVP tables per spec §3.
 
-This implements the complete database schema from 04-system-implementation-spec.md §3.
+This implements the complete database schema from `Docs/manifest/05_data_model.md`.
 Includes all tables with constraints, foreign keys, and indexes as specified.
 """
 

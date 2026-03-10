@@ -9,6 +9,10 @@ import apiClient from './api/client';
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const devAutoLoginEnabled =
+    import.meta.env.DEV &&
+    (import.meta.env.VITE_DEV_AUTO_LOGIN === '1' || import.meta.env.VITE_DEV_AUTO_LOGIN === 'true');
+  const devIdentity = import.meta.env.VITE_DEV_MOLTBOOK_IDENTITY || 'debug-token-clawdbot';
 
   useEffect(() => {
     // Check if we have a token in storage.
@@ -23,14 +27,38 @@ function App() {
         .catch(() => {
           // Token is invalid, clear it
           apiClient.setToken(null);
+          if (devAutoLoginEnabled) {
+            apiClient.loginViaMoltbookHeader(devIdentity)
+              .then(() => {
+                setIsAuthenticated(true);
+                setLoading(false);
+              })
+              .catch(() => {
+                setIsAuthenticated(false);
+                setLoading(false);
+              });
+            return;
+          }
           setIsAuthenticated(false);
           setLoading(false);
         });
     } else {
+      if (devAutoLoginEnabled) {
+        apiClient.loginViaMoltbookHeader(devIdentity)
+          .then(() => {
+            setIsAuthenticated(true);
+            setLoading(false);
+          })
+          .catch(() => {
+            setIsAuthenticated(false);
+            setLoading(false);
+          });
+        return;
+      }
       setIsAuthenticated(false);
       setLoading(false);
     }
-  }, []);
+  }, [devAutoLoginEnabled, devIdentity]);
 
   const handleLogin = () => {
     setIsAuthenticated(true);

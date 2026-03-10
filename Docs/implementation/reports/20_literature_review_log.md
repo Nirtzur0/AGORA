@@ -47,8 +47,8 @@ State: `downhill` (path to completion became clear after source set converged).
 - Publisher/journal landing pages surfaced via DOI/title search.
 - Existing AGORA objective/spec docs for alignment target:
   - `Docs/manifest/00_overview.md`
-  - `Docs/04-system-implementation-spec.md`
-  - `Docs/06-implementation-checklist.md`
+  - `Docs/manifest/04_api_contracts.md`
+  - `Docs/implementation/checklists/02_milestones.md`
 
 ### Inclusion criteria
 

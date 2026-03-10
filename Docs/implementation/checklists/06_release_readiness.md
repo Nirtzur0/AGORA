@@ -1,7 +1,7 @@
 # Checklist: Release Readiness
 
 Date: 2026-02-09
-Packet: `prompt-02-app-development-playbook` follow-through (`AR-C12` external sink implementation + evidence)
+Packet: `prompt-02-app-development-playbook` follow-through (`AR-C17` periodic sink-evidence recency policy enforcement)
 
 ## Versioning and changelog
 
@@ -92,6 +92,37 @@ Packet: `prompt-02-app-development-playbook` follow-through (`AR-C12` external s
   - Evidence: `Docs/manifest/07_observability.md`, `Docs/manifest/11_ci.md`, and `Docs/reference/release_workflow.md` all define dry-run/fail-open rollout and in-repo fallback signals (`CMD-29`, `CMD-32`, `CMD-39`).
 - [x] First external-sink publish evidence is captured from a remote CI run.
   - Evidence: workflow dispatch run `21813367976`, job `cmd-13-nightly-full-suite` (`62929945541`) includes sink publish step pass (`active`, host `httpbin.org`, response `200`) and artifacted sink report files (`cmd-13-nightly-observability-sink-report.json`, `cmd-13-nightly-observability-sink-summary.md`).
+
+## M10 External Sink Governance Follow-Through (`AR-C13`)
+
+- [x] Gate-class sink failure posture is explicitly documented for objective, nightly, and release publish paths.
+  - Evidence: `Docs/manifest/07_observability.md` now includes `Failure-Mode Decision Matrix (AR-C13)` covering `objective-metrics-gate`, `cmd-13-nightly-full-suite`, and `release-tag-gate`.
+- [x] Release governance fail-closed rules for sink publish failures are documented.
+  - Evidence: `Docs/reference/release_workflow.md` now defines fail-closed release impact for objective/release gate classes and explicit waiver requirements.
+- [x] CI routing docs are synchronized with the same gate-class policy model.
+  - Evidence: `Docs/manifest/11_ci.md` `External Sink Routing Plan` now documents identical gate-class policy mapping.
+- [x] Objective/snapshot remote active sink evidence depth is captured (`AR-C14`).
+  - Evidence: workflow dispatch run `21824083555`, job `objective-metrics-gate` (`62964694204`) includes sink publish step pass (`observability_sink_publish status=pass`, mode `active`, response `200`) and artifacts `objective-metrics-report` + `observability-snapshot-report` with sink report/summary payload files.
+- [x] Sink-evidence freshness guardrail is enforced for sink-routing edits (`AR-C15`).
+  - Evidence: `.github/workflows/ci.yml` `docs-guardrail` now enforces `sink_routing_changes` with required doc updates (`00_status`, `03_worklog`, `06_release_readiness`, `07_alignment_review`) plus added run/job/artifact/date freshness checks (`sink_run_url`, `sink_job_ref`, `sink_artifact_ref`, `sink_cutoff_date`).
+
+## M11 Sink Operability Maturity Follow-Through (`AR-C16`)
+
+- [x] Qualifying non-dispatch objective/snapshot sink evidence is captured.
+  - Evidence: pull request run `21824080587`, objective job `62964679628`, sink publish log line `observability_sink_publish status=dry_run mode=dry_run`, and artifacts `objective-metrics-report` + `observability-snapshot-report` (`https://github.com/Nirtzur0/AGORA/actions/runs/21824080587/job/62964679628`).
+
+## M11 Periodic Recency Policy Enforcement (`AR-C17`)
+
+- [x] Standing sink-evidence recency thresholds are explicitly documented.
+  - Evidence: policy defines objective <=14 days, nightly <=7 days, and release-tag <=30 days (or fresh release-candidate run) in `Docs/reference/release_workflow.md` and `Docs/manifest/11_ci.md`.
+- [x] Periodic review cadence and ownership are explicitly documented.
+  - Evidence: weekly Monday UTC review + release sign-off checks are assigned to maintainer on-call and release owner in `Docs/reference/release_workflow.md`.
+- [x] Waiver constraints are explicitly documented for stale evidence exceptions.
+  - Evidence: 72-hour capped waiver model with dual-owner acknowledgement + remediation timing is documented in `Docs/reference/release_workflow.md`.
+- [x] CI/runtime enforcement for `AR-C17` is implemented.
+  - Evidence: `.github/workflows/ci.yml` now includes weekly `sink-evidence-recency-gate` (`schedule` Monday UTC `0 8 * * 1`) and `release-tag-gate` preflight step `Enforce periodic sink-evidence recency policy for release sign-off`; both execute `scripts/check_sink_evidence_recency.py` (`CMD-41`).
+  - Evidence: release artifacts now include `/tmp/release-sink-evidence-recency-report.json` and `/tmp/release-sink-evidence-recency-summary.md` inside `release-tag-gate-artifacts`.
+  - Evidence continuity reference (2026-02-09): run `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555`, job `https://github.com/Nirtzur0/AGORA/actions/runs/21824083555/job/62964694204`, artifacts `objective-metrics-report` and `observability-snapshot-report`.
 
 ## Documentation completeness
 

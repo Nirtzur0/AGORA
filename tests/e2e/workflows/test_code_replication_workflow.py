@@ -1,7 +1,7 @@
 """
 Integration tests for Component 18: Code Replication Workflow
 
-Tests per Docs/06 exit criteria:
+Tests per milestone/checklist exit criteria:
 - Full run: ingest repo -> run sandbox -> claim + cite log -> draft -> citation_check PASS
 
 Tests code replication workflow per spec §5.2, §12.3:

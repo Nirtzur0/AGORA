@@ -1,6 +1,8 @@
 """
 Core API configuration using environment variables.
 """
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,7 +10,9 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Database
-    database_url: str = "postgresql://agora:agora_dev_password@localhost:5432/agora"
+    database_url: str = (
+        f"postgresql://agora:agora_dev_password@localhost:{os.getenv('AGORA_DB_PORT', '55432')}/agora"
+    )
     
     # Object Storage (MinIO/S3)
     s3_endpoint: str = "http://localhost:9000"

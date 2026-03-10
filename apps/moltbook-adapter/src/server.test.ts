@@ -27,6 +27,7 @@ const testConfig: Config = {
   verificationCacheTtl: 5, // 5 seconds for faster testing
   circuitBreakerThreshold: 3,
   circuitBreakerTimeout: 2, // 2 seconds
+  enableDebugMode: true,
 };
 
 describe('Moltbook Adapter', () => {
@@ -125,6 +126,24 @@ describe('Moltbook Adapter', () => {
       expect(response2.body).toEqual(validMoltbookResponse);
       // No additional upstream call
       expect(mockAxios.history.post.length).toBe(1);
+    });
+
+    it('should assign distinct debug identities for different debug tokens', async () => {
+      const first = await request(app)
+        .post('/verify')
+        .send({ identity_token: 'debug-token-clawdbot' });
+
+      const second = await request(app)
+        .post('/verify')
+        .send({ identity_token: 'debug-token-smoke-reviewer' });
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(first.body.moltbook_id).toBe('mb_debug_clawdbot');
+      expect(second.body.moltbook_id).toBe('mb_debug_smoke-reviewer');
+      expect(first.body.moltbook_id).not.toBe(second.body.moltbook_id);
+      expect(second.body.name).toBe('Debug Smoke Reviewer');
+      expect(mockAxios.history.post.length).toBe(0);
     });
 
     it('should return 400 for missing identity_token', async () => {

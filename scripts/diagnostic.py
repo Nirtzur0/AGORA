@@ -216,7 +216,7 @@ def main():
         
         if not docker_ok:
             print(f"{RED}1. Install and start Docker Desktop{RESET}")
-            print("   → See DOCKER_SETUP_GUIDE.md for instructions")
+            print("   → See Docs/getting_started/installation.md for instructions")
         
         if not services_ok and docker_ok:
             print(f"{YELLOW}2. Start infrastructure services{RESET}")

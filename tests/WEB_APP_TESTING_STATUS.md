@@ -742,9 +742,9 @@ Before considering the system production-ready, ensure:
 ### Support & Troubleshooting
 
 **Documentation**:
-- System Architecture: [Docs/01-system-architecture.md](Docs/01-system-architecture.md)
-- Implementation Spec: [Docs/04-system-implementation-spec.md](Docs/04-system-implementation-spec.md)
-- Build Order: [Docs/06-implementation-checklist.md](Docs/06-implementation-checklist.md)
+- System Architecture: [Docs/manifest/01_architecture.md](Docs/manifest/01_architecture.md)
+- Implementation Spec: [Docs/manifest/04_api_contracts.md](Docs/manifest/04_api_contracts.md)
+- Build Order: [Docs/implementation/checklists/02_milestones.md](Docs/implementation/checklists/02_milestones.md)
 
 **Common Commands**:
 ```bash

@@ -4,7 +4,7 @@ This page summarizes major architectural and process decisions.
 
 ## Primary references
 
-- Canonical system contract: `Docs/04-system-implementation-spec.md`
+- Canonical system contract: `Docs/manifest/04_api_contracts.md`
 - Decision log: `Docs/manifest/03_decisions.md`
 
 ## Key decisions
