@@ -24,6 +24,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 import logging
 
+from search_indexing import upsert_search_index
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,6 +157,20 @@ class RepoIngestActivity:
                     "created_by": created_by,
                     "created_at": datetime.now(timezone.utc)
                 }
+            )
+
+            upsert_search_index(
+                workspace_id=workspace_id,
+                artifact_id=artifact_id,
+                artifact_version_id=str(version_id),
+                artifact_type="code",
+                search_text=self._build_search_document(temp_dir, file_list),
+                metadata={
+                    "repo_url": repo_url,
+                    "commit_hash": clone_commit,
+                    "file_count": len(file_list),
+                },
+                db=self.db,
             )
             
             # Write success log
@@ -371,6 +387,29 @@ class RepoIngestActivity:
         
         logger.info(f"Stored {len(storage_uris)} files in MinIO")
         return storage_uris
+
+    def _build_search_document(self, repo_dir: str, file_list: List[Dict[str, Any]]) -> str:
+        """Flatten a repository snapshot into one searchable text document."""
+        repo_path = Path(repo_dir)
+        chunks: List[str] = []
+        byte_budget = 500_000
+
+        for file_info in file_list:
+            if not file_info.get("is_text"):
+                continue
+            full_path = repo_path / file_info["path"]
+            try:
+                content = full_path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+
+            chunk = f"FILE: {file_info['path']}\n{content}\n"
+            byte_budget -= len(chunk.encode("utf-8"))
+            if byte_budget <= 0:
+                break
+            chunks.append(chunk)
+
+        return "\n".join(chunks)
     
     def resolve_repo_evidence(
         self,

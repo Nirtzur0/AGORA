@@ -2,6 +2,8 @@
 
 This is a date-stamped decision log for changes that affect architecture, quality gates, CI policy, and repository documentation discipline.
 
+- 2026-03-11: Executed a manual AGORA UI/UX audit + redesign packet; adopted a maintainers-first information architecture split of Portfolio, Workspace Overview, Investigation, Research Record, Operations, Review/Governance, and Team/Settings for future frontend implementation.
+- 2026-03-11: Adopted capture-based Figma workflow for redesign handoff in this repo: capture the current AGORA routes into a new Figma file, generate redesign pages through implementation-realistic preview routes under `/design-preview/agora-redesign/*`, and record the file-level artifact in repo docs.
 - 2026-02-06: Added CI guardrail requiring updates to `Docs/implementation/00_status.md` and `Docs/implementation/checklists/04_test_stabilization.md` when PRs change tests/CI/runtime.
 - 2026-02-08: Ran prompt router from `packages/project-prompts`; selected `prompt-02-app-development-playbook` as primary packet for AGORA (`Docs/implementation/reports/prompt_execution_plan.md`).
 - 2026-02-08: Executed `prompt-07-repo-audit-checklist` after baseline creation and captured audit/handoff in root `checkbox.md`.

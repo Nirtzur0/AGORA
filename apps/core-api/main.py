@@ -91,4 +91,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("AGORA_CORE_API_PORT", "18000")))
+    uvicorn.run(app, host="0.0.0.0", port=settings.api_port)

@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../api/client';
-import { SectionCard } from '../components/Layout';
+import { SectionCard, useShellFrame } from '../components/Layout';
 import './ProjectsPage.css';
 
 const PHASES = ['INIT', 'LIT_REVIEW', 'CLAIM_VALIDATION', 'HYPOTHESIS_PLANNING', 'EXPERIMENTATION', 'SYNTHESIS', 'INTERNAL_REVIEW', 'FINALIZED', 'ARCHIVED'];
@@ -83,7 +83,7 @@ export default function ProjectsPage() {
   const [phaseFilter, setPhaseFilter] = useState('ALL');
   const [showCreate, setShowCreate] = useState(false);
 
-  const loadWorkspaces = async () => {
+  const loadWorkspaces = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -120,7 +120,7 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadWorkspaces();
@@ -147,6 +147,62 @@ export default function ProjectsPage() {
       { blockers: 0, activeTasks: 0 }
     );
   }, [workspaceDetails, workspaces]);
+
+  const phaseCounts = useMemo(() => {
+    return PHASES.reduce((acc, phase) => {
+      acc[phase] = workspaces.filter((workspace) => workspace.phase === phase).length;
+      return acc;
+    }, {});
+  }, [workspaces]);
+
+  const attentionWorkspaces = useMemo(() => {
+    return workspaces
+      .map((workspace) => ({
+        workspace,
+        detail: workspaceDetails[workspace.id] || {},
+      }))
+      .filter(({ detail }) => (detail.blockingCritiques || 0) + (detail.failingRuleChecks || 0) > 0)
+      .sort(
+        (left, right) =>
+          (right.detail.blockingCritiques || 0) +
+          (right.detail.failingRuleChecks || 0) -
+          ((left.detail.blockingCritiques || 0) + (left.detail.failingRuleChecks || 0))
+      )
+      .slice(0, 4);
+  }, [workspaceDetails, workspaces]);
+
+  const shellActions = useMemo(
+    () => (
+      <>
+        <button type="button" className="btn btn-secondary" onClick={loadWorkspaces}>
+          Refresh
+        </button>
+        <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          New workspace
+        </button>
+      </>
+    ),
+    [loadWorkspaces]
+  );
+
+  const shellFrame = useMemo(
+    () => ({
+      eyebrow: 'Portfolio command center',
+      title: 'Workspace portfolio',
+      summary: 'See evidence health, execution pressure, and blockers across every research workspace.',
+      actions: shellActions,
+      search: {
+        initialValue: search,
+        placeholder: 'Search workspace names and descriptions',
+        buttonLabel: 'Filter portfolio',
+        hint: 'Portfolio search filters the visible workspace list without leaving this view.',
+        onSubmit: (query) => setSearch(query),
+      },
+    }),
+    [search, shellActions]
+  );
+
+  useShellFrame(shellFrame);
 
   return (
     <div className="projects-page">
@@ -203,6 +259,40 @@ export default function ProjectsPage() {
               ))}
             </select>
           </div>
+        </SectionCard>
+      </div>
+
+      <div className="projects-top-grid">
+        <SectionCard eyebrow="Phase distribution" title="Where the work is">
+          <div className="phase-chip-grid">
+            {PHASES.map((phase) => (
+              <div key={phase} className="phase-chip-card">
+                <span>{phase.replaceAll('_', ' ')}</span>
+                <strong>{phaseCounts[phase] || 0}</strong>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        <SectionCard eyebrow="Attention queue" title="Workspaces needing intervention">
+          {attentionWorkspaces.length ? (
+            <div className="attention-list">
+              {attentionWorkspaces.map(({ workspace, detail }) => (
+                <button
+                  type="button"
+                  key={workspace.id}
+                  className="attention-card"
+                  onClick={() => navigate(`/projects/${workspace.id}/overview`)}
+                >
+                  <strong>{workspace.name}</strong>
+                  <span>{detail.failingRuleChecks || 0} failing checks</span>
+                  <span>{detail.blockingCritiques || 0} blocking critiques</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="projects-empty">No active blockers across the portfolio.</div>
+          )}
         </SectionCard>
       </div>
 

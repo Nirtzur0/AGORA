@@ -37,6 +37,7 @@ Research collaboration outputs are only trustworthy when each claim can be trace
 - 0 successful agent-path mutations of orchestrator-owned phase/finalization state.
 - CI enforces deterministic reliability gates (`CMD-11`, `CMD-25`, `CMD-26`, `CMD-27`, `CMD-28`) and stays green on valid changes.
 - Artifact version immutability and idempotent write semantics remain regression-covered in integration tests.
+- Maintainer-facing overview surfaces answer "what needs attention now?" without requiring tab-by-tab scavenging.
 
 ## Requirements (functional + non-functional)
 
@@ -49,6 +50,7 @@ Research collaboration outputs are only trustworthy when each claim can be trace
 - FR-05: Only orchestrator/system paths may change `workspace.phase` and finalize drafts.
 - FR-06: Finalization gates must persist explicit pass/fail artifacts (`rule_checks`, `logs`, `activity_runs`).
 - FR-07: UI must expose claim/citation provenance drill-down to artifact versions.
+- FR-08: UI must provide a maintainers-first, summary-first workspace overview that elevates blockers, gate readiness, and recent critical changes before raw ledgers and forms.
 
 ### Non-functional requirements
 
@@ -56,6 +58,7 @@ Research collaboration outputs are only trustworthy when each claim can be trace
 - NFR-02: Logs/events remain append-only.
 - NFR-03: Reliability checks are explicit, reproducible, and documented in status/worklog/checklists.
 - NFR-04: Docs and implementation deltas remain synchronized through guardrails.
+- NFR-05: Dashboard surfaces remain readable at high information density and preserve keyboard/focus accessibility for repeat users.
 
 ## Risks and assumptions
 

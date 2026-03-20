@@ -393,9 +393,9 @@ This is another paragraph with claim 2 [[claim:{claim2.id}]] and another citatio
     assert len(citations) == 2
     
     # Verify citations link to correct claims
-    citation_claims = {c[0] for c in citations}
-    assert claim1.id in citation_claims
-    assert claim2.id in citation_claims
+    citation_claims = {str(c[0]) for c in citations}
+    assert str(claim1.id) in citation_claims
+    assert str(claim2.id) in citation_claims
 
 
 def test_rule_check_request__agent_endpoint__creates_rule_check(db_session, workspace_with_agent_and_artifacts):
@@ -440,7 +440,45 @@ Claim [[claim:{claim1.id}]] with citation [[cite:{pdf_version.id}|pdf:p=1#char=0
     )
     db_session.add(draft_version)
     db_session.commit()
-    
+
+    critic_id = str(uuid.uuid4())
+    db_session.execute(
+        text(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+            """
+        ),
+        {
+            "id": critic_id,
+            "moltbook_id": f"critic-{critic_id}",
+            "name": "Critic",
+            "reputation": 50,
+        },
+    )
+    db_session.execute(
+        text(
+            """
+            INSERT INTO critiques (
+                id, workspace_id, target_type, target_id, target_location,
+                critic_agent_id, status, severity, message, resolution, created_at
+            ) VALUES (
+                :id, :workspace_id, 'artifact_version', :target_id, NULL,
+                :critic_agent_id, 'resolved', 'medium', :message, :resolution, NOW()
+            )
+            """
+        ),
+        {
+            "id": str(uuid.uuid4()),
+            "workspace_id": str(ws.id),
+            "target_id": draft_version_id,
+            "critic_agent_id": critic_id,
+            "message": "Reviewed and accepted.",
+            "resolution": json.dumps({"status": "accepted_fix"}),
+        },
+    )
+    db_session.commit()
+
     # Create DB wrapper
     db_wrapper = db_session
     

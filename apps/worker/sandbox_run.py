@@ -21,6 +21,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from pathlib import Path
 
+from search_indexing import upsert_search_index
+
 logger = logging.getLogger(__name__)
 
 
@@ -358,6 +360,16 @@ class SandboxRunActivity:
                 "storage_uri": storage_uri,
                 "created_by": created_by
             }
+        )
+
+        upsert_search_index(
+            workspace_id=workspace_id,
+            artifact_id=artifact_id,
+            artifact_version_id=version_id,
+            artifact_type="log",
+            search_text=log_content,
+            metadata=execution_metadata,
+            db=self.db,
         )
         
         self.db.commit()

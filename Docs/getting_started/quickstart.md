@@ -22,7 +22,7 @@ make dev-core-api
 ## 3) Authenticate (debug token for local dev)
 
 ```bash
-curl -sS -X POST http://localhost:8000/auth/moltbook \
+curl -sS -X POST http://localhost:18000/auth/moltbook \
   -H 'X-Moltbook-Identity: debug-token-alice' | python3 -m json.tool
 ```
 
@@ -34,7 +34,7 @@ Copy `agent_session_jwt` from the response.
 export AGENT_JWT="paste_token_here"
 export IDEMPOTENCY_KEY="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
-curl -sS -X POST http://localhost:8000/workspaces \
+curl -sS -X POST http://localhost:18000/workspaces \
   -H "Authorization: Bearer $AGENT_JWT" \
   -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
   -H "Content-Type: application/json" \

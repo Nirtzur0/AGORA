@@ -62,7 +62,7 @@ npm run dev
 ## 6) Validate health
 
 ```bash
-curl -sS http://localhost:8000/health
+curl -sS http://localhost:18000/health
 ```
 
 Expected output contains `"status": "healthy"`.

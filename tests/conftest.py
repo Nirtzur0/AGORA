@@ -5,7 +5,10 @@ All tests run via pytest from the repository root.
 """
 
 import os
+import subprocess
 import sys
+import time
+import types
 from pathlib import Path
 
 import pytest
@@ -32,6 +35,12 @@ path_order = [
 ]
 for path in reversed(path_order):
     sys.path.insert(0, str(path))
+
+# Ensure local `tests.*` imports win even when another installed project also
+# exposes a top-level `tests` namespace.
+tests_pkg = types.ModuleType("tests")
+tests_pkg.__path__ = [str(repo_root / "tests")]
+sys.modules["tests"] = tests_pkg
 
 # Lock "database" module to packages/db/database.py to avoid sys.path shadowing.
 import importlib
@@ -72,6 +81,7 @@ MOLTBOOK_ADAPTER_URL = os.getenv("MOLTBOOK_ADAPTER_URL", "http://localhost:3001"
 
 # Core API configuration
 CORE_API_URL = os.getenv("CORE_API_URL")  # optional override; defaults to in-process TestClient
+_TEMPORAL_WORKER_PROCESS = None
 
 
 @pytest.fixture(scope="session")
@@ -160,6 +170,69 @@ def _shutdown_core_api_server():
     yield
 
 
+def _start_test_worker() -> None:
+    global _TEMPORAL_WORKER_PROCESS
+    if _TEMPORAL_WORKER_PROCESS and _TEMPORAL_WORKER_PROCESS.poll() is None:
+        return
+
+    env = os.environ.copy()
+    env.setdefault("TEMPORAL_TASK_QUEUE", "agora-tasks")
+    env.setdefault("TEMPORAL_ADDRESS", "localhost:7233")
+    pythonpath_entries = [
+        str(repo_root / "packages" / "db"),
+        str(repo_root / "packages" / "shared-types"),
+        str(repo_root / "apps" / "core-api"),
+        str(repo_root / "apps" / "worker"),
+        str(repo_root),
+    ]
+    existing_pythonpath = env.get("PYTHONPATH")
+    if existing_pythonpath:
+        pythonpath_entries.append(existing_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath_entries)
+
+    _TEMPORAL_WORKER_PROCESS = subprocess.Popen(
+        [sys.executable, str(repo_root / "apps" / "worker" / "main.py")],
+        cwd=str(repo_root),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if _TEMPORAL_WORKER_PROCESS.poll() is not None:
+            output = ""
+            if _TEMPORAL_WORKER_PROCESS.stdout is not None:
+                output = _TEMPORAL_WORKER_PROCESS.stdout.read()
+            raise RuntimeError(f"Test worker exited unexpectedly:\n{output}")
+        time.sleep(0.5)
+
+
+@pytest.fixture(autouse=True)
+def ensure_temporal_worker_for_runtime_tests(request):
+    if "integration" not in request.keywords and "e2e" not in request.keywords:
+        yield
+        return
+
+    _start_test_worker()
+    yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _shutdown_temporal_worker():
+    yield
+    global _TEMPORAL_WORKER_PROCESS
+    if _TEMPORAL_WORKER_PROCESS and _TEMPORAL_WORKER_PROCESS.poll() is None:
+        _TEMPORAL_WORKER_PROCESS.terminate()
+        try:
+            _TEMPORAL_WORKER_PROCESS.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _TEMPORAL_WORKER_PROCESS.kill()
+            _TEMPORAL_WORKER_PROCESS.wait(timeout=10)
+    _TEMPORAL_WORKER_PROCESS = None
+
+
 @pytest.fixture(scope="session")
 def core_api_app():
     """
@@ -228,32 +301,46 @@ def db_session(db_url, migrated_db):
     """
     SQLAlchemy session bound to the test database.
 
-    Uses a nested transaction so tests can commit while the outer
-    transaction is rolled back at teardown.
+    Tests that exercise the worker/orchestrator path need committed rows to be
+    visible across real DB connections, so teardown uses explicit table cleanup
+    instead of an outer rollback transaction.
     """
-    from sqlalchemy import create_engine, event
+    from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
 
     engine = create_engine(db_url, pool_pre_ping=True)
-    connection = engine.connect()
-    transaction = connection.begin()
-    Session = sessionmaker(bind=connection, autocommit=False, autoflush=False)
+    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False, expire_on_commit=False)
     session = Session()
-    
-    session.begin_nested()
-
-    @event.listens_for(session, "after_transaction_end")
-    def _restart_savepoint(sess, trans):
-        if trans.nested and not trans._parent.nested:
-            sess.begin_nested()
-
     wrapped = SessionWrapper(session)
     try:
         yield wrapped
     finally:
+        session.rollback()
         session.close()
-        transaction.rollback()
-        connection.close()
+
+        cleanup_connection = engine.connect()
+        cleanup_transaction = cleanup_connection.begin()
+        cleanup_connection.execute(
+            text(
+                """
+                DO $$
+                DECLARE
+                    table_name text;
+                BEGIN
+                    FOR table_name IN
+                        SELECT tablename
+                        FROM pg_tables
+                        WHERE schemaname = 'public'
+                          AND tablename NOT IN ('roles')
+                    LOOP
+                        EXECUTE 'TRUNCATE TABLE ' || quote_ident(table_name) || ' RESTART IDENTITY CASCADE';
+                    END LOOP;
+                END $$;
+                """
+            )
+        )
+        cleanup_transaction.commit()
+        cleanup_connection.close()
         engine.dispose()
 
 

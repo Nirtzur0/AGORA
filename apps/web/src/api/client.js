@@ -1,31 +1,18 @@
+import {
+  asArray,
+  normalizeArtifact,
+  normalizeClaim,
+  normalizeCritique,
+  normalizeRuleCheck,
+  normalizeSearchResponse,
+  normalizeTask,
+} from './normalizers';
+
 const API_BASE_URL = '/api';
 const TOKEN_KEY = 'agent_session_jwt';
 
 function makeIdempotencyKey(prefix = 'agora') {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function asArray(value, key) {
-  if (Array.isArray(value)) return value;
-  if (key && Array.isArray(value?.[key])) return value[key];
-  return [];
-}
-
-function parseMaybeJson(value) {
-  if (!value || typeof value !== 'string') return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function normalizeArtifact(artifact) {
-  if (!artifact) return artifact;
-  return {
-    ...artifact,
-    metadata: parseMaybeJson(artifact.metadata) || {},
-  };
 }
 
 class APIClient {
@@ -273,7 +260,7 @@ class APIClient {
 
   async getWorkspaceClaims(workspaceId) {
     const data = await this.request(`/workspaces/${workspaceId}/claims`);
-    return asArray(data, 'claims');
+    return asArray(data, 'claims').map(normalizeClaim);
   }
 
   async createClaim(workspaceId, payload) {
@@ -298,7 +285,7 @@ class APIClient {
     if (filters.status) params.set('status', filters.status);
     if (filters.severity) params.set('severity', filters.severity);
     const suffix = params.toString() ? `?${params.toString()}` : '';
-    return asArray(await this.request(`/workspaces/${workspaceId}/critiques${suffix}`));
+    return asArray(await this.request(`/workspaces/${workspaceId}/critiques${suffix}`)).map(normalizeCritique);
   }
 
   async createCritique(workspaceId, payload) {
@@ -318,7 +305,7 @@ class APIClient {
   }
 
   async getWorkspaceTasks(workspaceId) {
-    return asArray(await this.request(`/workspaces/${workspaceId}/tasks`));
+    return asArray(await this.request(`/workspaces/${workspaceId}/tasks`)).map(normalizeTask);
   }
 
   async updateTask(taskId, payload) {
@@ -351,7 +338,7 @@ class APIClient {
   }
 
   async getRuleChecks(workspaceId) {
-    return asArray(await this.request(`/rule-checks?workspace_id=${workspaceId}`));
+    return asArray(await this.request(`/rule-checks?workspace_id=${workspaceId}`)).map(normalizeRuleCheck);
   }
 
   async runRuleCheck(workspaceId, draftArtifactVersionId) {
@@ -397,7 +384,7 @@ class APIClient {
   async search(query, workspaceId = null) {
     const params = new URLSearchParams({ query });
     if (workspaceId) params.append('workspace_id', workspaceId);
-    return this.request(`/search?${params.toString()}`);
+    return normalizeSearchResponse(await this.request(`/search?${params.toString()}`));
   }
 }
 

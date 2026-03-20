@@ -28,10 +28,10 @@ make PYTHON=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3 test-
 ## 3) Manual smoke checks
 
 ```bash
-curl -sS http://localhost:8000/health
+curl -sS http://localhost:18000/health
 ```
 
 Open:
-- Core API docs: `http://localhost:8000/docs`
+- Core API docs: `http://localhost:18000/docs`
 - Temporal UI: `http://localhost:8080`
 - Web UI: `http://localhost:3000`

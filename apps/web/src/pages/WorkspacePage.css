@@ -16,6 +16,12 @@
   box-shadow: var(--shadow-card);
 }
 
+.workspace-hero-copy,
+.workspace-hero-right {
+  display: grid;
+  gap: 0.95rem;
+}
+
 .workspace-kicker {
   margin: 0;
   letter-spacing: 0.16em;
@@ -37,10 +43,53 @@
   line-height: 1.7;
 }
 
+.workspace-hero-footnotes {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  color: var(--color-text-muted);
+  font-size: 0.88rem;
+}
+
+.workspace-hero-footnotes span {
+  padding: 0.32rem 0.58rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.54);
+  border: 1px solid rgba(71, 89, 94, 0.1);
+}
+
 .workspace-hero-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.8rem;
+}
+
+.workspace-signal-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.workspace-signal,
+.signal-card {
+  padding: 0.95rem 1rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(71, 89, 94, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.workspace-signal span,
+.signal-card span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+}
+
+.workspace-signal strong,
+.signal-card strong {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--color-ink-strong);
 }
 
 .workspace-layout {
@@ -135,6 +184,28 @@
   gap: 0.75rem;
 }
 
+.insight-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(71, 89, 94, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.insight-row p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.insight-row span {
+  color: var(--color-text-muted);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
 .hint-block {
   padding: 0.9rem 1rem;
   border-radius: 1rem;
@@ -179,6 +250,7 @@
   padding: 0.95rem;
   display: grid;
   gap: 0.25rem;
+  cursor: pointer;
 }
 
 .artifact-summary-card.active {
@@ -297,19 +369,25 @@
   }
 
   .workspace-stat-grid,
-  .workspace-hero-metrics {
+  .workspace-hero-metrics,
+  .workspace-signal-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 720px) {
   .workspace-stat-grid,
-  .workspace-hero-metrics {
+  .workspace-hero-metrics,
+  .workspace-signal-strip {
     grid-template-columns: 1fr;
   }
 
   .workspace-inline-row {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .insight-row {
+    flex-direction: column;
   }
 }

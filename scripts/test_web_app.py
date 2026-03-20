@@ -7,7 +7,7 @@ import json
 import os
 import sys
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:18000"
 MOLTBOOK_IDENTITY = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
 TOKEN = os.getenv("TEST_JWT")
 

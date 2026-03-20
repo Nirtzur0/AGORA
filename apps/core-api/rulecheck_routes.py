@@ -305,27 +305,46 @@ def request_run_rulecheck(
             detail=f"Artifact version {request.draft_artifact_version_id} is not a draft (type={version_row[2]})"
         )
     
-    # Run citation check activity
+    # Run canonical draft governance checks.
     from citation_check import citation_check_activity
-    
+    from critique_sufficiency import CritiqueSufficiencyActivity
+
     try:
-        result = citation_check_activity(request.draft_artifact_version_id, db)
+        citation_result = citation_check_activity(request.draft_artifact_version_id, db)
+        critique_result = CritiqueSufficiencyActivity(db).check_critique_sufficiency(
+            workspace_id=workspace_id_str,
+            target_type="artifact_version",
+            target_id=request.draft_artifact_version_id,
+        )
         
         # Generate request ID for tracking
         request_id = str(uuid.uuid4())
         
         # Determine overall status
-        if result.coverage_pass and result.resolves_pass:
+        citation_checks_passed = all(
+            [
+                citation_result.coverage_pass,
+                citation_result.resolves_pass,
+            ]
+        )
+        critique_check_passed = critique_result["status"] == "pass"
+
+        if citation_checks_passed and critique_check_passed:
             status = "passed"
-            message = f"Citation check passed. {result.citations_materialized} citations materialized."
+            message = (
+                "Draft governance checks passed. "
+                f"{citation_result.citations_materialized} citations materialized."
+            )
         else:
             status = "failed"
             failures = []
-            if not result.coverage_pass:
-                failures.append(f"{len(result.coverage_failures)} coverage failures")
-            if not result.resolves_pass:
-                failures.append(f"{len(result.resolves_failures)} resolution failures")
-            message = f"Citation check failed: {', '.join(failures)}"
+            if not citation_result.coverage_pass:
+                failures.append(f"{len(citation_result.coverage_failures)} coverage failures")
+            if not citation_result.resolves_pass:
+                failures.append(f"{len(citation_result.resolves_failures)} resolution failures")
+            if critique_result["status"] != "pass":
+                failures.append("critique sufficiency failed")
+            message = f"Draft governance checks failed: {', '.join(failures)}"
         
         return RunRuleCheckResponse(
             request_id=request_id,

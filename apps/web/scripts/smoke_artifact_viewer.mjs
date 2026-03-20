@@ -84,7 +84,7 @@ async function waitForProjects(page) {
 }
 
 async function createWorkspaceViaUI(page, workspaceName, description) {
-  await page.getByRole('button', { name: 'New workspace' }).click();
+  await page.locator('#main-content').getByRole('button', { name: 'New workspace' }).click();
   const dialog = page.locator('.dialog-card');
   await dialog.waitFor({ state: 'visible', timeout: 10000 });
   await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(workspaceName);
@@ -209,20 +209,28 @@ async function main() {
 
   const base = process.env.AGORA_WEB_BASE_URL || 'http://127.0.0.1:3000';
   const coreApi = process.env.AGORA_CORE_API_URL || 'http://127.0.0.1:18000';
-  const seedWorkspaceName = `Console Smoke ${Date.now()}`;
+  const runId = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${requestedBrowser}-${requestedViewport}`;
+  const seedWorkspaceName = `Console Smoke ${runId}`;
   const seedDescription = 'Deterministic workspace created by the Playwright smoke console script.';
-  const claimText = `The seeded log captured deterministic browser evidence at ${Date.now()}.`;
-  const draftTitle = `Console Smoke Draft ${Date.now()}`;
-  const uniqueSearchText = `smoke-search-token-${Date.now()}`;
+  const claimText = `The seeded log captured deterministic browser evidence at ${runId}.`;
+  const draftTitle = `Console Smoke Draft ${runId}`;
+  const uniqueSearchText = `smoke-search-token-${runId}`;
   const logText = `Smoke log start\n${uniqueSearchText}\nSmoke log finish`;
   const codeText = 'print("sandbox smoke output")\n';
 
-  const tempUploadPath = path.join(os.tmpdir(), `agora-console-config-${Date.now()}.json`);
+  const tempUploadPath = path.join(os.tmpdir(), `agora-console-config-${runId}.json`);
   fs.writeFileSync(tempUploadPath, JSON.stringify({ smoke: true, created_at: new Date().toISOString() }, null, 2));
 
   try {
+    console.log(`STEP: opening ${base}/login`);
     await page.goto(`${base}/login`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /Dev Login/i }).click();
+    const devLoginButton = page.getByRole('button', { name: /Dev Login/i });
+    if (await devLoginButton.isVisible().catch(() => false)) {
+      console.log('STEP: using explicit dev login button');
+      await devLoginButton.click();
+    } else {
+      console.log('STEP: dev auto-login already active, waiting for projects route');
+    }
     await waitForProjects(page);
 
     const token = await getStoredToken(page);
@@ -273,7 +281,7 @@ async function main() {
     await createAssignedTask(page.request, coreApi, workspaceId, agentProfile.agent_id, logVersion.id);
 
     await page.goto(`${base}/projects/${workspaceId}/overview`, { waitUntil: 'domcontentloaded' });
-    await page.getByText(seedWorkspaceName).waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#main-content').getByRole('heading', { name: seedWorkspaceName, exact: true }).waitFor({ state: 'visible', timeout: 20000 });
     await assertWorkspaceTabsReachable(page, workspaceId);
 
     await openWorkspaceTab(page, 'Team');
@@ -353,7 +361,7 @@ async function main() {
     await page.getByText('Rule check requested').waitFor({ state: 'visible', timeout: 30000 });
 
     await openWorkspaceTab(page, 'Tasks');
-    const taskCard = page.locator('.list-card').filter({ hasText: 'review_seed_artifact' }).first();
+    const taskCard = page.locator('.list-card').filter({ hasText: /Review Seed Artifact/i }).first();
     await taskCard.getByRole('combobox').nth(0).selectOption('completed');
     await taskCard.getByPlaceholder('Notes or blockers').fill('Verified in the browser console.');
     await taskCard.getByRole('button', { name: 'Update task' }).click();
@@ -367,7 +375,7 @@ async function main() {
       [TOKEN_KEY, secondaryAuth.agent_session_jwt]
     );
     await page.goto(`${base}/projects/${workspaceId}/critiques`, { waitUntil: 'domcontentloaded' });
-    await page.getByText(seedWorkspaceName).waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#main-content').getByRole('heading', { name: seedWorkspaceName, exact: true }).waitFor({ state: 'visible', timeout: 20000 });
 
     const critiqueSection = page.locator('.section-card').filter({ hasText: 'Create critique' });
     await critiqueSection.getByRole('combobox').nth(0).selectOption('claim');

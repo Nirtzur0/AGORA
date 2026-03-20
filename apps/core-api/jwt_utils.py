@@ -13,6 +13,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from enum import Enum
 
+from runtime_config import (
+    get_agent_jwt_secret,
+    get_system_jwt_audience,
+    get_system_jwt_secret,
+)
+
 
 class TokenType(str, Enum):
     AGENT = "agent"
@@ -21,12 +27,12 @@ class TokenType(str, Enum):
 
 class TokenAudience(str, Enum):
     AGENT_API = "agora:agent-api"
-    SYSTEM_API = "agora:system-api"
+    SYSTEM_API = get_system_jwt_audience()
 
 
 # Separate signing keys for agent and system tokens
-AGENT_JWT_SECRET = os.getenv("AGENT_JWT_SECRET", "agent-secret-change-in-production")
-SYSTEM_JWT_SECRET = os.getenv("SYSTEM_JWT_SECRET", "system-secret-change-in-production")
+AGENT_JWT_SECRET = get_agent_jwt_secret()
+SYSTEM_JWT_SECRET = get_system_jwt_secret()
 
 # Token expiration
 AGENT_TOKEN_EXPIRY_HOURS = int(os.getenv("AGENT_TOKEN_EXPIRY_HOURS", "24"))

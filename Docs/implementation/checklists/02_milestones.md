@@ -326,3 +326,38 @@ This checklist maps AGORA work into bounded milestones after prompt-02 shaping.
   - Verify: `rg -n "Troubleshooting|signature|sink publish|CMD-40|objective-observability-sink-report|cmd-13-nightly-observability-sink-report" Docs/reference/release_workflow.md Docs/manifest/11_ci.md Docs/implementation/checklists/06_release_readiness.md`.
   - Files: `Docs/reference/release_workflow.md`, `Docs/manifest/11_ci.md`, `Docs/implementation/checklists/06_release_readiness.md`, `Docs/implementation/00_status.md`, `Docs/implementation/03_worklog.md`
   - Prompt chain: `prompt-14` -> `prompt-11` -> `prompt-03`
+
+## M12 - UI/UX Audit and Redesign Handoff
+
+- [x] UX-A01: Produce a candid audit of the current AGORA dashboard/workspace experience.
+  - AC: a report identifies what should be preserved, merged, elevated, hidden, or removed across overview, investigation, research record, operations, governance, and settings.
+  - Verify: `rg -n "^## 1\\. Executive verdict|^## 8\\. Proposed new information architecture|^## 16\\. Implementation-aware handoff for Codex|^## 17\\. Prioritized roadmap" Docs/implementation/reports/ui_ux_audit_redesign.md` (PASS, 2026-03-11).
+  - Files: `Docs/implementation/reports/ui_ux_audit_redesign.md`, `Docs/implementation/checklists/09_ui_ux_redesign.md`
+
+- [x] UX-A02: Create a Figma redesign artifact from current-state capture plus implementation-realistic redesign pages.
+  - AC: a new Figma file exists and is linked from the audit report/checklist; current-state routes and redesign preview routes are recorded as capture sources.
+  - Verify: `rg -n "jLSN22ajGiadKjsJvuTOnK|design-preview/agora-redesign|/projects/b797be9e-eb5c-4223-a291-be104bcd0f5d/overview" Docs/implementation/reports/ui_ux_audit_redesign.md Docs/implementation/checklists/09_ui_ux_redesign.md` (PASS, 2026-03-11).
+  - Files: `apps/web/src/design-preview/AgoraRedesignPage.jsx`, `apps/web/src/design-preview/AgoraRedesignPage.css`, `apps/web/scripts/seed_ui_audit_fixture.mjs`, `Docs/implementation/reports/ui_ux_audit_redesign.md`, `Docs/implementation/checklists/09_ui_ux_redesign.md`
+
+- [ ] UX-A03: Record node-level Figma references for every primary redesign screen.
+  - AC: report/checklist include node URLs or node IDs for the main redesign screens and system page.
+  - Verify: `rg -n "node-id=|Node ID|node URL" Docs/implementation/reports/ui_ux_audit_redesign.md Docs/implementation/checklists/09_ui_ux_redesign.md`
+  - Files: `Docs/implementation/reports/ui_ux_audit_redesign.md`, `Docs/implementation/checklists/09_ui_ux_redesign.md`
+  - Note: blocked on Figma MCP seat quota after file creation; follow-up needed when quota resets.
+
+## M13 - Repo Realignment Baseline
+
+- [x] Normalize request orchestration onto registered Temporal workflows and a single queue contract.
+  - AC: worker registers literature/repo/sandbox/phase/finalization workflows and request routes stop executing repo/sandbox work inline.
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_repo_ingestion.py tests/integration/worker/test_sandbox_execution/test_sandbox_endpoint.py tests/e2e/workflows/test_literature_grounding.py::test_literature_grounding_workflow__happy_path__completes` (PASS, 2026-03-11).
+  - Files: `apps/core-api/request_routes.py`, `apps/core-api/phase_routes.py`, `apps/core-api/temporal_runtime.py`, `apps/worker/main.py`, `apps/worker/literature_grounding_workflow.py`, `apps/worker/request_action_workflows.py`, `tests/conftest.py`
+
+- [x] Reconnect draft governance to critique sufficiency and unify search indexing helpers.
+  - AC: request-triggered draft rulechecks persist critique sufficiency outcomes, and upload/ingest/log indexing use one shared search-index path.
+  - Verify: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_citation_checks.py::test_rule_check_request__agent_endpoint__creates_rule_check tests/integration/worker/test_draft_finalization.py::test_finalize_draft_activity__finalized_workspace__updates_metadata_and_emits_events` (PASS, 2026-03-11).
+  - Files: `apps/core-api/rulecheck_routes.py`, `apps/core-api/artifact_routes.py`, `apps/worker/pdf_ingest.py`, `apps/worker/repo_ingest.py`, `apps/worker/sandbox_run.py`, `packages/shared-types/search_indexing.py`
+
+- [x] Repair baseline reproducibility and remove dead UI paths.
+  - AC: root `make test` works again, web lint has a committed config, stale `8000` scripts/CI health checks are updated, and disconnected workspace-tab UI files are removed.
+  - Verify: `make PYTHON=python3 test` (PASS, 2026-03-11), `npm --prefix apps/web run lint` (PASS with warnings, 2026-03-11).
+  - Files: `tests/conftest.py`, `tests/helpers/__init__.py`, `apps/web/.eslintrc.cjs`, `apps/web/package.json`, `apps/web/src/pages/WorkspaceTabsEnhanced.jsx`, `apps/web/src/components/CreateWorkspaceModal.jsx`, `.github/workflows/ci.yml`, `scripts/*.py`

@@ -89,7 +89,7 @@ def test_literature_grounding_workflow__happy_path__completes(db_session, integr
     mock_agent = {"agent_id": str(agent.id)}
 
     # Step 1-3: Create PDF artifact + uploaded version (v1 bytes).
-    pdf_artifact_id = str(uuid.uuid4())
+    pdf_artifact_id = uuid.uuid4()
     db_session.add(
         Artifact(
             id=pdf_artifact_id,
@@ -125,12 +125,12 @@ def test_literature_grounding_workflow__happy_path__completes(db_session, integr
     ingest_response = asyncio.run(
         request_ingest_pdf(
             workspace_id=uuid.UUID(str(ws.id)),
-            request=IngestPdfRequest(artifact_id=pdf_artifact_id),
+            request=IngestPdfRequest(artifact_id=str(pdf_artifact_id)),
             current_agent=mock_agent,
             db=db_session,
         )
     )
-    assert ingest_response.artifact_id == pdf_artifact_id
+    assert ingest_response.artifact_id == str(pdf_artifact_id)
     assert ingest_response.workflow_run_id
 
     workflow = db_session.execute(
@@ -158,7 +158,7 @@ def test_literature_grounding_workflow__happy_path__completes(db_session, integr
             LIMIT 1
             """
         ),
-        {"artifact_id": pdf_artifact_id},
+            {"artifact_id": str(pdf_artifact_id)},
     ).fetchone()
     assert latest is not None
     pdf_version_id, pdf_version_num = str(latest[0]), int(latest[1])
@@ -225,6 +225,44 @@ The study provides strong support for the hypothesis.
         current_agent=mock_agent,
         db=db_session,
     )
+
+    critic_id = str(uuid.uuid4())
+    db_session.execute(
+        text(
+            """
+            INSERT INTO agents (id, moltbook_id, name, reputation, created_at)
+            VALUES (:id, :moltbook_id, :name, :reputation, NOW())
+            """
+        ),
+        {
+            "id": critic_id,
+            "moltbook_id": f"critic-{critic_id}",
+            "name": "Critic",
+            "reputation": 50,
+        },
+    )
+    db_session.execute(
+        text(
+            """
+            INSERT INTO critiques (
+                id, workspace_id, target_type, target_id, target_location,
+                critic_agent_id, status, severity, message, resolution, created_at
+            ) VALUES (
+                :id, :workspace_id, 'artifact_version', :target_id, NULL,
+                :critic_agent_id, 'resolved', 'medium', :message, :resolution, NOW()
+            )
+            """
+        ),
+        {
+            "id": str(uuid.uuid4()),
+            "workspace_id": str(ws.id),
+            "target_id": version_response.id,
+            "critic_agent_id": critic_id,
+            "message": "Reviewed and accepted.",
+            "resolution": json.dumps({"status": "accepted_fix"}),
+        },
+    )
+    db_session.commit()
 
     # Step 7: Run citation check and verify persisted rule_checks + citations.
     rulecheck_response = request_run_rulecheck(

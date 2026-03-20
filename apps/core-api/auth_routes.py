@@ -17,13 +17,7 @@ from datetime import datetime
 
 from database import get_db_session
 import sys
-try:
-    print(f"DEBUG: jwt_utils loaded from: {sys.modules['jwt_utils'].__file__}")
-except:
-    print("DEBUG: jwt_utils not in sys.modules yet")
 from jwt_utils import create_agent_token_v2
-import jwt_utils
-print(f"DEBUG: jwt_utils LOADED FROM: {jwt_utils.__file__}")
 
 router = APIRouter()
 

@@ -7,7 +7,7 @@ import os
 import requests
 
 def main():
-    base_url = os.getenv("BASE_URL", "http://localhost:8000")
+    base_url = os.getenv("BASE_URL", "http://localhost:18000")
     identity = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
 
     response = requests.post(

@@ -14,6 +14,9 @@ from auth_middleware import require_system_token, SystemContext
 import logging
 from pathlib import Path
 import sys
+import uuid
+
+from temporal_runtime import execute_tracked_workflow
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -110,36 +113,35 @@ async def advance_phase(
     
     # Start phase advancement workflow
     try:
-        from temporalio.client import Client
         _ensure_worker_path()
         from phase_advancement_workflow import PhaseAdvancementWorkflow
-        
-        client = await Client.connect("localhost:7233")
-        
-        workflow_id = f"phase-advancement-{workspace_id}-{request.target_phase}"
-        
-        handle = await client.start_workflow(
-            PhaseAdvancementWorkflow.run,
+        workflow_id = f"phase-advancement-{workspace_id}-{request.target_phase}-{uuid.uuid4()}"
+        workflow_run_id, result = await execute_tracked_workflow(
+            db=db,
+            workspace_id=workspace_id,
+            workflow_type="phase_advancement",
+            workflow_callable=PhaseAdvancementWorkflow.run,
+            workflow_id=workflow_id,
             args=[workspace_id, request.target_phase, request.reason],
-            id=workflow_id,
-            task_queue="agora-orchestrator"
         )
         
         logger.info(
-            f"Started phase advancement workflow",
+            f"Completed phase advancement workflow",
             extra={
                 "workspace_id": workspace_id,
                 "target_phase": request.target_phase,
-                "workflow_id": handle.id
+                "workflow_id": workflow_id,
             }
         )
         
         return {
-            "workflow_id": handle.id,
+            "workflow_id": workflow_id,
+            "workflow_run_id": workflow_run_id,
             "workspace_id": workspace_id,
             "current_phase": current_phase,
             "target_phase": request.target_phase,
-            "status": "started"
+            "status": "completed" if result.get("success") else "blocked",
+            "gate_result": result.get("gate_result"),
         }
     
     except Exception as e:

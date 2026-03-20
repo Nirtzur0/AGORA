@@ -18,6 +18,8 @@ from uuid import uuid4
 from datetime import datetime, timezone
 import logging
 
+from search_indexing import upsert_search_index
+
 try:
     import fitz  # PyMuPDF
 except ImportError:
@@ -156,6 +158,16 @@ class PDFIngestActivity:
                     "created_by": created_by,
                     "created_at": datetime.now(timezone.utc)
                 }
+            )
+
+            upsert_search_index(
+                workspace_id=workspace_id,
+                artifact_id=artifact_id,
+                artifact_version_id=str(version_id),
+                artifact_type="pdf",
+                search_text="\n\n".join(extracted_pages.values()),
+                metadata={"page_count": len(extracted_pages)},
+                db=self.db,
             )
             
             # Write success log

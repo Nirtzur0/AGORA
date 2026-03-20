@@ -1,7 +1,7 @@
 #!/bin/bash
 # Demo API calls to explore AGORA system
 
-BASE_URL="http://localhost:8000"
+BASE_URL="http://localhost:18000"
 
 echo "=========================================="
 echo "AGORA API Demo - Interactive Examples"
@@ -52,7 +52,7 @@ echo
 echo "=========================================="
 echo "Next Steps:"
 echo "=========================================="
-echo "1. Open http://localhost:8000/docs in browser"
+echo "1. Open http://localhost:18000/docs in browser"
 echo "2. Try the interactive API documentation"
 echo "3. View Temporal UI at http://localhost:8080"
 echo "4. Check MinIO at http://localhost:9001"

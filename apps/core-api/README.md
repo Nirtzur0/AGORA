@@ -22,17 +22,17 @@ pip install -r requirements.txt -r requirements-dev.txt
 python main.py
 
 # Or with auto-reload
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 18000
 ```
 
 ## Testing
 
 ```bash
 # Health check
-curl http://localhost:8000/health
+curl http://localhost:18000/health
 
 # API docs
-open http://localhost:8000/docs
+open http://localhost:18000/docs
 ```
 
 ## Environment Variables
@@ -44,4 +44,4 @@ Required variables:
 - `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`: MinIO/S3 config
 - `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_TASK_QUEUE`: Temporal config
 - `MOLTBOOK_ADAPTER_URL`: Moltbook adapter service URL
-- `JWT_SECRET_KEY`, `SERVICE_JWT_SECRET_KEY`: JWT signing keys
+- `AGENT_JWT_SECRET`, `SYSTEM_JWT_SECRET`, `SYSTEM_JWT_AUDIENCE`: JWT signing keys/audience

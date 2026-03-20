@@ -1,5 +1,43 @@
 # Worklog
 
+## 2026-03-11
+
+- Executed a manual AGORA UI/UX audit + redesign handoff packet.
+- Added additive frontend-only redesign capture scaffolding:
+  - `apps/web/src/App.jsx`
+  - `apps/web/src/design-preview/AgoraRedesignPage.jsx`
+  - `apps/web/src/design-preview/AgoraRedesignPage.css`
+  - `apps/web/scripts/seed_ui_audit_fixture.mjs`
+  - `apps/web/package.json` (`seed:ui-audit-fixture`)
+- Built the web app after the redesign-preview changes:
+  - `npm --prefix apps/web run build` -> PASS
+- Brought up local runtime for real capture work:
+  - `make up` -> PASS
+  - `make migrate-up` -> PASS
+  - `make dev-core-api` -> PASS
+  - Vite dev server with `VITE_DEV_AUTO_LOGIN=true VITE_DEV_MOLTBOOK_IDENTITY=debug-token-clawdbot` -> PASS
+- Seeded a deterministic workspace for current-state capture:
+  - `node apps/web/scripts/seed_ui_audit_fixture.mjs` -> PASS
+  - workspace id: `b797be9e-eb5c-4223-a291-be104bcd0f5d`
+- Verified both new and existing browser routes:
+  - Playwright route check -> PASS (`preview_and_current_routes_ok`)
+  - `npm --prefix apps/web run smoke:artifact-viewer` -> PASS
+- Created the new Figma file through MCP:
+  - file URL: `https://www.figma.com/design/jLSN22ajGiadKjsJvuTOnK`
+  - file key: `jLSN22ajGiadKjsJvuTOnK`
+  - first confirmed capture: current `/projects` page
+  - launched additional capture tabs for current overview and redesign preview routes listed in `Docs/implementation/reports/ui_ux_audit_redesign.md`
+  - blocker: after file creation and follow-on capture launch, the Figma MCP seat hit its tool-call quota, so node-level link extraction is still outstanding
+- Synced design/docs packet artifacts:
+  - added `Docs/implementation/reports/ui_ux_audit_redesign.md`
+  - added `Docs/implementation/checklists/09_ui_ux_redesign.md`
+  - updated `Docs/implementation/epics/epic_ui_audit_and_release.md`
+  - updated `Docs/implementation/checklists/02_milestones.md`
+  - updated `Docs/implementation/reports/project_plan.md`
+  - updated `Docs/implementation/reports/prd.md`
+  - updated `Docs/implementation/00_status.md`
+  - updated `Docs/manifest/03_decisions.md`
+
 ## 2026-02-09
 
 - Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router scripts) for `DIR-23` / `AR-C17` periodic sink-evidence recency enforcement.
@@ -1452,3 +1490,22 @@
 - Wrote final stabilization report: `Docs/implementation/reports/test_stabilization_final_report.md`.
 - Final pre-push check: `make test-all` initially failed stub-check due to bare `pass` statements in Core API. Removed them and reran `make test-all` green.
 - Next: none.
+
+## 2026-03-11
+
+- Replaced the request-route hybrid execution model with tracked Temporal starts:
+  - `request_ingest_pdf` now runs `LiteratureGroundingWorkflow`
+  - `request_ingest_repo` now runs `RepoIngestWorkflow`
+  - `request_run_sandbox` now runs `SandboxRunWorkflow`
+  - `advance_phase` and `request_finalize_draft` now use the same `execute_tracked_workflow` starter and canonical task queue.
+- Registered the request workflows in `apps/worker/main.py` and wrapped worker activities so each Temporal activity persists its own `activity_runs` row instead of relying on route-side fake bookkeeping.
+- Switched the integration/e2e DB fixture from rollback-only isolation to committed-per-test cleanup so the checked-in worker process can see the same persisted rows as the API under test.
+- Added a lazy test worker bootstrap in `tests/conftest.py`; integration/e2e tests now exercise the repo’s real worker entrypoint instead of assuming inline route execution.
+- Reconnected governance/search surfaces:
+  - `request_run_rulecheck` now runs citation checks plus critique sufficiency,
+  - PDF/repo/log ingest paths all write through the same search-index helper.
+- Cleaned baseline drift:
+  - removed debug prints from `auth_routes.py`,
+  - added `apps/web/.eslintrc.cjs`,
+  - updated stale `localhost:8000` smoke/CI references to `localhost:18000`,
+  - made paper/dash CI lanes optional instead of blocking every PR.

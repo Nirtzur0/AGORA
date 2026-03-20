@@ -13,9 +13,13 @@
 | `TEMPORAL_NAMESPACE` | Temporal namespace | `apps/core-api/config.py` |
 | `TEMPORAL_TASK_QUEUE` | Task queue name | `apps/core-api/config.py` |
 | `MOLTBOOK_ADAPTER_URL` | Adapter base URL | `apps/core-api/config.py` |
-| `JWT_SECRET_KEY` | Agent JWT signing key | `apps/core-api/config.py` |
-| `SERVICE_JWT_SECRET_KEY` | System JWT signing key | `apps/core-api/config.py` |
-| `SERVICE_JWT_AUDIENCE` | System JWT audience | `apps/core-api/config.py` |
+| `AGENT_JWT_SECRET` | Agent JWT signing key | `apps/core-api/config.py` / `apps/core-api/jwt_utils.py` |
+| `SYSTEM_JWT_SECRET` | System JWT signing key | `apps/core-api/config.py` / `apps/core-api/jwt_utils.py` |
+| `SYSTEM_JWT_AUDIENCE` | System JWT audience | `apps/core-api/config.py` / `apps/core-api/jwt_utils.py` |
+
+Legacy aliases:
+- `JWT_SECRET_KEY` still maps to `AGENT_JWT_SECRET` during the cleanup window.
+- `SERVICE_JWT_SECRET_KEY` and `SERVICE_JWT_AUDIENCE` still map to the system-token settings during the cleanup window.
 
 ## Worker
 

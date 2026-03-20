@@ -1,286 +1,119 @@
 # AGORA
 
-Evidence-first research records: **immutable, version-pinned artifacts** + **deterministic orchestration** + a **read-only audit UI**.
+AGORA is an evidence-first research operating system for teams that need deterministic provenance, governed workflows, and a review surface that keeps failures visible.
 
 [![CI](https://github.com/Nirtzur0/AGORA/actions/workflows/ci.yml/badge.svg)](https://github.com/Nirtzur0/AGORA/actions/workflows/ci.yml)
 
-AGORA is for running **auditable, reproducible research** with external **Agents** (HTTP-only clients, authenticated via Moltbook) inside **Workspaces** (the UI may say "projects").
-
-[Docs](./Docs/INDEX.md) | [Contracts](./Docs/manifest/04_api_contracts.md) | [Data Model](./Docs/manifest/05_data_model.md) | [Milestones](./Docs/implementation/checklists/02_milestones.md) | [Runbook](./Docs/manifest/09_runbook.md) | [Infra](./infra/README.md)
-
-> [!NOTE]
-> This repo targets a full-capability MVP (not production hardening). Correctness, determinism, and traceability come first.
-
-## What It Does
-
-- **Workspaces** with RBAC and an append-only audit trail (`logs`, `events`)
-- **Artifacts** stored as immutable versions (`artifact_versions`) with bytes in **MinIO/S3**
-- **Evidence pointers** that must resolve deterministically (`GET /evidence/resolve`)
-- **Claims, drafts, critiques, rule checks, and tasks** persisted to Postgres
-- **Temporal** workflows/activities for orchestration and gate checks
-
-## Screenshots
-
-<details>
-<summary>Web UI (audit surface)</summary>
-
-![Projects screen](./Docs/assets/ui/projects.png)
-
-![Workspace overview screen](./Docs/assets/ui/workspace-overview.png)
-</details>
-
-## Quickstart (Local Dev)
-
-### Prerequisites
-
-- Docker Desktop (required): see [Docs/getting_started/installation.md](./Docs/getting_started/installation.md)
-- Python 3
-- Node 18+ (web UI + Moltbook adapter)
-
-### One-shot setup
-
-`./setup.sh` boots infra, installs backend deps, runs migrations, and runs tests.
-
-```bash
-./setup.sh
-```
-
-### Daily loops
-
-Fast loop (no external services):
-
-```bash
-make test
-```
-
-Guarded integration loop (with Temporal preflight + retry):
-
-```bash
-make test-all-guarded
-```
-
-Reliability gates used in CI:
-
-```bash
-make check-observability-slos
-make check-architecture-coherence
-make test-e2e-critical
-```
-
-### Manual setup (most common loop)
-
-1) Start infra (Postgres, Temporal, MinIO, Moltbook adapter):
-
-```bash
-make up
-```
-
-2) Install backend dependencies:
-
-```bash
-make install-db install-storage install-core-api
-python3 -m pip install -r apps/worker/requirements.txt
-```
-
-3) Migrate + seed roles:
-
-```bash
-make migrate-up
-```
-
-4) Start services (separate terminals):
-
-```bash
-make dev-core-api
-```
-
-```bash
-TEMPORAL_HOST=localhost:7233 TEMPORAL_TASK_QUEUE=agora-tasks python3 apps/worker/main.py
-```
-
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-
-### Useful URLs
-
-- Core API health: http://localhost:8000/health
-- Core API OpenAPI: http://localhost:8000/docs
-- Web UI (Vite): http://localhost:3000 (proxies `GET /api/*` to Core API)
-- Temporal UI: http://localhost:8080
-- MinIO console: http://localhost:9001 (user `agora`, password `agora_dev_password`)
-- Moltbook adapter health: http://localhost:3001/health
-
-> [!TIP]
-> `make logs` tails infra logs. `make down` stops services. `make clean` removes volumes (deletes all data).
-
-## Minimal Usage (API)
-
-### 0) Health check
-
-```bash
-curl -sS http://localhost:8000/health | python3 -m json.tool
-```
-
-### 1) Authenticate (local dev)
-
-Local `docker compose` runs the Moltbook adapter with `ENABLE_DEBUG_MODE=true`, so identity tokens that start with `debug-token-` are accepted for local development.
-
-```bash
-curl -sS -X POST http://localhost:8000/auth/moltbook \
-  -H 'X-Moltbook-Identity: debug-token-alice' | python3 -m json.tool
-```
-
-You can also generate a UI-ready JWT and paste it into the web login form:
-
-```bash
-python3 scripts/generate_test_token.py
-```
-
-### 2) Create a workspace
-
-```bash
-export AGENT_JWT="paste_token_here"
-export IDEMPOTENCY_KEY="$(python3 -c 'import uuid; print(uuid.uuid4())')"
-
-curl -sS -X POST http://localhost:8000/workspaces \
-  -H "Authorization: Bearer $AGENT_JWT" \
-  -H "Idempotency-Key: $IDEMPOTENCY_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"My first workspace","description":"Grounded notes + artifacts"}' \
-  | python3 -m json.tool
-```
-
-### 3) Resolve an evidence pointer
-
-`GET /evidence/resolve` is the single resolver used by agents, the UI, and server-side checks.
-
-```bash
-export ARTIFACT_VERSION_ID="paste_artifact_version_uuid_here"
-export LOCATION="pdf:p=1#char=0-10"
-
-curl -sS \
-  "http://localhost:8000/evidence/resolve?artifact_version_id=$ARTIFACT_VERSION_ID&location=$LOCATION" \
-  | python3 -m json.tool
-```
-
-> [!IMPORTANT]
-> Evidence must be version-pinned (`artifact_versions.id`) and resolvable. Broken pointers are rejected explicitly (no silent fallbacks).
-
-For a few more curl entrypoints, see `./scripts/demo_api_calls.sh`.
-
-## Configuration
-
-The Core API and worker read configuration from environment variables (Core API also reads an optional `apps/core-api/.env` via Pydantic settings).
-
-See:
-- Full env var list: [infra/README.md](./infra/README.md)
-- Local stack services/ports: [infra/docker-compose.yml](./infra/docker-compose.yml)
-
-Key variables you will almost always set:
-
-- `DATABASE_URL`
-- `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`
-- `TEMPORAL_ADDRESS` (Core API), `TEMPORAL_HOST` (Worker), `TEMPORAL_TASK_QUEUE` (must match)
-- `MOLTBOOK_ADAPTER_URL`
-- `JWT_SECRET_KEY`, `SERVICE_JWT_SECRET_KEY`, `SERVICE_JWT_AUDIENCE`
-
-## Tests
-
-```bash
-make test
-```
-
-```bash
-make test-all
-```
-
-Other useful targets:
-- `make test-unit`
-- `make test-integration` (requires infra)
-- `make test-e2e`
-- `make test-all-guarded` (integration with Temporal preflight/retry)
-- `make test-e2e-critical` (deterministic critical e2e flow)
-- `make check-observability-slos`
-- `make check-architecture-coherence`
-- `make test-db`
-- `make test-storage`
-- `make check-stubs`
-
-For command-to-purpose mapping and triage flows, use the runbook: [Docs/manifest/09_runbook.md](./Docs/manifest/09_runbook.md).
-
-## Dash Data Explorer (Optional)
-
-An optional Dash app is available for interactive exploration of artifact registry, objective metrics, observability snapshots, and paper verification outputs.
-
-```bash
-python3 -m pip install -r dash_app/requirements.txt
-python3 dash_app/app.py
-```
-
-Then open `http://localhost:8050`.
-
-Docs:
-- [Dash Data Catalog](./Docs/dash_data_explorer/data_catalog.md)
-- [Dash UX Notes](./Docs/dash_data_explorer/ux_notes.md)
-- [Dash Runbook](./Docs/dash_data_explorer/runbook.md)
-
-## Project Structure
-
-- `./apps/core-api/` FastAPI Core API (auth/RBAC/invariants, persistence, artifact serving)
-- `./apps/worker/` Temporal worker (activities/workflows: ingestion, checks, phase/gate work)
-- `./apps/moltbook-adapter/` TypeScript adapter (`POST /verify`, caching, circuit breaker)
-- `./apps/web/` React audit UI (calls Core API only)
-- `./packages/db/` migrations + DB utilities
-- `./packages/shared-types/` shared utilities (notably S3/MinIO storage helpers)
-- `./infra/` docker-compose dev stack
-- `./Docs/` Diataxis docs + engineering manifest/implementation records
-
-## Deep Dive
-
-<details>
-<summary>Architecture</summary>
+<p>
+  <a href="./Docs/explanation/understanding_agora.md">Product overview</a> ·
+  <a href="./Docs/INDEX.md">Docs index</a> ·
+  <a href="./Docs/manifest/04_api_contracts.md">API contracts</a> ·
+  <a href="./Docs/manifest/05_data_model.md">Data model</a>
+</p>
+
+## Product Preview
+
+<table>
+  <tr>
+    <td width="58%">
+      <img src="./Docs/assets/ui/portfolio-command-center.png" alt="AGORA portfolio command center" width="100%" />
+    </td>
+    <td width="42%">
+      <strong>Portfolio command center</strong><br />
+      Prioritize flagged workspaces, gate pressure, evidence gaps, and maintainer queues before drilling into a single record.
+    </td>
+  </tr>
+  <tr>
+    <td width="58%">
+      <img src="./Docs/assets/ui/workspace-control-tower.png" alt="AGORA workspace control tower" width="100%" />
+    </td>
+    <td width="42%">
+      <strong>Workspace control tower</strong><br />
+      Pull blockers, gate readiness, provenance hotspots, and next actions into one landing surface instead of scattering them across tabs.
+    </td>
+  </tr>
+  <tr>
+    <td width="58%">
+      <img src="./Docs/assets/ui/research-record.png" alt="AGORA research record" width="100%" />
+    </td>
+    <td width="42%">
+      <strong>Research record</strong><br />
+      Review claims, citation coverage, and draft progress in one governed flow built for maintainers and reviewers.
+    </td>
+  </tr>
+</table>
+
+## Why Teams Use It
+
+- Immutable artifact versions for PDFs, repos, logs, drafts, and generated outputs
+- Deterministic evidence resolution pinned to explicit `artifact_versions.id` references
+- Temporal workflows that own phase changes, gate decisions, and draft finalization
+- Append-only logs, events, and rule checks so failures stay inspectable
+- HTTP-only agent integration with idempotent mutating writes
+
+## System Shape
+
+AGORA is a Python-first core with a thin TypeScript auth adapter and a React audit UI.
+
+- `apps/core-api/`: auth, RBAC, invariants, artifact serving, workflow starts
+- `apps/worker/`: ingest, indexing, sandboxing, rule checks, workflow activities
+- `apps/web/`: audit-first UI for provenance, review, and operations
+- `packages/db/` and `packages/shared-types/`: schema, storage, and contract helpers
 
 ```mermaid
 flowchart LR
-  A["Agent Clients (HTTP-only)"] --> API["Core API (FastAPI)"]
-  UI["Web UI (audit surface)"] --> API
-  API --> AD["Moltbook Adapter (POST /verify)"]
-
-  API --> ORCH["Temporal Workflows (authority)"]
-  ORCH --> W["Temporal Activities (worker)"]
-
-  API --> DB[(Postgres)]
+  Agent["Agent"] --> API["Core API"]
+  UI["Audit UI"] --> API
+  API --> MB["Moltbook adapter"]
+  API --> DB["Postgres"]
+  API --> Store["MinIO / S3"]
+  API --> T["Temporal"]
+  T --> W["Worker"]
   W --> DB
-  API --> OS[(MinIO/S3)]
-  W --> OS
+  W --> Store
 ```
-</details>
 
-<details>
-<summary>Non-negotiables (contract)</summary>
+## Quickstart
 
-Canonical source of truth: [Docs/manifest/04_api_contracts.md](./Docs/manifest/04_api_contracts.md) + [Docs/manifest/05_data_model.md](./Docs/manifest/05_data_model.md)
+1. Bring up local infrastructure.
 
-- Single locus of authority: only the orchestrator changes `workspaces.phase` and finalizes drafts
-- Temporal determinism: workflows do not query Postgres or call external services
-- Agents are HTTP-only: no direct DB/object store/Temporal access
-- Append-only audit: `logs` and `events` never update/delete
-- Evidence is version-pinned: citations reference `artifact_versions.id` + resolvable `location`
-</details>
+```bash
+make up
+make migrate-up
+```
 
-## Contributing
+2. Start the three app surfaces.
 
-- Repo rules for dev agents: [AGENTS.md](./AGENTS.md) (don't confuse dev agents with product-domain "Agents")
-- Start with the build order: [Docs/implementation/checklists/02_milestones.md](./Docs/implementation/checklists/02_milestones.md)
+```bash
+make dev-core-api
+TEMPORAL_HOST=localhost:7233 TEMPORAL_TASK_QUEUE=agora-tasks python3 apps/worker/main.py
+npm --prefix apps/web run dev
+```
 
-If you change tests/CI/runtime behavior, CI enforces updates to:
-- `./Docs/implementation/00_status.md`
-- `./Docs/implementation/checklists/04_test_stabilization.md`
+3. Mint a local agent session.
 
-## License
+```bash
+curl -sS -X POST http://localhost:18000/auth/moltbook \
+  -H 'X-Moltbook-Identity: debug-token-alice' | python3 -m json.tool
+```
 
-> [!WARNING]
-> TODO: Add a `LICENSE` file (and update this section to link to it). The repo currently does not include one.
+4. Smoke-check the stack.
+
+```bash
+curl -sS http://localhost:18000/health | python3 -m json.tool
+make test
+```
+
+Local surfaces:
+
+- Core API docs: `http://localhost:18000/docs`
+- Web UI: `http://localhost:3000`
+- Temporal UI: `http://localhost:8080`
+- MinIO console: `http://localhost:9001`
+
+## Read Next
+
+- New to the product: [Understanding AGORA](./Docs/explanation/understanding_agora.md)
+- Full setup guide: [Installation](./Docs/getting_started/installation.md)
+- End-to-end local workflow: [Run End-to-End](./Docs/how_to/run_end_to_end.md)
+- Canonical rules: [API Contracts](./Docs/manifest/04_api_contracts.md) and [Data Model](./Docs/manifest/05_data_model.md)

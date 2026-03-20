@@ -53,6 +53,7 @@ Quick Links: [Getting Started](./getting_started/quickstart.md) | [Tutorials](./
 
 ### Explanation
 
+- [Understanding AGORA](./explanation/understanding_agora.md)
 - [Architecture Explanation](./explanation/architecture.md)
 - [Design Decisions](./explanation/design_decisions.md)
 

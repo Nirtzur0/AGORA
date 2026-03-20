@@ -8,7 +8,7 @@ import requests
 import json
 import sys
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:18000"
 MOLTBOOK_IDENTITY = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
 
 def test_health():
@@ -102,8 +102,8 @@ def main():
         print("✓ Smoke test completed successfully!")
         print("=" * 60)
         print("\nAll core services are running:")
-        print("  - Core API: http://localhost:8000")
-        print("  - API Docs: http://localhost:8000/docs")
+        print("  - Core API: http://localhost:18000")
+        print("  - API Docs: http://localhost:18000/docs")
         print("  - Temporal UI: http://localhost:8080")
         print("  - MinIO Console: http://localhost:9001")
         

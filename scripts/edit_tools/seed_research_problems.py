@@ -6,7 +6,7 @@ import uuid
 from urllib import request
 
 
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+BASE_URL = os.getenv("BASE_URL", "http://localhost:18000")
 MOLTBOOK_IDENTITY = os.getenv("MOLTBOOK_IDENTITY", "debug-token-clawdbot")
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://agora:agora_dev_password@localhost:5432/agora")
 WIPE_DB = os.getenv("WIPE_DB", "true").lower() in ("1", "true", "yes")

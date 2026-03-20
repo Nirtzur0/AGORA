@@ -22,6 +22,7 @@ from database import DBWrapper, get_db_session
 from auth_middleware import require_agent_token, require_system_token, AgentContext, SystemContext
 from idempotency import check_idempotency, store_idempotency_result
 from rbac import require_permission
+from temporal_runtime import execute_tracked_workflow
 
 
 router = APIRouter()
@@ -224,17 +225,18 @@ async def request_ingest_pdf(
     
     # Start literature_grounding workflow
     _ensure_worker_path()
-    from literature_grounding_workflow import literature_grounding_workflow
+    from literature_grounding_workflow import LiteratureGroundingWorkflow
     
     try:
-        result = await literature_grounding_workflow(
-            workspace_id=workspace_id_str,
-            artifact_id=request.artifact_id,
+        workflow_id = f"literature-grounding-{request.artifact_id}-{uuid.uuid4()}"
+        workflow_run_id, result = await execute_tracked_workflow(
             db=db,
-            created_by=agent_id
+            workspace_id=workspace_id_str,
+            workflow_type="literature_grounding",
+            workflow_callable=LiteratureGroundingWorkflow.run,
+            workflow_id=workflow_id,
+            args=[None, workspace_id_str, request.artifact_id, agent_id],
         )
-        
-        workflow_run_id = result["workflow_run_id"]
 
         if idempotency_key and agent_id:
             await store_idempotency_result(
@@ -251,7 +253,7 @@ async def request_ingest_pdf(
             request_id=workflow_run_id,
             workflow_run_id=workflow_run_id,
             artifact_id=request.artifact_id,
-            message=f"Literature grounding workflow started. Task {result['task_id']} created for claim extraction."
+            message=f"Literature grounding workflow completed. Task {result['task_id']} created for claim extraction."
         )
     
     except Exception as e:
@@ -357,84 +359,40 @@ async def request_ingest_repo(
         }
     )
     
-    # Create workflow_run + activity_run for tracking
-    workflow_run_id = str(uuid.uuid4())
-    temporal_workflow_id = f"repo_ingest_{workflow_run_id}"
-    db.execute(
-        """
-        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
-        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
-        """,
-        {
-            "id": workflow_run_id,
-            "workspace_id": workspace_id_str,
-            "workflow_type": "repo_ingest",
-            "temporal_workflow_id": temporal_workflow_id,
-            "status": "running"
-        }
-    )
-    
-    activity_run_id = str(uuid.uuid4())
-    temporal_activity_id = f"repo_ingest_{activity_run_id}"
-    db.execute(
-        """
-        INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
-        VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
-        """,
-        {
-            "id": activity_run_id,
-            "workflow_run_id": workflow_run_id,
-            "activity_type": "repo_ingest",
-            "temporal_activity_id": temporal_activity_id,
-            "status": "running"
-        }
-    )
-    
     db.commit()
-    
-    # Execute repo_ingest activity (synchronously for MVP)
+
+    # Execute repo_ingest workflow via Temporal.
     _ensure_worker_path()
-    from repo_ingest import RepoIngestActivity
-    from storage import create_storage_from_env
+    from request_action_workflows import RepoIngestWorkflow
     
     try:
-        storage = create_storage_from_env()
-        repo_activity = RepoIngestActivity(storage, db)
-        
-        result = repo_activity.ingest_repo(
-            artifact_id=artifact_id,
+        workflow_id = f"repo-ingest-{artifact_id}-{uuid.uuid4()}"
+        workflow_run_id, result = await execute_tracked_workflow(
+            db=db,
             workspace_id=workspace_id_str,
-            repo_url=request.repo_url,
-            created_by=agent_id,
-            branch=request.branch,
-            commit_hash=request.commit_hash,
-            activity_run_id=activity_run_id
+            workflow_type="repo_ingest",
+            workflow_callable=RepoIngestWorkflow.run,
+            workflow_id=workflow_id,
+            args=[
+                None,
+                workspace_id_str,
+                artifact_id,
+                request.repo_url,
+                agent_id,
+                request.branch,
+                request.commit_hash,
+            ],
         )
-        
-        # Update activity_run + workflow_run status
-        db.execute(
+        activity_run_id = db.execute(
             """
-            UPDATE activity_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
+            SELECT id
+            FROM activity_runs
+            WHERE workflow_run_id = :workflow_run_id AND activity_type = 'repo_ingest'
+            ORDER BY completed_at DESC NULLS LAST, id DESC
+            LIMIT 1
             """,
-            {
-                "id": activity_run_id,
-                "status": "completed"
-            }
-        )
-        db.execute(
-            """
-            UPDATE workflow_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": workflow_run_id,
-                "status": "completed"
-            }
-        )
-        db.commit()
+            {"workflow_run_id": workflow_run_id},
+        ).fetchone()[0]
 
         if idempotency_key and agent_id:
             await store_idempotency_result(
@@ -448,37 +406,13 @@ async def request_ingest_repo(
             )
         
         return IngestRepoResponse(
-            request_id=str(uuid.uuid4()),
-            activity_run_id=activity_run_id,
+            request_id=workflow_run_id,
+            activity_run_id=str(activity_run_id),
             artifact_id=artifact_id,
             message=f"Repository ingested: {result['file_count']} files at commit {result['commit_hash']}"
         )
     
     except Exception as e:
-        # Update activity_run + workflow_run with failure
-        db.execute(
-            """
-            UPDATE activity_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": activity_run_id,
-                "status": "failed"
-            }
-        )
-        db.execute(
-            """
-            UPDATE workflow_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": workflow_run_id,
-                "status": "failed"
-            }
-        )
-        db.commit()
         raise HTTPException(status_code=500, detail=f"Repo ingestion failed: {str(e)}")
 
 
@@ -566,24 +500,7 @@ async def request_run_sandbox(
             detail=f"Artifact {request.script_artifact_id} is not executable (type={script_row[1]})"
         )
     
-    # Create workflow_run + activity_run for tracking
-    workflow_run_id = str(uuid.uuid4())
-    temporal_workflow_id = f"sandbox_run_{workflow_run_id}"
-    db.execute(
-        """
-        INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
-        VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
-        """,
-        {
-            "id": workflow_run_id,
-            "workspace_id": workspace_id_str,
-            "workflow_type": "sandbox_run",
-            "temporal_workflow_id": temporal_workflow_id,
-            "status": "running"
-        }
-    )
-    
-    # Create log artifact (after workflow_run_id is defined)
+    # Create log artifact for workflow output.
     log_artifact_id = str(uuid.uuid4())
     
     db.execute(
@@ -600,112 +517,59 @@ async def request_run_sandbox(
                 {
                     "source": "sandbox_execution",
                     "script_artifact_id": request.script_artifact_id,
-                    "workflow_run_id": workflow_run_id,
                 }
             ),
             "storage_uri": f"s3://agora/{workspace_id_str}/artifacts/{log_artifact_id}/",
             "created_by": _agent_id(current_agent)
         }
     )
-    
-    activity_run_id = str(uuid.uuid4())
-    temporal_activity_id = f"sandbox_run_{activity_run_id}"
-    db.execute(
-        """
-        INSERT INTO activity_runs (id, workflow_run_id, activity_type, temporal_activity_id, status)
-        VALUES (:id, :workflow_run_id, :activity_type, :temporal_activity_id, :status)
-        """,
-        {
-            "id": activity_run_id,
-            "workflow_run_id": workflow_run_id,
-            "activity_type": "sandbox_run",
-            "temporal_activity_id": temporal_activity_id,
-            "status": "running"
-        }
-    )
-    
     db.commit()
-    
-    # Execute sandbox_run activity (synchronously for MVP)
+
+    # Execute sandbox_run workflow via Temporal.
     _ensure_worker_path()
-    from sandbox_run import SandboxRunActivity
-    from storage import create_storage_from_env
+    from request_action_workflows import SandboxRunWorkflow
     
     try:
-        storage = create_storage_from_env()
-        sandbox_activity = SandboxRunActivity(storage, db)
-        
-        result = sandbox_activity.run_sandbox(
-            artifact_id=log_artifact_id,
+        workflow_id = f"sandbox-run-{log_artifact_id}-{uuid.uuid4()}"
+        workflow_run_id, result = await execute_tracked_workflow(
+            db=db,
             workspace_id=workspace_id_str,
-            script_artifact_id=request.script_artifact_id,
-            parameters=request.parameters,
-            created_by=_agent_id(current_agent),
-            activity_run_id=activity_run_id,
-            image=request.image or "python:3.11-slim",
-            timeout_seconds=request.timeout_seconds or 300,
-            memory_limit=request.memory_limit or "512m",
-            cpu_limit=request.cpu_limit or "1.0"
+            workflow_type="sandbox_run",
+            workflow_callable=SandboxRunWorkflow.run,
+            workflow_id=workflow_id,
+            args=[
+                None,
+                workspace_id_str,
+                log_artifact_id,
+                request.script_artifact_id,
+                _agent_id(current_agent),
+                request.parameters,
+                request.image or "python:3.11-slim",
+                request.timeout_seconds or 300,
+                request.memory_limit or "512m",
+                request.cpu_limit or "1.0",
+            ],
         )
-        
-        # Update activity_run + workflow_run status
-        db.execute(
+        activity_run_id = db.execute(
             """
-            UPDATE activity_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
+            SELECT id
+            FROM activity_runs
+            WHERE workflow_run_id = :workflow_run_id AND activity_type = 'sandbox_run'
+            ORDER BY completed_at DESC NULLS LAST, id DESC
+            LIMIT 1
             """,
-            {
-                "id": activity_run_id,
-                "status": "completed"
-            }
-        )
-        db.execute(
-            """
-            UPDATE workflow_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": workflow_run_id,
-                "status": "completed"
-            }
-        )
-        db.commit()
+            {"workflow_run_id": workflow_run_id},
+        ).fetchone()[0]
         
         return RunSandboxResponse(
-            request_id=str(uuid.uuid4()),
-            activity_run_id=activity_run_id,
+            request_id=workflow_run_id,
+            activity_run_id=str(activity_run_id),
             log_artifact_id=result["artifact_id"],
             config_artifact_id=result["config_artifact_id"],
             message=f"Sandbox execution completed with exit code {result['exit_code']} in {result['execution_time_seconds']:.2f}s"
         )
     
     except Exception as e:
-        # Update activity_run + workflow_run with failure
-        db.execute(
-            """
-            UPDATE activity_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": activity_run_id,
-                "status": "failed"
-            }
-        )
-        db.execute(
-            """
-            UPDATE workflow_runs
-            SET status = :status, completed_at = NOW()
-            WHERE id = :id
-            """,
-            {
-                "id": workflow_run_id,
-                "status": "failed"
-            }
-        )
-        db.commit()
         raise HTTPException(status_code=500, detail=f"Sandbox execution failed: {str(e)}")
 
 
@@ -798,47 +662,30 @@ async def request_finalize_draft(
         )
     
     # Start DraftFinalizationWorkflow
-    from temporalio.client import Client as TemporalClient
     _ensure_worker_path()
     from draft_finalization_workflow import DraftFinalizationWorkflow  # noqa: F401
     
     try:
-        temporal_client = await TemporalClient.connect("localhost:7233")
-        
         workflow_id = f"finalize-draft-{workspace_id_str}-{request.draft_artifact_version_id}-{uuid.uuid4()}"
-        
-        workflow_handle = await temporal_client.start_workflow(
-            DraftFinalizationWorkflow.run,
+        workflow_run_id, result = await execute_tracked_workflow(
+            db=db,
+            workspace_id=workspace_id_str,
+            workflow_type="draft_finalization",
+            workflow_callable=DraftFinalizationWorkflow.run,
+            workflow_id=workflow_id,
             args=[workspace_id_str, request.draft_artifact_id, request.draft_artifact_version_id],
-            id=workflow_id,
-            task_queue="agora-orchestrator",
         )
-        
-        # Record workflow run
-        workflow_run_id = str(uuid.uuid4())
-        db.execute(
-            """
-            INSERT INTO workflow_runs (id, workspace_id, workflow_type, temporal_workflow_id, status)
-            VALUES (:id, :workspace_id, :workflow_type, :temporal_workflow_id, :status)
-            """,
-            {
-                "id": workflow_run_id,
-                "workspace_id": workspace_id_str,
-                "workflow_type": "draft_finalization",
-                "temporal_workflow_id": workflow_id,
-                "status": "running"
-            }
-        )
-        
-        db.commit()
         
         return FinalizeDraftResponse(
             request_id=workflow_run_id,
             draft_artifact_id=request.draft_artifact_id,
             draft_artifact_version_id=request.draft_artifact_version_id,
-            message=f"Draft finalization workflow started: {workflow_id}"
+            message=(
+                "Draft finalization completed."
+                if result.get("success")
+                else f"Draft finalization blocked: {', '.join(result['gate_response']['reasons'])}"
+            ),
         )
     
     except Exception as e:
-        db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to start finalization workflow: {str(e)}")

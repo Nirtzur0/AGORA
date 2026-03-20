@@ -1,17 +1,45 @@
 # Implementation Status
 
-Last updated: 2026-02-09
+Last updated: 2026-03-11
 
 Entry mode: Existing Repo
 Cycle stage: Build (legacy `phase_3`)
 Intensity mode: Standard
-Primary prompt: `prompt-02-app-development-playbook` (`DIR-23` / `AR-C17` periodic recency policy enforcement)
+Primary prompt: manual AGORA UI/UX audit + redesign handoff
 
 Objective: Build an auditable research platform where evidence is version-pinned and orchestration decisions are deterministic.
-This step advances objective by: enforcing standing sink-evidence recency thresholds in CI/runtime so release governance detects stale sink evidence even when sink-routing files are unchanged.
-Risks of misalignment: troubleshooting signatures (`AR-C18`) remain policy-level and can slow first-response during sink incidents.
+This step advances objective by: converting the current audit console into a maintainers-first redesign packet with a real Figma artifact, an implementation-ready UX critique, and a future route/component structure.
+Risks of misalignment: node-level Figma links are still missing because the Figma MCP seat quota was exhausted after file creation and follow-on capture launch.
 
 ## Done (This Packet)
+
+- Executed a manual AGORA UI/UX audit + redesign handoff packet grounded in the shipped React UI, current-state local captures, and implementation-realistic redesign preview routes:
+  - current-state capture setup:
+    - added deterministic fixture seeder `apps/web/scripts/seed_ui_audit_fixture.mjs`
+    - seeded live workspace `b797be9e-eb5c-4223-a291-be104bcd0f5d` for current-state route capture
+    - restarted Vite dev server with `VITE_DEV_AUTO_LOGIN=true` so current AGORA routes were captureable by URL
+  - redesign implementation scaffolding:
+    - added public preview route family `/design-preview/agora-redesign/*`
+    - added redesign screens and system guidance in `apps/web/src/design-preview/AgoraRedesignPage.jsx` and `apps/web/src/design-preview/AgoraRedesignPage.css`
+    - kept changes additive and isolated from the existing workspace/product routes
+  - Figma artifact:
+    - created new Figma file `AGORA UI Audit + Redesign - 2026-03-11`
+    - file URL: `https://www.figma.com/design/jLSN22ajGiadKjsJvuTOnK`
+    - file key: `jLSN22ajGiadKjsJvuTOnK`
+    - initial current-state capture completed for `/projects`
+    - additional redesign/current-state capture tabs launched for the preview routes recorded in `Docs/implementation/reports/ui_ux_audit_redesign.md`
+    - residual gap: node-level Figma links could not be extracted after file creation because the MCP seat hit its tool-call quota
+  - docs delivered:
+    - added `Docs/implementation/reports/ui_ux_audit_redesign.md`
+    - added `Docs/implementation/checklists/09_ui_ux_redesign.md`
+    - updated UI epic, milestones, PRD, project plan, decision log, status, and worklog to register the packet
+  - verification evidence (2026-03-11):
+    - `npm --prefix apps/web run build` -> PASS
+    - seeded capture fixture via `node apps/web/scripts/seed_ui_audit_fixture.mjs` -> PASS
+    - Playwright route check for redesign preview + seeded current overview -> PASS (`preview_and_current_routes_ok`)
+    - `npm --prefix apps/web run smoke:artifact-viewer` -> PASS (`OK: console smoke validated on chromium/desktop`)
+  - next follow-up:
+    - once Figma MCP quota resets, append node-level screen URLs/IDs to `Docs/implementation/reports/ui_ux_audit_redesign.md` and `Docs/implementation/checklists/09_ui_ux_redesign.md`
 
 - Manually selected and executed `prompt-02-app-development-playbook` follow-through (without `.py` router loop) to close `DIR-23` / `AR-C17` periodic sink-evidence recency enforcement:
   - triggering delta: `prompt-11` follow-through shaped AR-C17 thresholds/cadence/waiver model, but enforcement remained deferred.
@@ -1445,3 +1473,27 @@ Risks of misalignment: troubleshooting signatures (`AR-C18`) remain policy-level
 - `/usr/bin/time -p make test-e2e`
 - `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -p pytest_cov --cov=apps/core-api --cov=apps/worker --cov-report=term-missing -q tests/unit`
 - `/usr/bin/time -p sh -c 'PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/e2e/workflows/test_code_replication_workflow.py tests/integration/worker/test_repo_ingestion.py'`
+- `make PYTHON=python3 test`
+- `npm --prefix apps/web run lint`
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest -p pytest_asyncio.plugin -q tests/integration/worker/test_repo_ingestion.py tests/integration/worker/test_citation_checks.py tests/integration/worker/test_sandbox_execution/test_sandbox_endpoint.py tests/integration/worker/test_draft_finalization.py tests/e2e/workflows/test_literature_grounding.py::test_literature_grounding_workflow__happy_path__completes`
+
+## 2026-03-11
+
+- Realigned request orchestration onto registered Temporal workflows for PDF ingest, repo ingest, sandbox execution, phase advancement, and draft finalization.
+- Added a shared Temporal runtime starter in core-api and worker-side activity-run tracking wrappers so `workflow_runs`/`activity_runs` now reflect the real execution path.
+- Unified search indexing behind `packages/shared-types/search_indexing.py` and wired worker ingest/log paths into the same index-upsert helper used by browser uploads.
+- Integrated critique sufficiency into `POST /workspaces/{workspace_id}/requests/run_rulecheck`; happy-path tests now include a cross-agent resolved critique to satisfy the governance contract.
+- Fixed reproducibility drift:
+  - local test imports now prefer this repo’s `tests.helpers.*`,
+  - `apps/web` now has a committed ESLint config,
+  - root scripts and CI health checks use `http://localhost:18000`,
+  - worker/runtime config resolves `TEMPORAL_ADDRESS` + canonical JWT env names consistently.
+- Removed disconnected UI files with no active import path:
+  - `apps/web/src/pages/WorkspaceTabsEnhanced.jsx`
+  - `apps/web/src/components/CreateWorkspaceModal.jsx`
+  - `apps/web/src/components/Badge.jsx`
+  - `apps/web/src/components/Molecules.jsx`
+- Demoted non-core CI lanes:
+  - `paper-verification-gate`
+  - `cmd-37-38-dash-data-quality`
+  - These now run on schedule or explicit workflow dispatch instead of every PR/push.

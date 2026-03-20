@@ -68,7 +68,7 @@ Decision:
 Epics:
 - Epic A: Authority and gating hardening.
 - Epic B: Artifact/evidence reliability.
-- Epic C: UI audit confidence and release discipline.
+- Epic C: UI audit confidence, redesign handoff, and release discipline.
 
 Milestones and acceptance checks:
 - tracked in `Docs/implementation/checklists/02_milestones.md`.
@@ -96,6 +96,13 @@ Gate conditions for current cycle:
 - persist explicit success/failure records for critical workflows;
 - maintain triage command map in runbook;
 - track gaps (metrics/alerts) as deferred milestones rather than implicit scope.
+
+## 6.6) UI/UX Redesign Packet
+
+The current web UI is functionally credible but too flat, CRUD-heavy, and weakly aggregated for maintainers and reviewers. The active UI packet now includes:
+- a candid UX audit grounded in the shipped interface
+- a Figma redesign handoff created from current-state captures plus implementation-realistic preview routes
+- a future route/component plan that separates overview, investigation, research record, operations, review/governance, and settings
 
 ## Entry Mode and Stage
 
