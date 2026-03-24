@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./Docs/assets/branding/agora-logo.svg" alt="AGORA logo" width="420" />
+</p>
+
 # AGORA
 
 AGORA is an evidence-first research operating system for teams that need deterministic provenance, governed workflows, and a review surface that keeps failures visible.

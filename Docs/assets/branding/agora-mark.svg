@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">AGORA mark</title>
+  <desc id="desc">A polished rounded-square tile with a softened arch-shaped A and a warm evidence node.</desc>
+  <defs>
+    <linearGradient id="tile-fill" x1="192" y1="148" x2="846" y2="904" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="0.34" stop-color="#F1F4F8"/>
+      <stop offset="1" stop-color="#D7DCE5"/>
+    </linearGradient>
+    <linearGradient id="tile-sheen" x1="264" y1="176" x2="548" y2="484" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glyph-stroke" x1="328" y1="328" x2="706" y2="758" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25323D"/>
+      <stop offset="0.52" stop-color="#4B5C6D"/>
+      <stop offset="1" stop-color="#8A97A7"/>
+    </linearGradient>
+    <linearGradient id="glyph-highlight" x1="406" y1="382" x2="596" y2="650" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="node-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 596) rotate(90) scale(110)">
+      <stop stop-color="#F6DFB6"/>
+      <stop offset="0.52" stop-color="#D8A85F"/>
+      <stop offset="1" stop-color="#B87628"/>
+    </radialGradient>
+    <filter id="tile-shadow" x="96" y="104" width="832" height="840" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="24"/>
+      <feGaussianBlur stdDeviation="20"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix values="0 0 0 0 0.0898 0 0 0 0 0.1373 0 0 0 0 0.1765 0 0 0 0.16 0"/>
+      <feBlend in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+    <filter id="glyph-shadow" x="254" y="264" width="516" height="576" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="18"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix values="0 0 0 0 0.0902 0 0 0 0 0.1373 0 0 0 0 0.1765 0 0 0 0.22 0"/>
+      <feBlend in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+    <filter id="node-glow" x="380" y="464" width="264" height="264" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="12" result="effect1_foregroundBlur_0_1"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#tile-shadow)">
+    <rect x="132" y="132" width="760" height="760" rx="212" fill="url(#tile-fill)"/>
+    <rect x="133.5" y="133.5" width="757" height="757" rx="210.5" stroke="white" stroke-opacity="0.72" stroke-width="3"/>
+    <path d="M236 218C322 164 454 146 560 174C410 190 314 278 268 396C236 336 224 286 236 218Z" fill="url(#tile-sheen)"/>
+    <ellipse cx="740" cy="796" rx="210" ry="124" fill="#BBC4D0" fill-opacity="0.14"/>
+  </g>
+
+  <g filter="url(#glyph-shadow)">
+    <path d="M336 736V544C336 431 414 332 512 332C610 332 688 431 688 544V736" stroke="url(#glyph-stroke)" stroke-width="94" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M404 594H620" stroke="url(#glyph-stroke)" stroke-width="70" stroke-linecap="round"/>
+    <path d="M382 728V552C382 452 441 382 512 382C583 382 642 452 642 552V728" stroke="url(#glyph-highlight)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <g filter="url(#node-glow)">
+    <circle cx="512" cy="596" r="76" fill="url(#node-fill)"/>
+  </g>
+  <circle cx="512" cy="596" r="56" fill="url(#node-fill)"/>
+  <circle cx="512" cy="596" r="24" fill="#FFF7E8" fill-opacity="0.88"/>
+</svg>

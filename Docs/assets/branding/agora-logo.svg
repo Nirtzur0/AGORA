@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="520" viewBox="0 0 1600 520" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">AGORA logo</title>
+  <desc id="desc">AGORA wordmark with a polished arch-shaped monogram tile.</desc>
+  <defs>
+    <linearGradient id="tile-fill" x1="68" y1="42" x2="426" y2="454" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF8"/>
+      <stop offset="0.34" stop-color="#F1F4F8"/>
+      <stop offset="1" stop-color="#D7DCE5"/>
+    </linearGradient>
+    <linearGradient id="tile-sheen" x1="106" y1="58" x2="260" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="white" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glyph-stroke" x1="142" y1="122" x2="344" y2="346" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#25323D"/>
+      <stop offset="0.52" stop-color="#4B5C6D"/>
+      <stop offset="1" stop-color="#8A97A7"/>
+    </linearGradient>
+    <radialGradient id="node-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(248 258) rotate(90) scale(58)">
+      <stop stop-color="#F6DFB6"/>
+      <stop offset="0.52" stop-color="#D8A85F"/>
+      <stop offset="1" stop-color="#B87628"/>
+    </radialGradient>
+    <linearGradient id="wordmark-fill" x1="520" y1="154" x2="1210" y2="352" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16212A"/>
+      <stop offset="1" stop-color="#4E5E6E"/>
+    </linearGradient>
+    <filter id="tile-shadow" x="20" y="18" width="444" height="448" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="12"/>
+      <feGaussianBlur stdDeviation="12"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix values="0 0 0 0 0.0898 0 0 0 0 0.1373 0 0 0 0 0.1765 0 0 0 0.16 0"/>
+      <feBlend in2="BackgroundImageFix" result="effect1_dropShadow_0_1"/>
+      <feBlend in="SourceGraphic" in2="effect1_dropShadow_0_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#tile-shadow)">
+    <rect x="44" y="28" width="396" height="396" rx="110" fill="url(#tile-fill)"/>
+    <rect x="45.5" y="29.5" width="393" height="393" rx="108.5" stroke="white" stroke-opacity="0.72" stroke-width="3"/>
+    <path d="M98 70C144 40 216 30 270 46C188 54 136 102 112 168C94 136 88 108 98 70Z" fill="url(#tile-sheen)"/>
+    <ellipse cx="352" cy="374" rx="110" ry="64" fill="#BBC4D0" fill-opacity="0.14"/>
+    <path d="M158 332V228C158 162 205 106 248 106C291 106 338 162 338 228V332" stroke="url(#glyph-stroke)" stroke-width="48" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M192 256H304" stroke="url(#glyph-stroke)" stroke-width="36" stroke-linecap="round"/>
+    <circle cx="248" cy="258" r="38" fill="url(#node-fill)"/>
+    <circle cx="248" cy="258" r="16" fill="#FFF7E8" fill-opacity="0.88"/>
+  </g>
+
+  <text x="518" y="292" fill="url(#wordmark-fill)" font-family="SF Pro Display, SF Pro Text, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="184" font-weight="600" letter-spacing="36">AGORA</text>
+</svg>
